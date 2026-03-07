@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>實驗紀錄系統 v3.4 (Firebase+Sheets雙功能版)</title>
+    <title>實驗紀錄系統 v3.4 (全自動預設版)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         input[type="number"]::-webkit-outer-spin-button,
@@ -64,7 +64,7 @@
         
         <div class="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100 shrink-0">
             <div class="flex items-center justify-between mb-3">
-                <h1 class="text-xl font-extrabold text-blue-900 tracking-tight">實驗紀錄系統 <span class="text-xs font-normal text-white bg-blue-500 px-2 py-0.5 rounded-full ml-1 shadow-sm">v3.4 同步版</span></h1>
+                <h1 class="text-xl font-extrabold text-blue-900 tracking-tight">實驗紀錄系統 <span class="text-xs font-normal text-white bg-blue-500 px-2 py-0.5 rounded-full ml-1 shadow-sm">v3.4 雙擎版</span></h1>
                 <div class="flex gap-2">
                     <button onclick="openSyncModal()" class="text-xs bg-green-50 text-green-700 border border-green-300 px-2 py-1 rounded hover:bg-green-100 transition flex items-center gap-1 shadow-sm font-bold">
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg> Sheets 同步
@@ -207,7 +207,6 @@
     </div>
 </div>
 
-<!-- 同步面板 -->
 <div id="syncModal" class="fixed inset-0 z-[70] flex items-center justify-center bg-gray-900/60 hidden backdrop-blur-sm p-4">
     <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 modal-enter">
         <h3 class="text-xl font-bold mb-2 flex items-center gap-2 border-b pb-3 text-green-700">Google Sheets 雲端同步</h3>
@@ -244,16 +243,12 @@
     </div>
 </div>
 
-<!-- Firebase SDK -->
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
     import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-    import { getFirestore, collection, doc, setDoc, getDoc, getDocs, updateDoc, onSnapshot, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    import { getFirestore, collection, doc, setDoc, getDoc, getDocs, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-    /* * ==========================================
-     * 🔥 FIREBASE 設定區 (如果要自行託管在 GitHub，請修改這裡)
-     * ==========================================
-     */
+    /* 🔥 FIREBASE 設定區 (已填入您的專屬設定) */
     const myFirebaseConfig = {
         apiKey: "AIzaSyACZgJU1uxCi1sHZe528cN7Aw7HQ0eMjtM",
         authDomain: "eletric-experiment.firebaseapp.com",
@@ -264,34 +259,42 @@
         measurementId: "G-S6BVBCQ6RS"
     };
 
+    /* 🌐 GOOGLE SHEETS 設定區 (已填入您的專屬網址) */
+    const myDefaultGasUrl = "https://script.google.com/macros/s/AKfycbzGj5KcJxD9iXeR5jiQEe_g9FhK5eYF3UFpyqPaQzxm5Fcns5-KdcOCGUYbbZw6AQ0g/exec";
+
     let app, auth, db, user, isFirebaseReady = false;
     const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
     
-    function getCollectionRef(colName) { 
-        if (typeof __app_id !== 'undefined') {
-            return collection(db, 'artifacts', appId, 'public', 'data', colName);
-        }
-        return collection(db, colName);
-    }
-    
-    function getDocRef(colName, documentId) { 
-        if (typeof __app_id !== 'undefined') {
-            return doc(db, 'artifacts', appId, 'public', 'data', colName, documentId);
-        }
-        return doc(db, colName, documentId);
-    }
+    function getCollectionRef(colName) { return (typeof __app_id !== 'undefined') ? collection(db, 'artifacts', appId, 'public', 'data', colName) : collection(db, colName); }
+    function getDocRef(colName, documentId) { return (typeof __app_id !== 'undefined') ? doc(db, 'artifacts', appId, 'public', 'data', colName, documentId) : doc(db, colName, documentId); }
 
-    // 全域緩存
     window.classDataCache = {};
-    let unsubscribeStudents = null;
-    let currentGrade = '', currentClass = '', currentSelectedStudentId = null;
+    let unsubscribeStudents = null, currentGrade = '', currentClass = '', currentSelectedStudentId = null;
+
+    // --- 佈局控制參數 ---
+    let isSidebarOpen = true;
+    let currentSidebarWidth = 480;
+
+    // 定義 updateLayout 函數在頂層模組範圍
+    window.updateLayout = function() {
+        const sidebar = document.getElementById('sidebar');
+        const resizer = document.getElementById('resizer');
+        const isMobile = window.innerWidth < 768;
+        
+        if (sidebar) {
+            sidebar.style.width = isSidebarOpen ? (isMobile ? '100%' : currentSidebarWidth + 'px') : '0px';
+        }
+        if (resizer) {
+            resizer.style.display = isSidebarOpen && !isMobile ? 'flex' : 'none';
+        }
+    };
 
     window.initApp = async function() {
         await fetchClassList();
         renderTableTemplate();
         setupEventListeners();
         initCamera();
-        updateLayout();
+        window.updateLayout(); // 呼叫全域佈局更新
     };
 
     async function fetchClassList() {
@@ -309,15 +312,12 @@
             });
             const grades = Array.from(gradesSet).sort();
             if (grades.length > 0) updateDropdowns(grades);
-            else {
-                document.getElementById('gradeSelect').innerHTML = '<option value="">請匯入名單</option>';
-                document.getElementById('student-list').innerHTML = '<div class="p-8 text-center text-gray-400">目前沒有資料</div>';
-            }
         } catch (e) { console.error(e); }
     }
 
     function updateDropdowns(grades) {
         const gradeSelect = document.getElementById('gradeSelect');
+        if (!gradeSelect) return;
         gradeSelect.innerHTML = '';
         grades.forEach(g => {
             const opt = document.createElement('option');
@@ -328,10 +328,10 @@
     }
 
     window.updateClassDropdown = function() {
-        const gradeSelect = document.getElementById('gradeSelect');
-        const classSelect = document.getElementById('classSelect');
-        const g = gradeSelect.value;
+        const g = document.getElementById('gradeSelect').value;
         currentGrade = g;
+        const classSelect = document.getElementById('classSelect');
+        if (!classSelect) return;
         classSelect.innerHTML = '';
         if (window.classDataCache[g]) {
             const classes = Object.keys(window.classDataCache[g]).sort();
@@ -349,8 +349,7 @@
         currentClass = document.getElementById('classSelect').value;
         if (!currentGrade || !currentClass || !isFirebaseReady) return;
         if (unsubscribeStudents) unsubscribeStudents();
-        const docRef = getDocRef('classes', `${currentGrade}_${currentClass}`);
-        unsubscribeStudents = onSnapshot(docRef, (docSnap) => {
+        unsubscribeStudents = onSnapshot(getDocRef('classes', `${currentGrade}_${currentClass}`), (docSnap) => {
             if (docSnap.exists()) {
                 const data = docSnap.data();
                 if (!window.classDataCache[currentGrade]) window.classDataCache[currentGrade] = {};
@@ -358,11 +357,12 @@
                 renderStudentList(data.students || []);
                 showSaveSuccess();
             }
-        }, (err) => console.error("Snapshot error:", err));
+        });
     }
 
     function renderStudentList(students) {
         const listContainer = document.getElementById('student-list');
+        if (!listContainer) return;
         document.getElementById('studentCount').textContent = students.length + '人';
         listContainer.innerHTML = '';
         students.forEach((s, idx) => {
@@ -380,10 +380,10 @@
         });
     }
 
-    // --- 同步邏輯 ---
+    /* 同步核心 */
     window.openSyncModal = () => {
-        const savedUrl = localStorage.getItem('gasUrl');
-        if (savedUrl) document.getElementById('gasUrlInput').value = savedUrl;
+        const savedUrl = localStorage.getItem('gasUrl') || myDefaultGasUrl;
+        document.getElementById('gasUrlInput').value = savedUrl;
         document.getElementById('syncModal').classList.remove('hidden');
     };
     window.closeSyncModal = () => {
@@ -395,7 +395,6 @@
         const url = document.getElementById('gasUrlInput').value.trim();
         if (!url || !isFirebaseReady) return showModal('錯誤', '請確認網址與資料庫連線');
         localStorage.setItem('gasUrl', url);
-        
         showLoading('正在從試算表抓取名單與實驗紀錄...');
         try {
             const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action: 'pull' }) });
@@ -405,17 +404,16 @@
                 if (document.getElementById('syncExpsToggle').checked && res.experiments) {
                     for (let id in res.experiments) await setDoc(getDocRef('experiments', id), { ...res.experiments[id], id: id });
                 }
-                hideLoading(); showModal('同步完成', '名單與紀錄已從試算表更新至 Firebase。');
+                hideLoading(); showModal('同步完成', '已從試算表更新至雲端。');
                 await fetchClassList();
                 document.getElementById('syncModal').classList.add('hidden');
-            } else { throw new Error(res.message); }
+            } else throw new Error(res.message);
         } catch (e) { hideLoading(); showModal('失敗', e.message); }
     };
 
     window.pushToSheets = async function() {
         const url = document.getElementById('gasUrlInput').value.trim();
         if (!url || !isFirebaseReady) return showModal('錯誤', '請確認網址與資料庫連線');
-        
         showLoading('正在備份成績與實驗紀錄至試算表...');
         try {
             let exps = {};
@@ -423,107 +421,72 @@
                 const qSnap = await getDocs(getCollectionRef('experiments'));
                 qSnap.forEach(d => exps[d.id] = d.data());
             }
-
             const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action: 'push', classes: window.classDataCache, experiments: exps }) });
             const res = await resp.json();
             if (res.status === 'success') {
-                hideLoading(); showModal('備份成功', `已將成績與 ${res.updatedExps || 0} 筆實驗紀錄更新至 Google 試算表。`);
+                hideLoading(); showModal('備份成功', `已同步成績與 ${res.updatedExps || 0} 筆實驗紀錄至試算表。`);
                 document.getElementById('syncModal').classList.add('hidden');
-            } else { throw new Error(res.message); }
+            } else throw new Error(res.message);
         } catch (e) { hideLoading(); showModal('失敗', e.message); }
     };
 
     function showLoading(m) { document.getElementById('loadingMsg').textContent = m; document.getElementById('loadingModal').classList.remove('hidden'); }
     function hideLoading() { document.getElementById('loadingModal').classList.add('hidden'); }
 
-    // ================= 加扣分邏輯 =================
-    window.openGradingModal = function(index, student) {
-        currentSelectedStudentId = index;
-        document.getElementById('gradingGradeClass').textContent = `${currentGrade}年${currentClass}班 - ${student.no}號`;
-        document.getElementById('gradingName').textContent = student.name;
-        document.getElementById('gradingCurrentScore').textContent = student.score;
-        document.getElementById('gradingTAToggle').checked = student.isTA;
-        document.getElementById('gradingModal').classList.remove('hidden');
-    }
+    /* 基本加扣分 */
+    window.openGradingModal = (idx, s) => { currentSelectedStudentId = idx; document.getElementById('gradingGradeClass').textContent = `${currentGrade}年${currentClass}班 - ${s.no}號`; document.getElementById('gradingName').textContent = s.name; document.getElementById('gradingCurrentScore').textContent = s.score; document.getElementById('gradingTAToggle').checked = s.isTA; document.getElementById('gradingModal').classList.remove('hidden'); };
     window.closeGradingModal = () => document.getElementById('gradingModal').classList.add('hidden');
+    window.updateScore = async (amt) => { if (currentSelectedStudentId === null) return; const list = window.classDataCache[currentGrade][currentClass]; list[currentSelectedStudentId].score += amt; document.getElementById('gradingCurrentScore').textContent = list[currentSelectedStudentId].score; await updateDoc(getDocRef('classes', `${currentGrade}_${currentClass}`), { students: list }); };
+    window.updateTAStatus = async (val) => { if (currentSelectedStudentId === null) return; const list = window.classDataCache[currentGrade][currentClass]; list[currentSelectedStudentId].isTA = val; await updateDoc(getDocRef('classes', `${currentGrade}_${currentClass}`), { students: list }); };
 
-    window.updateScore = async function(amount) {
-        if (currentSelectedStudentId === null) return;
-        const students = window.classDataCache[currentGrade][currentClass];
-        const newScore = students[currentSelectedStudentId].score + amount;
-        document.getElementById('gradingCurrentScore').textContent = newScore;
-        
-        try {
-            const docRef = getDocRef('classes', `${currentGrade}_${currentClass}`);
-            students[currentSelectedStudentId].score = newScore;
-            await updateDoc(docRef, { students: students });
-        } catch (e) { console.error(e); }
-    }
-
-    window.updateTAStatus = async function(val) {
-        if (currentSelectedStudentId === null) return;
-        const students = window.classDataCache[currentGrade][currentClass];
-        students[currentSelectedStudentId].isTA = val;
-        try {
-            await updateDoc(getDocRef('classes', `${currentGrade}_${currentClass}`), { students: students });
-        } catch (e) { console.error(e); }
-    }
-
-    // ================= 實驗表格邏輯 =================
-    window.renderTableTemplate = function() {
+    /* 實驗表格邏輯 */
+    window.renderTableTemplate = () => {
         const val = document.getElementById('expSelect').value;
         const container = document.getElementById('table-container');
-        let html = '';
+        if (!container) return;
         if (val === 'exp1') {
-            html = `<h3 class="font-bold text-center text-blue-900 mb-3 text-lg">1. 固定電阻 (1000Ω)</h3><table class="border-collapse text-center w-full"><thead><tr class="bg-blue-100"><th>輸入電壓</th><th>實際電壓(V)</th><th>電流(mA)</th><th>比值(Ω)</th></tr></thead><tbody><tr><td>1.5V</td><td><input type="number" class="table-input input-v" step="any"></td><td><input type="number" class="table-input input-i" step="any"></td><td class="result-r">-</td></tr><tr><td>3V</td><td><input type="number" class="table-input input-v" step="any"></td><td><input type="number" class="table-input input-i" step="any"></td><td class="result-r">-</td></tr><tr><td>4.5V</td><td><input type="number" class="table-input input-v" step="any"></td><td><input type="number" class="table-input input-i" step="any"></td><td class="result-r">-</td></tr></tbody></table>`;
+            container.innerHTML = `<h3 class="font-bold text-center text-blue-900 mb-3 text-lg">1. 固定電阻 (1000Ω)</h3><table class="border-collapse text-center w-full"><thead><tr class="bg-blue-100"><th>輸入電壓</th><th>實際電壓(V)</th><th>電流(mA)</th><th>比值(Ω)</th></tr></thead><tbody><tr><td>1.5V</td><td><input type="number" class="table-input input-v"></td><td><input type="number" class="table-input input-i"></td><td class="result-r">-</td></tr><tr><td>3V</td><td><input type="number" class="table-input input-v"></td><td><input type="number" class="table-input input-i"></td><td class="result-r">-</td></tr><tr><td>4.5V</td><td><input type="number" class="table-input input-v"></td><td><input type="number" class="table-input input-i"></td><td class="result-r">-</td></tr></tbody></table>`;
         } else if (val === 'exp2' || val === 'exp3') {
             const sym = val === 'exp2' ? '+' : '//';
-            html = `<h3 class="font-bold text-center text-blue-900 mb-3 text-lg">${val==='exp2'?'串聯':'並聯'}實驗</h3><table class="border-collapse text-center w-full"><thead><tr class="bg-blue-100"><th>組合</th><th>三用電表(Ω)</th><th>電壓(V)</th><th>電流(mA)</th><th>比值(Ω)</th></tr></thead><tbody><tr><td>1個：<input type="text" class="fill-blank w-8" value="1K"></td><td><input type="number" class="table-input"></td><td><input type="number" class="table-input input-v"></td><td><input type="number" class="table-input input-i"></td><td class="result-r">-</td></tr><tr><td>2個：<input type="text" class="fill-blank w-6" value="1K">${sym}<input type="text" class="fill-blank w-6" value="1K"></td><td><input type="number" class="table-input"></td><td><input type="number" class="table-input input-v"></td><td><input type="number" class="table-input input-i"></td><td class="result-r">-</td></tr><tr><td>3個：<input type="text" class="fill-blank w-4" value="1K">${sym}<input type="text" class="fill-blank w-4" value="1K">${sym}<input type="text" class="fill-blank w-4" value="1K"></td><td><input type="number" class="table-input"></td><td><input type="number" class="table-input input-v"></td><td><input type="number" class="table-input input-i"></td><td class="result-r">-</td></tr></tbody></table>`;
-        } else if (val === 'exp4') {
-            html = `<h3 class="font-bold text-center text-green-700 mb-3 text-lg">4. 並聯迴路觀察</h3><table class="border-collapse text-center w-full"><thead><tr class="bg-green-100"><th>位置</th><th>電阻(Ω)</th><th>電壓(V)</th><th>電流(mA)</th></tr></thead><tbody><tr><td>迴路 1</td><td><input type="number" class="table-input"></td><td><input type="number" class="table-input"></td><td><input type="number" class="table-input"></td></tr><tr><td>迴路 2</td><td><input type="number" class="table-input"></td><td><input type="number" class="table-input"></td><td><input type="number" class="table-input"></td></tr><tr><td>總和</td><td><input type="number" class="table-input"></td><td><input type="number" class="table-input"></td><td><input type="number" class="table-input"></td></tr></tbody></table>`;
+            container.innerHTML = `<h3 class="font-bold text-center text-blue-900 mb-3 text-lg">${val==='exp2'?'串聯':'並聯'}實驗</h3><table class="border-collapse text-center w-full"><thead><tr class="bg-blue-100"><th>組合</th><th>三用電表(Ω)</th><th>電壓(V)</th><th>電流(mA)</th><th>比值(Ω)</th></tr></thead><tbody><tr><td>1個：1K</td><td><input type="number" class="table-input"></td><td><input type="number" class="table-input input-v"></td><td><input type="number" class="table-input input-i"></td><td class="result-r">-</td></tr><tr><td>2個：1K${sym}1K</td><td><input type="number" class="table-input"></td><td><input type="number" class="table-input input-v"></td><td><input type="number" class="table-input input-i"></td><td class="result-r">-</td></tr><tr><td>3個：1K${sym}1K${sym}1K</td><td><input type="number" class="table-input"></td><td><input type="number" class="table-input input-v"></td><td><input type="number" class="table-input input-i"></td><td class="result-r">-</td></tr></tbody></table>`;
+        } else {
+            container.innerHTML = `<h3 class="font-bold text-center text-green-700 mb-3 text-lg">4. 並聯迴路觀察</h3><table class="border-collapse text-center w-full"><thead><tr class="bg-green-100"><th>位置</th><th>電阻(Ω)</th><th>電壓(V)</th><th>電流(mA)</th></tr></thead><tbody><tr><td>迴路 1</td><td><input type="number" class="table-input"></td><td><input type="number" class="table-input"></td><td><input type="number" class="table-input"></td></tr><tr><td>迴路 2</td><td><input type="number" class="table-input"></td><td><input type="number" class="table-input"></td><td><input type="number" class="table-input"></td></tr><tr><td>總和</td><td><input type="number" class="table-input"></td><td><input type="number" class="table-input"></td><td><input type="number" class="table-input"></td></tr></tbody></table>`;
         }
-        container.innerHTML = html;
         loadExpData();
-    }
+    };
 
-    window.calculateRatio = function() {
+    window.calculateRatio = () => {
         document.querySelectorAll('#table-container tr').forEach(row => {
-            const vIn = row.querySelector('.input-v'), iIn = row.querySelector('.input-i');
-            let v = vIn ? parseFloat(vIn.value) : (row.cells[0]?.innerText.includes('V') ? parseFloat(row.cells[0].innerText) : NaN);
-            const i = iIn ? parseFloat(iIn.value) : NaN, res = row.querySelector('.result-r');
-            if (res) res.textContent = (!isNaN(v) && !isNaN(i) && i !== 0) ? ((v / i) * 1000).toFixed(2) : '-';
+            const vIn = row.querySelector('.input-v'), iIn = row.querySelector('.input-i'), res = row.querySelector('.result-r');
+            if (res) {
+                let v = vIn ? parseFloat(vIn.value) : (row.cells[0]?.innerText.includes('V') ? parseFloat(row.cells[0].innerText) : NaN);
+                const i = iIn ? parseFloat(iIn.value) : NaN;
+                res.textContent = (!isNaN(v) && !isNaN(i) && i !== 0) ? ((v / i) * 1000).toFixed(2) : '-';
+            }
         });
-    }
+    };
 
-    window.saveExpData = async function() {
+    window.saveExpData = async () => {
         if (!currentGrade || !currentClass || !isFirebaseReady) return showModal('錯誤', '請選擇班級');
         const expType = document.getElementById('expSelect').value;
         const data = Array.from(document.querySelectorAll('#table-container input')).map(i => i.value);
-        const docId = `${currentGrade}_${currentClass}_${expType}`;
-        const btn = document.getElementById('saveExpBtn');
-        btn.disabled = true;
-        try {
-            await setDoc(getDocRef('experiments', docId), { grade: currentGrade, className: currentClass, expType, data, updatedAt: new Date().toISOString() });
-            showSaveSuccess();
-        } catch (e) { showModal('錯誤', e.message); }
-        btn.disabled = false;
-    }
+        await setDoc(getDocRef('experiments', `${currentGrade}_${currentClass}_${expType}`), { grade: currentGrade, className: currentClass, expType, data, updatedAt: new Date().toISOString() });
+        showSaveSaveSuccess();
+    };
 
-    window.loadExpData = async function() {
+    window.loadExpData = async () => {
         if (!currentGrade || !currentClass || !isFirebaseReady) return;
-        const expType = document.getElementById('expSelect').value;
         try {
-            const docSnap = await getDoc(getDocRef('experiments', `${currentGrade}_${currentClass}_${expType}`));
-            if (docSnap.exists()) {
-                const data = docSnap.data().data;
+            const snap = await getDoc(getDocRef('experiments', `${currentGrade}_${currentClass}_${document.getElementById('expSelect').value}`));
+            if (snap.exists()) {
                 const ins = document.querySelectorAll('#table-container input');
-                ins.forEach((input, idx) => { if (data[idx] !== undefined) input.value = data[idx]; });
+                snap.data().data.forEach((v, i) => { if (ins[i]) ins[i].value = v; });
                 calculateRatio();
             }
         } catch (e) {}
-    }
+    };
 
-    // ================= 初始化與基本控制 =================
+    /* 基本事件 */
     function setupEventListeners() {
         document.getElementById('gradeSelect').addEventListener('change', updateClassDropdown);
         document.getElementById('classSelect').addEventListener('change', () => { loadClassStudents(); loadExpData(); });
@@ -534,89 +497,100 @@
         document.getElementById('colWidthSlider').addEventListener('input', (e) => document.documentElement.style.setProperty('--col1-width', e.target.value + 'px'));
         document.getElementById('swapLayoutBtn').addEventListener('click', () => document.getElementById('mainContainer').classList.toggle('md:flex-row-reverse'));
         document.getElementById('fullscreenBtn').addEventListener('click', () => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen());
-        setupResizer();
+        
+        /* Resizer logic */
+        const resizer = document.getElementById('resizer');
+        const toggleBtn = document.getElementById('toggleSidebarBtn');
+        let isResizing = false;
+        
+        if (resizer) {
+            resizer.addEventListener('mousedown', (e) => { isResizing = true; document.body.style.cursor = 'col-resize'; });
+            document.addEventListener('mousemove', (e) => {
+                if (!isResizing) return;
+                const dx = e.movementX;
+                const isReverse = document.getElementById('mainContainer').classList.contains('md:flex-row-reverse');
+                currentSidebarWidth += isReverse ? dx : -dx;
+                currentSidebarWidth = Math.max(320, Math.min(currentSidebarWidth, window.innerWidth * 0.8));
+                window.updateLayout();
+            });
+            document.addEventListener('mouseup', () => { isResizing = false; document.body.style.cursor = ''; });
+        }
+        
+        if (toggleBtn) {
+            toggleBtn.addEventListener('click', () => { 
+                isSidebarOpen = !isSidebarOpen; 
+                window.updateLayout(); 
+            });
+        }
+
+        window.addEventListener('resize', window.updateLayout);
     }
 
     async function initCamera() {
-        const cameraSelect = document.getElementById('cameraSelect');
         try {
             await navigator.mediaDevices.getUserMedia({ video: true });
             const devices = await navigator.mediaDevices.enumerateDevices();
             const videoDevices = devices.filter(d => d.kind === 'videoinput');
-            cameraSelect.innerHTML = videoDevices.map((d, i) => `<option value="${d.deviceId}">${d.label || '鏡頭'+(i+1)}</option>`).join('');
+            const cameraSelect = document.getElementById('cameraSelect');
+            if (cameraSelect) {
+                cameraSelect.innerHTML = videoDevices.map((d, i) => `<option value="${d.deviceId}">${d.label || '鏡頭'+(i+1)}</option>`).join('');
+            }
             startStream();
-        } catch (e) { document.getElementById('noCameraMsg').classList.remove('hidden'); }
+        } catch (e) { 
+            const msg = document.getElementById('noCameraMsg');
+            if (msg) msg.classList.remove('hidden'); 
+        }
     }
     
     async function startStream() {
-        const video = document.getElementById('video'), devId = document.getElementById('cameraSelect').value;
-        if (!devId) return;
+        const video = document.getElementById('video');
+        const select = document.getElementById('cameraSelect');
+        if (!video || !select || !select.value) return;
+        const devId = select.value;
         try {
             video.srcObject = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: devId }, width: { ideal: 3840 }, height: { ideal: 2160 } } });
-        } catch (e) { video.srcObject = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: devId } } }); }
+        } catch (e) { 
+            video.srcObject = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: devId } } }); 
+        }
     }
-    document.getElementById('cameraSelect').addEventListener('change', startStream);
-    document.getElementById('refreshCamBtn').addEventListener('click', initCamera);
+    
+    const camSelect = document.getElementById('cameraSelect');
+    if (camSelect) camSelect.addEventListener('change', startStream);
+    const refreshBtn = document.getElementById('refreshCamBtn');
+    if (refreshBtn) refreshBtn.addEventListener('click', initCamera);
 
-    let isSidebarOpen = true, currentSidebarWidth = 480;
-    function setupResizer() {
-        const resizer = document.getElementById('resizer'), sidebar = document.getElementById('sidebar'), toggleBtn = document.getElementById('toggleSidebarBtn');
-        let isResizing = false, lastX = 0;
-        resizer.addEventListener('mousedown', (e) => { isResizing = true; lastX = e.clientX; document.body.style.cursor = 'col-resize'; });
-        document.addEventListener('mousemove', (e) => {
-            if (!isResizing) return;
-            const dx = e.clientX - lastX; lastX = e.clientX;
-            currentSidebarWidth += document.getElementById('mainContainer').classList.contains('md:flex-row-reverse') ? dx : -dx;
-            currentSidebarWidth = Math.max(320, Math.min(currentSidebarWidth, window.innerWidth * 0.8));
-            sidebar.style.width = currentSidebarWidth + 'px';
-        });
-        document.addEventListener('mouseup', () => { isResizing = false; document.body.style.cursor = ''; });
-        window.updateLayout = () => {
-            const isMobile = window.innerWidth < 768;
-            sidebar.style.width = isSidebarOpen ? (isMobile ? '100%' : currentSidebarWidth + 'px') : '0px';
-            resizer.style.display = isSidebarOpen && !isMobile ? 'flex' : 'none';
-        };
-        toggleBtn.addEventListener('click', () => { isSidebarOpen = !isSidebarOpen; updateLayout(); });
-        window.addEventListener('resize', updateLayout);
-    }
-
-    function showSaveSuccess() {
+    function showSaveSuccess() { 
         const ind = document.getElementById('saveStatusIndicator');
-        ind.classList.remove('hidden'); setTimeout(() => ind.classList.add('hidden'), 2000);
+        if (ind) {
+            ind.classList.remove('hidden'); setTimeout(() => ind.classList.add('hidden'), 2000); 
+        }
     }
-    window.showModal = (t, m) => { document.getElementById('modalTitle').textContent = t; document.getElementById('modalMessage').textContent = m; document.getElementById('customModal').classList.remove('hidden'); };
+    window.showModal = (t, m) => { 
+        const title = document.getElementById('modalTitle');
+        const msg = document.getElementById('modalMessage');
+        const modal = document.getElementById('customModal');
+        if (title) title.textContent = t; 
+        if (msg) msg.textContent = m; 
+        if (modal) modal.classList.remove('hidden'); 
+    };
 
-    // --- 修正報錯的核心初始化區塊 ---
+    /* Firebase 初始化與修復驗證錯誤 */
     try {
-        const hasEnvConfig = typeof __firebase_config !== 'undefined' && __firebase_config;
-        const configToUse = hasEnvConfig ? JSON.parse(__firebase_config) : myFirebaseConfig;
-
-        app = initializeApp(configToUse); 
-        auth = getAuth(app); 
-        db = getFirestore(app);
-
+        const hasEnv = typeof __firebase_config !== 'undefined' && __firebase_config;
+        const config = hasEnv ? JSON.parse(__firebase_config) : myFirebaseConfig;
+        app = initializeApp(config); auth = getAuth(app); db = getFirestore(app);
         const authenticate = async () => {
             try {
-                // 如果環境變數與 Config 匹配（預覽模式），使用系統 Token
-                if (hasEnvConfig && typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                if (hasEnv && typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                     await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    // 自行託管或 Token 不匹配時，強制使用匿名登入
-                    await signInAnonymously(auth);
-                }
-                isFirebaseReady = true; 
-                window.initApp();
+                } else await signInAnonymously(auth);
+                isFirebaseReady = true; window.initApp();
             } catch (err) {
-                console.error("Auth mismatch or error, falling back to anonymous:", err);
-                await signInAnonymously(auth);
-                isFirebaseReady = true; 
-                window.initApp();
+                await signInAnonymously(auth); isFirebaseReady = true; window.initApp();
             }
         };
         authenticate();
-    } catch (e) { 
-        console.error("Firebase Init Error:", e); 
-    }
+    } catch (e) { console.error(e); }
 
 </script>
 </body>
