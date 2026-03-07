@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>實驗紀錄系統 v3.2 (Firebase旗艦版)</title>
+    <title>實驗紀錄系統 v3.4 (Firebase+Sheets雙功能版)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         input[type="number"]::-webkit-outer-spin-button,
@@ -27,11 +27,9 @@
         .table-input:focus { border-bottom: 2px solid #3b82f6; }
         .fill-blank { border-bottom: 1px solid #4b5563; text-align: center; outline: none; background: transparent; font-size: inherit; }
 
-        /* 拖曳分隔線樣式 */
         .resizer-line { width: 8px; background-color: #e5e7eb; cursor: col-resize; transition: background-color 0.2s; }
         .resizer-line:hover, .resizer-line:active { background-color: #60a5fa; }
 
-        /* Modal 動畫 */
         .modal-enter { animation: modalFadeIn 0.2s ease-out forwards; }
         @keyframes modalFadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
     </style>
@@ -40,9 +38,8 @@
 
 <div id="mainContainer" class="flex h-full w-full flex-col md:flex-row transition-layout">
     
-    <!-- 視訊顯示區 (強制4K) -->
+    <!-- 視訊顯示區 -->
     <div id="videoContainer" class="relative bg-black flex flex-col items-center justify-center p-2 flex-1 h-full min-w-0 transition-layout">
-        <!-- 左上角常駐控制列 -->
         <div class="absolute top-4 left-4 z-10 bg-white/90 p-2 rounded-lg shadow-lg flex items-center gap-2 backdrop-blur-sm">
             <select id="cameraSelect" class="border rounded p-1 text-sm outline-none max-w-[120px] bg-white"></select>
             <button id="refreshCamBtn" class="bg-blue-100 hover:bg-blue-200 p-1.5 rounded transition-colors" title="重新偵測"><svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke-width="2" stroke-linecap="round"/></svg></button>
@@ -58,7 +55,6 @@
         <div id="noCameraMsg" class="hidden absolute inset-0 flex flex-col items-center justify-center text-gray-400 bg-gray-900/80 rounded-lg">偵測不到攝影機</div>
     </div>
 
-    <!-- 拖曳分隔線 -->
     <div id="resizer" class="hidden md:flex resizer-line z-40 items-center justify-center shrink-0">
         <div class="w-1 h-12 bg-gray-400 rounded-full"></div>
     </div>
@@ -66,18 +62,18 @@
     <!-- 紀錄面板側邊欄 -->
     <div id="sidebar" class="w-full bg-white flex flex-col shadow-2xl z-20 h-1/2 md:h-full transition-layout overflow-hidden shrink-0" style="width: 480px; min-width: 320px;">
         
-        <!-- 頂部控制區 -->
         <div class="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100 shrink-0">
             <div class="flex items-center justify-between mb-3">
-                <h1 class="text-xl font-extrabold text-blue-900 tracking-tight">實驗紀錄系統 <span class="text-xs font-normal text-white bg-blue-500 px-2 py-0.5 rounded-full ml-1 shadow-sm">v3.2 雲端版</span></h1>
+                <h1 class="text-xl font-extrabold text-blue-900 tracking-tight">實驗紀錄系統 <span class="text-xs font-normal text-white bg-blue-500 px-2 py-0.5 rounded-full ml-1 shadow-sm">v3.4 同步版</span></h1>
                 <div class="flex gap-2">
+                    <button onclick="openSyncModal()" class="text-xs bg-green-50 text-green-700 border border-green-300 px-2 py-1 rounded hover:bg-green-100 transition flex items-center gap-1 shadow-sm font-bold">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg> Sheets 同步
+                    </button>
                     <button onclick="document.getElementById('importModal').classList.remove('hidden')" class="text-xs bg-white text-gray-600 border border-gray-300 px-2 py-1 rounded hover:bg-gray-50 transition">匯入名單</button>
-                    <!-- 修改：點擊後改為開啟匯出選項 Modal -->
                     <button onclick="openExportModal()" class="text-xs bg-white text-gray-600 border border-gray-300 px-2 py-1 rounded hover:bg-gray-50 transition">匯出紀錄</button>
                 </div>
             </div>
 
-            <!-- 動態班級選單 -->
             <div class="grid grid-cols-2 gap-2 mb-3">
                 <select id="gradeSelect" class="border border-blue-200 rounded p-1.5 text-sm outline-none bg-white shadow-sm focus:ring-2 focus:ring-blue-400 transition"><option value="">讀取中...</option></select>
                 <select id="classSelect" class="border border-blue-200 rounded p-1.5 text-sm outline-none bg-white shadow-sm focus:ring-2 focus:ring-blue-400 transition"><option value="">讀取中...</option></select>
@@ -100,17 +96,13 @@
             </div>
         </div>
 
-        <!-- 內容滾動區 -->
         <div class="flex-1 overflow-y-auto bg-gray-50 p-4 space-y-4 no-scrollbar relative">
-            <!-- 網路連線狀態提示 -->
             <div id="offlineWarning" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-2 rounded relative text-sm" role="alert">
                 <span class="block sm:inline">⚠️ 目前為離線狀態或資料庫未連線，資料將不會同步至雲端。</span>
             </div>
 
-            <!-- 表格容器 -->
             <div id="table-container" class="bg-white p-3 rounded-xl shadow-sm border border-gray-200 overflow-x-auto min-h-[100px] transition-all"></div>
             
-            <!-- 學生名單 -->
             <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
                 <div class="bg-gradient-to-r from-gray-100 to-gray-50 px-4 py-2.5 border-b flex justify-between items-center text-sm font-bold">
                     <span class="text-gray-700 flex items-center gap-2">
@@ -124,14 +116,12 @@
                 </div>
                 <div id="student-list" class="divide-y divide-gray-100 max-h-[450px] overflow-y-auto no-scrollbar">
                     <div class="p-10 text-center text-gray-400 text-sm flex flex-col items-center">
-                        <svg class="w-10 h-10 mb-2 text-gray-300 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
                         正在連線 Firebase...
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- 底部表格控制 -->
         <div class="p-4 bg-white border-t shrink-0 flex flex-col gap-2 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
             <button id="calcBtn" class="w-full bg-green-500 text-white font-bold py-2.5 rounded-lg text-sm shadow hover:bg-green-600 active:scale-95 transition-all">自動計算 (V/I) × 1000</button>
             <div class="flex gap-2">
@@ -147,7 +137,6 @@
 
 <!-- ================= 彈出視窗區 ================= -->
 
-<!-- 1. 全新評分 Modal -->
 <div id="gradingModal" class="fixed inset-0 z-[60] flex items-center justify-center bg-gray-900/60 hidden backdrop-blur-sm p-4">
     <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden transform scale-95 transition-transform modal-enter">
         <div class="bg-blue-600 p-4 text-white flex justify-between items-center">
@@ -159,111 +148,107 @@
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
             </button>
         </div>
-        
         <div class="p-6">
-            <!-- 當前總分顯示 -->
             <div class="text-center mb-6 bg-gray-50 rounded-xl p-4 border border-gray-100">
                 <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mb-1">目前總分</p>
                 <div class="text-5xl font-black text-blue-600" id="gradingCurrentScore">0</div>
             </div>
-
-            <!-- 快速加扣分按鈕區 -->
             <div class="grid grid-cols-2 gap-4 mb-6">
                 <div class="space-y-2">
-                    <div class="text-center text-xs font-bold text-green-600 mb-1">表現優良</div>
-                    <button onclick="updateScore(1)" class="w-full py-2 bg-green-50 text-green-700 border border-green-200 rounded-lg font-bold hover:bg-green-100 active:scale-95 transition-all shadow-sm">+1 分</button>
-                    <button onclick="updateScore(2)" class="w-full py-2 bg-green-50 text-green-700 border border-green-200 rounded-lg font-bold hover:bg-green-100 active:scale-95 transition-all shadow-sm">+2 分</button>
-                    <button onclick="updateScore(5)" class="w-full py-2 bg-green-500 text-white rounded-lg font-bold hover:bg-green-600 active:scale-95 transition-all shadow-sm">+5 分</button>
+                    <button onclick="updateScore(1)" class="w-full py-2 bg-green-50 text-green-700 border border-green-200 rounded-lg font-bold shadow-sm">+1 分</button>
+                    <button onclick="updateScore(2)" class="w-full py-2 bg-green-50 text-green-700 border border-green-200 rounded-lg font-bold shadow-sm">+2 分</button>
+                    <button onclick="updateScore(5)" class="w-full py-2 bg-green-500 text-white rounded-lg font-bold shadow-sm">+5 分</button>
                 </div>
                 <div class="space-y-2">
-                    <div class="text-center text-xs font-bold text-red-600 mb-1">需要改進</div>
-                    <button onclick="updateScore(-1)" class="w-full py-2 bg-red-50 text-red-700 border border-red-200 rounded-lg font-bold hover:bg-red-100 active:scale-95 transition-all shadow-sm">-1 分</button>
-                    <button onclick="updateScore(-2)" class="w-full py-2 bg-red-50 text-red-700 border border-red-200 rounded-lg font-bold hover:bg-red-100 active:scale-95 transition-all shadow-sm">-2 分</button>
-                    <button onclick="updateScore(-5)" class="w-full py-2 bg-red-500 text-white rounded-lg font-bold hover:bg-red-600 active:scale-95 transition-all shadow-sm">-5 分</button>
+                    <button onclick="updateScore(-1)" class="w-full py-2 bg-red-50 text-red-700 border border-red-200 rounded-lg font-bold shadow-sm">-1 分</button>
+                    <button onclick="updateScore(-2)" class="w-full py-2 bg-red-50 text-red-700 border border-red-200 rounded-lg font-bold shadow-sm">-2 分</button>
+                    <button onclick="updateScore(-5)" class="w-full py-2 bg-red-500 text-white rounded-lg font-bold shadow-sm">-5 分</button>
                 </div>
             </div>
-
-            <!-- 小老師開關 -->
             <div class="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-100">
-                <div class="flex items-center gap-2">
-                    <div class="bg-blue-200 p-1.5 rounded-full"><svg class="w-4 h-4 text-blue-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg></div>
-                    <span class="font-bold text-blue-900 text-sm">設為小老師</span>
-                </div>
+                <span class="font-bold text-blue-900 text-sm">設為小老師</span>
                 <label class="relative inline-flex items-center cursor-pointer">
                     <input type="checkbox" id="gradingTAToggle" class="sr-only peer" onchange="updateTAStatus(this.checked)">
-                    <div class="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    <div class="w-11 h-6 bg-gray-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-blue-600 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
                 </label>
             </div>
         </div>
     </div>
 </div>
 
-<!-- 2. 匯入名單 Modal -->
 <div id="importModal" class="fixed inset-0 z-[70] flex items-center justify-center bg-gray-900/60 hidden backdrop-blur-sm p-4">
     <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg p-6 modal-enter">
-        <h3 class="text-xl font-bold mb-4 text-gray-800 flex items-center gap-2 border-b pb-3">
-            <svg class="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
-            匯入班級名單
-        </h3>
-        
-        <p class="text-sm text-gray-600 mb-2">請直接從 Excel 框選 <code class="bg-gray-200 px-1.5 py-0.5 rounded text-blue-700 font-mono">班級, 座號, 姓名, 課堂加扣分(可略), 小老師(可略)</code> 五欄並貼上。系統會自動略過標題行。</p>
-
-        <div class="mb-4 bg-gray-50 p-3 rounded-lg border border-gray-200">
-            <label class="block text-xs font-bold text-gray-700 mb-2">方式一：直接上傳 CSV 檔案</label>
-            <div class="flex items-center gap-4 mb-2">
-                <label class="text-xs text-gray-600 flex items-center gap-1 cursor-pointer"><input type="radio" name="csvEncoding" value="UTF-8" checked class="cursor-pointer"> UTF-8 (無亂碼/支援特殊字)</label>
-                <label class="text-xs text-gray-600 flex items-center gap-1 cursor-pointer"><input type="radio" name="csvEncoding" value="Big5" class="cursor-pointer"> Big5 (舊版Excel)</label>
+        <h3 class="text-xl font-bold mb-4 text-gray-800 flex items-center gap-2 border-b pb-3">手動匯入班級名單</h3>
+        <p class="text-sm text-gray-600 mb-2">請直接從 Excel 框選 <code class="bg-gray-200 px-1.5 py-0.5 rounded text-blue-700">班級, 座號, 姓名, 分數, 小老師</code> 並貼上。</p>
+        <div class="mb-4 bg-gray-50 p-3 rounded-lg border">
+            <label class="text-xs font-bold mb-2 block">方式一：上傳 CSV</label>
+            <div class="flex gap-4 mb-2">
+                <label class="text-xs"><input type="radio" name="csvEncoding" value="UTF-8" checked> UTF-8</label>
+                <label class="text-xs"><input type="radio" name="csvEncoding" value="Big5"> Big5</label>
             </div>
-            <input type="file" id="csvFileInput" accept=".csv" onchange="handleCSVUpload(event)" class="w-full text-sm text-gray-500 file:mr-4 file:py-1.5 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-100 file:text-blue-700 hover:file:bg-blue-200 transition">
+            <input type="file" id="csvFileInput" accept=".csv" onchange="handleCSVUpload(event)" class="w-full text-sm text-gray-500">
         </div>
-
-        <p class="text-xs text-gray-700 font-bold mb-1">方式二：直接複製貼上 <span class="text-red-500 font-normal">(強烈推薦！不會遺失特殊字)</span></p>
-        <textarea id="importTextarea" class="w-full h-40 border border-gray-300 rounded-lg p-3 text-sm font-mono mb-4 focus:ring-2 focus:ring-blue-500 outline-none bg-white placeholder-gray-400" placeholder="801	1	吳彥霆		&#10;801	2	李祐漢	2	V&#10;..."></textarea>
-        
+        <textarea id="importTextarea" class="w-full h-40 border rounded-lg p-3 text-sm font-mono mb-4 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="貼上 Excel 資料..."></textarea>
         <div class="flex gap-3">
-            <button onclick="document.getElementById('importModal').classList.add('hidden')" class="flex-1 bg-white border border-gray-300 text-gray-700 font-bold py-2 rounded-lg hover:bg-gray-50 transition">取消</button>
-            <button onclick="processImport()" class="flex-[2] bg-blue-600 text-white font-bold py-2 rounded-lg shadow hover:bg-blue-700 transition">確認並解析匯入</button>
+            <button onclick="document.getElementById('importModal').classList.add('hidden')" class="flex-1 border py-2 rounded-lg">取消</button>
+            <button onclick="processImport()" class="flex-[2] bg-blue-600 text-white font-bold py-2 rounded-lg">確認解析</button>
         </div>
     </div>
 </div>
 
-<!-- 3. 新增：匯出紀錄 Modal -->
 <div id="exportModal" class="fixed inset-0 z-[70] flex items-center justify-center bg-gray-900/60 hidden backdrop-blur-sm p-4">
     <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 modal-enter">
-        <h3 class="text-xl font-bold mb-4 text-gray-800 flex items-center gap-2 border-b pb-3">
-            <svg class="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-            匯出班級紀錄 (CSV)
-        </h3>
-        
-        <div class="mb-5">
-            <label class="block text-sm font-bold text-gray-700 mb-2">請選擇要匯出的班級範圍：</label>
-            <div id="exportClassList" class="max-h-56 overflow-y-auto border border-gray-200 rounded-lg p-2 bg-gray-50 space-y-1">
-                <!-- 將由 JS 動態產生選項 -->
-            </div>
-        </div>
-        
+        <h3 class="text-xl font-bold mb-4 border-b pb-3">匯出班級紀錄 (CSV)</h3>
+        <div id="exportClassList" class="max-h-56 overflow-y-auto border rounded-lg p-2 bg-gray-50 mb-5"></div>
         <div class="flex gap-3">
-            <button onclick="document.getElementById('exportModal').classList.add('hidden')" class="flex-1 bg-white border border-gray-300 text-gray-700 font-bold py-2 rounded-lg hover:bg-gray-50 transition">取消</button>
-            <button onclick="executeExport()" class="flex-[2] bg-green-600 text-white font-bold py-2 rounded-lg shadow hover:bg-green-700 transition active:scale-95">確認下載</button>
+            <button onclick="document.getElementById('exportModal').classList.add('hidden')" class="flex-1 border py-2 rounded-lg">取消</button>
+            <button onclick="executeExport()" class="flex-[2] bg-green-600 text-white font-bold py-2 rounded-lg">確認下載</button>
         </div>
     </div>
 </div>
 
-<!-- 4. 一般訊息 Modal -->
-<div id="customModal" class="fixed inset-0 z-[80] flex items-center justify-center bg-gray-900/60 hidden backdrop-blur-sm p-4">
-    <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 transform scale-95 transition-transform">
-        <h3 id="modalTitle" class="text-lg font-bold mb-3 border-b pb-2 text-gray-800">提示</h3>
-        <p id="modalMessage" class="text-gray-600 mb-6 text-sm whitespace-pre-wrap"></p>
-        <button onclick="document.getElementById('customModal').classList.add('hidden')" class="w-full bg-blue-600 text-white font-bold py-2.5 rounded-lg shadow hover:bg-blue-700 active:scale-95 transition-all">確認</button>
+<!-- 同步面板 -->
+<div id="syncModal" class="fixed inset-0 z-[70] flex items-center justify-center bg-gray-900/60 hidden backdrop-blur-sm p-4">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 modal-enter">
+        <h3 class="text-xl font-bold mb-2 flex items-center gap-2 border-b pb-3 text-green-700">Google Sheets 雲端同步</h3>
+        <div class="mb-4">
+            <label class="block text-sm font-bold text-gray-700 mb-1">GAS 網址 (URL)</label>
+            <input type="text" id="gasUrlInput" class="w-full border rounded-lg p-2 text-sm bg-gray-50" placeholder="貼上網址...">
+        </div>
+        <div class="mb-5 bg-blue-50 p-3 rounded-lg border border-blue-100">
+            <label class="flex items-center gap-2 text-sm font-bold text-blue-800 cursor-pointer">
+                <input type="checkbox" id="syncExpsToggle" checked class="w-4 h-4"> 同時同步實驗表格數據
+            </label>
+            <p class="text-[10px] text-blue-600 mt-1">勾選後，實驗數據將會備份至試算表的「實驗」工作表。</p>
+        </div>
+        <div class="flex flex-col gap-3 mb-4">
+            <button onclick="pullFromSheets()" class="bg-blue-600 text-white font-bold py-3 rounded-lg shadow-sm">下載名單與紀錄 (Pull)</button>
+            <button onclick="pushToSheets()" class="bg-green-600 text-white font-bold py-3 rounded-lg shadow-sm">上傳成績與實驗 (Push)</button>
+        </div>
+        <button onclick="closeSyncModal()" class="w-full border py-2 rounded-lg">關閉</button>
     </div>
 </div>
 
-<!-- Firebase v11 SDK Modules -->
+<div id="loadingModal" class="fixed inset-0 z-[100] flex items-center justify-center bg-gray-900/70 hidden backdrop-blur-sm">
+    <div class="bg-white rounded-xl p-6 flex flex-col items-center shadow-2xl">
+        <svg class="w-12 h-12 text-blue-600 animate-spin mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+        <p id="loadingMsg" class="font-bold text-gray-800">同步中...</p>
+    </div>
+</div>
+
+<div id="customModal" class="fixed inset-0 z-[80] flex items-center justify-center bg-gray-900/60 hidden backdrop-blur-sm p-4">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 transform scale-95">
+        <h3 id="modalTitle" class="text-lg font-bold mb-3 border-b pb-2">提示</h3>
+        <p id="modalMessage" class="text-gray-600 mb-6 text-sm whitespace-pre-wrap"></p>
+        <button onclick="document.getElementById('customModal').classList.add('hidden')" class="w-full bg-blue-600 text-white font-bold py-2.5 rounded-lg">確認</button>
+    </div>
+</div>
+
+<!-- Firebase SDK -->
 <script type="module">
-    // 匯入 Firebase 核心與 Auth、Firestore
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
     import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-    import { getFirestore, collection, doc, setDoc, getDoc, getDocs, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    import { getFirestore, collection, doc, setDoc, getDoc, getDocs, updateDoc, onSnapshot, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
     /* * ==========================================
      * 🔥 FIREBASE 設定區 (如果要自行託管在 GitHub，請修改這裡)
@@ -279,96 +264,56 @@
         measurementId: "G-S6BVBCQ6RS"
     };
 
-    // 初始化 Firebase (相容 Canvas 預覽環境與 GitHub 自行託管)
-    let app, auth, db, user;
-    let isFirebaseReady = false;
-    
-    // 定義資料庫路徑前綴 (為了相容系統環境要求，若自行託管可設為空字串 "")
+    let app, auth, db, user, isFirebaseReady = false;
     const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
     
-    // 輔助函式：根據環境決定集合路徑 (Canvas 環境需要特定路徑，自行託管則放根目錄)
-    function getCollectionRef(colName) {
+    function getCollectionRef(colName) { 
         if (typeof __app_id !== 'undefined') {
             return collection(db, 'artifacts', appId, 'public', 'data', colName);
         }
         return collection(db, colName);
     }
-
-    function getDocRef(colName, documentId) {
+    
+    function getDocRef(colName, documentId) { 
         if (typeof __app_id !== 'undefined') {
             return doc(db, 'artifacts', appId, 'public', 'data', colName, documentId);
         }
         return doc(db, colName, documentId);
     }
 
-    function showOfflineMode() {
-        document.getElementById('offlineWarning').classList.remove('hidden');
-        document.getElementById('student-list').innerHTML = '<div class="p-8 text-center text-gray-500">未連接資料庫。請點擊「匯入名單」載入測試資料。</div>';
-        // 即使離線也讓 UI 可以運作 (存在記憶體中)
-        if (window.initApp) window.initApp();
-    }
+    // 全域緩存
+    window.classDataCache = {};
+    let unsubscribeStudents = null;
+    let currentGrade = '', currentClass = '', currentSelectedStudentId = null;
 
-    // ================= 全域變數與資料狀態 =================
-    let classDataCache = {}; // 存放班級名單快取
-    let unsubscribeStudents = null; // 監聽器取消函數
-    let currentGrade = '';
-    let currentClass = '';
-    let currentSelectedStudentId = null; // 紀錄正在評分的學生 ID
-
-    // ================= 應用程式初始化 =================
     window.initApp = async function() {
         await fetchClassList();
-        renderTableTemplate(); // 渲染實驗表格 UI
-        setupEventListeners(); // 綁定基本按鈕事件
-        initCamera();          // 啟動相機
+        renderTableTemplate();
+        setupEventListeners();
+        initCamera();
         updateLayout();
     };
 
-    // ================= Firebase 資料庫操作 =================
-    
-    // 取得所有可用班級選單
     async function fetchClassList() {
-        const gradeSelect = document.getElementById('gradeSelect');
-        const classSelect = document.getElementById('classSelect');
-        
-        if (!isFirebaseReady) {
-            // 離線模擬資料
-            classDataCache = {
-                '8': { '01': [{id: '8_01_1', no: '1', name: '測試員', score: 0, isTA: false}] }
-            };
-            updateDropdowns(Object.keys(classDataCache));
-            return;
-        }
-
+        if (!isFirebaseReady) return;
         try {
             const classesRef = getCollectionRef('classes');
             const snapshot = await getDocs(classesRef);
-            
+            window.classDataCache = {};
             const gradesSet = new Set();
-            classDataCache = {};
-
             snapshot.forEach(docSnap => {
                 const data = docSnap.data();
-                const g = data.grade;
-                const c = data.className;
-                
-                if (!classDataCache[g]) classDataCache[g] = {};
-                classDataCache[g][c] = data.students || [];
-                gradesSet.add(g);
+                if(!window.classDataCache[data.grade]) window.classDataCache[data.grade] = {};
+                window.classDataCache[data.grade][data.className] = data.students || [];
+                gradesSet.add(data.grade);
             });
-
             const grades = Array.from(gradesSet).sort();
-            if (grades.length === 0) {
-                gradeSelect.innerHTML = '<option value="">請先匯入名單</option>';
-                classSelect.innerHTML = '<option value="">-</option>';
-                document.getElementById('student-list').innerHTML = '<div class="p-8 text-center text-gray-500">無資料，請點上方「匯入名單」</div>';
-            } else {
-                updateDropdowns(grades);
+            if (grades.length > 0) updateDropdowns(grades);
+            else {
+                document.getElementById('gradeSelect').innerHTML = '<option value="">請匯入名單</option>';
+                document.getElementById('student-list').innerHTML = '<div class="p-8 text-center text-gray-400">目前沒有資料</div>';
             }
-        } catch (error) {
-            console.error("Error fetching classes:", error);
-            showModal('錯誤', '讀取班級清單失敗：' + error.message);
-        }
+        } catch (e) { console.error(e); }
     }
 
     function updateDropdowns(grades) {
@@ -376,16 +321,10 @@
         gradeSelect.innerHTML = '';
         grades.forEach(g => {
             const opt = document.createElement('option');
-            opt.value = g;
-            opt.textContent = `${g} 年級`;
+            opt.value = g; opt.textContent = `${g} 年級`;
             gradeSelect.appendChild(opt);
         });
-        
-        // 預設選中第一個
-        if(grades.length > 0) {
-            gradeSelect.value = grades[0];
-            updateClassDropdown();
-        }
+        if(grades.length > 0) { gradeSelect.value = grades[0]; updateClassDropdown(); }
     }
 
     window.updateClassDropdown = function() {
@@ -393,421 +332,155 @@
         const classSelect = document.getElementById('classSelect');
         const g = gradeSelect.value;
         currentGrade = g;
-
         classSelect.innerHTML = '';
-        if (classDataCache[g]) {
-            const classes = Object.keys(classDataCache[g]).sort();
+        if (window.classDataCache[g]) {
+            const classes = Object.keys(window.classDataCache[g]).sort();
             classes.forEach(c => {
                 const opt = document.createElement('option');
-                opt.value = c;
-                opt.textContent = `${c} 班`;
+                opt.value = c; opt.textContent = `${c} 班`;
                 classSelect.appendChild(opt);
             });
-            if(classes.length > 0) {
-                classSelect.value = classes[0];
-                currentClass = classes[0];
-                loadClassStudents();
-                loadExpData();
-            }
+            if(classes.length > 0) { classSelect.value = classes[0]; currentClass = classes[0]; loadClassStudents(); loadExpData(); }
         }
     }
 
-    // 載入該班級的學生清單 (設定即時監聽)
     window.loadClassStudents = function() {
         currentGrade = document.getElementById('gradeSelect').value;
         currentClass = document.getElementById('classSelect').value;
-        
-        if (!currentGrade || !currentClass) return;
-
-        const listContainer = document.getElementById('student-list');
-        listContainer.innerHTML = '<div class="p-8 text-center text-gray-400">載入中...</div>';
-
-        if (!isFirebaseReady) {
-            renderStudentList(classDataCache[currentGrade][currentClass]);
-            return;
-        }
-
-        // 清除舊的監聽器
+        if (!currentGrade || !currentClass || !isFirebaseReady) return;
         if (unsubscribeStudents) unsubscribeStudents();
-
         const docRef = getDocRef('classes', `${currentGrade}_${currentClass}`);
-        
-        // 啟動即時監聽
         unsubscribeStudents = onSnapshot(docRef, (docSnap) => {
             if (docSnap.exists()) {
                 const data = docSnap.data();
-                // 更新記憶體中的資料
-                if (!classDataCache[currentGrade]) classDataCache[currentGrade] = {};
-                classDataCache[currentGrade][currentClass] = data.students || [];
-                
+                if (!window.classDataCache[currentGrade]) window.classDataCache[currentGrade] = {};
+                window.classDataCache[currentGrade][currentClass] = data.students || [];
                 renderStudentList(data.students || []);
                 showSaveSuccess();
-            } else {
-                listContainer.innerHTML = '<div class="p-8 text-center text-gray-400">找不到該班級資料</div>';
-                document.getElementById('studentCount').textContent = '--';
             }
-        }, (error) => {
-            console.error("Listen failed: ", error);
-        });
+        }, (err) => console.error("Snapshot error:", err));
     }
 
     function renderStudentList(students) {
         const listContainer = document.getElementById('student-list');
         document.getElementById('studentCount').textContent = students.length + '人';
         listContainer.innerHTML = '';
-
-        students.forEach((s, index) => {
+        students.forEach((s, idx) => {
             const item = document.createElement('div');
-            // 如果是小老師，背景稍微不同
-            const bgClass = s.isTA ? 'bg-indigo-50/50' : 'bg-white';
-            const nameColor = s.isTA ? 'text-indigo-700' : 'text-gray-800';
-            
-            item.className = `student-item ${bgClass} flex items-center justify-between px-4 py-3 border-b border-gray-100 group`;
-            item.onclick = () => openGradingModal(index, s);
+            item.className = `student-item ${s.isTA ? 'bg-indigo-50' : 'bg-white'} flex items-center justify-between px-4 py-3 border-b`;
+            item.onclick = () => openGradingModal(idx, s);
             item.innerHTML = `
                 <div class="flex items-center gap-3">
-                    <span class="w-8 h-8 rounded-full ${s.isTA ? 'bg-indigo-200 text-indigo-800' : 'bg-blue-100 text-blue-700'} flex items-center justify-center font-bold text-xs shrink-0 shadow-sm transition-colors">${s.no}</span>
-                    <span class="font-bold ${nameColor} text-base transition-colors group-hover:text-blue-600">${s.name}</span>
-                    ${s.isTA ? '<span class="text-[10px] bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded font-bold border border-indigo-200 shadow-sm">小老師</span>' : ''}
+                    <span class="w-8 h-8 rounded-full ${s.isTA ? 'bg-indigo-200 text-indigo-800' : 'bg-blue-100 text-blue-700'} flex items-center justify-center font-bold text-xs">${s.no}</span>
+                    <span class="font-bold ${s.isTA ? 'text-indigo-700' : 'text-gray-800'} text-base">${s.name}</span>
+                    ${s.isTA ? '<span class="text-[10px] bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded font-bold border">小老師</span>' : ''}
                 </div>
-                <div class="flex items-center gap-3 shrink-0">
-                    <span class="text-lg font-black ${s.score > 0 ? 'text-green-600' : (s.score < 0 ? 'text-red-500' : 'text-gray-400')} w-8 text-right">${s.score}</span>
-                </div>`;
+                <span class="text-lg font-black ${s.score > 0 ? 'text-green-600' : (s.score < 0 ? 'text-red-500' : 'text-gray-400')} w-8 text-right">${s.score}</span>`;
             listContainer.appendChild(item);
         });
     }
 
-    // ================= 加扣分 Modal 邏輯 =================
-    
-    window.openGradingModal = function(index, student) {
-        currentSelectedStudentId = index;
-        document.getElementById('gradingGradeClass').textContent = `${currentGrade} 年 ${currentClass} 班 - 座號 ${student.no}`;
-        document.getElementById('gradingName').textContent = student.name;
-        document.getElementById('gradingCurrentScore').textContent = student.score;
-        document.getElementById('gradingCurrentScore').className = `text-5xl font-black ${student.score > 0 ? 'text-green-600' : (student.score < 0 ? 'text-red-500' : 'text-gray-400')}`;
-        document.getElementById('gradingTAToggle').checked = student.isTA;
-        
-        document.getElementById('gradingModal').classList.remove('hidden');
-    }
-
-    window.closeGradingModal = function() {
-        document.getElementById('gradingModal').classList.add('hidden');
-        currentSelectedStudentId = null;
-    }
-
-    // 核心：更新 Firebase 陣列中的學生資料
-    async function updateStudentData(index, updates) {
-        if (!isFirebaseReady) {
-            // 離線更新記憶體
-            Object.assign(classDataCache[currentGrade][currentClass][index], updates);
-            renderStudentList(classDataCache[currentGrade][currentClass]);
-            if (updates.score !== undefined) {
-                updateModalScoreDisplay(classDataCache[currentGrade][currentClass][index].score);
-            }
-            return;
-        }
-
-        try {
-            const docRef = getDocRef('classes', `${currentGrade}_${currentClass}`);
-            // 先取得最新的資料
-            const docSnap = await getDoc(docRef);
-            if (docSnap.exists()) {
-                const students = docSnap.data().students;
-                Object.assign(students[index], updates);
-                await updateDoc(docRef, { students: students });
-                // onSnapshot 會自動更新畫面
-                if (updates.score !== undefined) {
-                    updateModalScoreDisplay(students[index].score);
-                }
-            }
-        } catch (error) {
-            console.error("Update error:", error);
-            showModal("儲存失敗", "請檢查網路狀態");
-        }
-    }
-
-    window.updateScore = function(amount) {
-        if (currentSelectedStudentId === null) return;
-        
-        // 為了 UI 反應快速，先從快取取得目前分數計算
-        const student = classDataCache[currentGrade][currentClass][currentSelectedStudentId];
-        const newScore = (student.score || 0) + amount;
-        
-        // 顯示按鈕動畫
-        const btn = event.currentTarget;
-        btn.classList.add('opacity-50', 'scale-95');
-        setTimeout(() => btn.classList.remove('opacity-50', 'scale-95'), 150);
-
-        updateStudentData(currentSelectedStudentId, { score: newScore });
-    }
-
-    window.updateTAStatus = function(isTA) {
-        if (currentSelectedStudentId === null) return;
-        updateStudentData(currentSelectedStudentId, { isTA: isTA });
-    }
-
-    function updateModalScoreDisplay(score) {
-        const el = document.getElementById('gradingCurrentScore');
-        el.textContent = score;
-        el.className = `text-5xl font-black transition-colors ${score > 0 ? 'text-green-600' : (score < 0 ? 'text-red-500' : 'text-gray-400')}`;
-        
-        // 彈跳動畫
-        el.classList.add('scale-110');
-        setTimeout(() => el.classList.remove('scale-110'), 150);
-    }
-
-    // 顯示右上角存檔成功的勾勾
-    function showSaveSuccess() {
-        const ind = document.getElementById('saveStatusIndicator');
-        ind.classList.remove('hidden');
-        setTimeout(() => ind.classList.add('hidden'), 2000);
-    }
-
-    // ================= 匯入/匯出 CSV 邏輯 =================
-
-    window.handleCSVUpload = function(event) {
-        const file = event.target.files[0];
-        if (!file) return;
-        
-        const encoding = document.querySelector('input[name="csvEncoding"]:checked').value;
-        
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            // 讀取後移除可能存在的引號，並放入文字框中
-            let text = e.target.result.replace(/"/g, '');
-            document.getElementById('importTextarea').value = text;
-        };
-        // 根據使用者選擇的編碼來讀取
-        reader.readAsText(file, encoding);
+    // --- 同步邏輯 ---
+    window.openSyncModal = () => {
+        const savedUrl = localStorage.getItem('gasUrl');
+        if (savedUrl) document.getElementById('gasUrlInput').value = savedUrl;
+        document.getElementById('syncModal').classList.remove('hidden');
+    };
+    window.closeSyncModal = () => {
+        localStorage.setItem('gasUrl', document.getElementById('gasUrlInput').value.trim());
+        document.getElementById('syncModal').classList.add('hidden');
     };
 
-    window.processImport = async function() {
-        const text = document.getElementById('importTextarea').value.trim();
-        if (!text) { showModal('錯誤', '請貼上名單資料或上傳 CSV 檔'); return; }
-
-        const lines = text.split('\n');
-        const classDict = {}; // 格式: { '8_01': { grade: '8', className: '01', students: [...] } }
-        let totalStudents = 0;
-
-        lines.forEach(line => {
-            // 支援逗號 (CSV) 或是 Tab 鍵 (Excel直接複製貼上) 作為分隔符
-            const parts = line.split(/[,\t]+/).map(s => s.trim());
-            
-            // 至少需要 班級, 座號, 姓名 三個欄位
-            if (parts.length >= 3 && parts[0] !== '') {
-                const classRaw = parts[0];
-                const no = parts[1];
-                const name = parts[2];
-                const scoreStr = parts[3] || "0";
-                const taStr = parts[4] || "";
-
-                // 防呆：如果是標題列 (座號不是數字)，就直接略過
-                if (isNaN(parseInt(no))) return;
-                
-                // 拆解班級代碼 (例如：801 -> 年級 8, 班級 01)
-                let grade = classRaw.substring(0, 1);
-                let className = classRaw.substring(1);
-                
-                // 例外處理：如果使用者班級只有打 1 碼
-                if (classRaw.length === 1) { grade = classRaw; className = "0"; }
-
-                const key = `${grade}_${className}`;
-                if (!classDict[key]) {
-                    classDict[key] = { grade, className, students: [] };
+    window.pullFromSheets = async function() {
+        const url = document.getElementById('gasUrlInput').value.trim();
+        if (!url || !isFirebaseReady) return showModal('錯誤', '請確認網址與資料庫連線');
+        localStorage.setItem('gasUrl', url);
+        
+        showLoading('正在從試算表抓取名單與實驗紀錄...');
+        try {
+            const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action: 'pull' }) });
+            const res = await resp.json();
+            if (res.status === 'success') {
+                for (let k in res.classes) await setDoc(getDocRef('classes', k), res.classes[k]);
+                if (document.getElementById('syncExpsToggle').checked && res.experiments) {
+                    for (let id in res.experiments) await setDoc(getDocRef('experiments', id), { ...res.experiments[id], id: id });
                 }
+                hideLoading(); showModal('同步完成', '名單與紀錄已從試算表更新至 Firebase。');
+                await fetchClassList();
+                document.getElementById('syncModal').classList.add('hidden');
+            } else { throw new Error(res.message); }
+        } catch (e) { hideLoading(); showModal('失敗', e.message); }
+    };
 
-                // 處理加扣分與小老師
-                const score = parseInt(scoreStr) || 0;
-                const isTA = (taStr === 'V' || taStr === 'v' || taStr === '是' || taStr === '1' || taStr === '✓');
-
-                // 檢查是否已存在 (避免重複)
-                const exists = classDict[key].students.find(s => s.no === no);
-                if (!exists) {
-                    classDict[key].students.push({ no, name, score, isTA });
-                    totalStudents++;
-                }
+    window.pushToSheets = async function() {
+        const url = document.getElementById('gasUrlInput').value.trim();
+        if (!url || !isFirebaseReady) return showModal('錯誤', '請確認網址與資料庫連線');
+        
+        showLoading('正在備份成績與實驗紀錄至試算表...');
+        try {
+            let exps = {};
+            if (document.getElementById('syncExpsToggle').checked) {
+                const qSnap = await getDocs(getCollectionRef('experiments'));
+                qSnap.forEach(d => exps[d.id] = d.data());
             }
-        });
 
-        const keys = Object.keys(classDict);
-        if (keys.length === 0) { showModal('錯誤', '解析失敗！請確認有複製到包含「班級、座號、姓名」的內容。'); return; }
+            const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action: 'push', classes: window.classDataCache, experiments: exps }) });
+            const res = await resp.json();
+            if (res.status === 'success') {
+                hideLoading(); showModal('備份成功', `已將成績與 ${res.updatedExps || 0} 筆實驗紀錄更新至 Google 試算表。`);
+                document.getElementById('syncModal').classList.add('hidden');
+            } else { throw new Error(res.message); }
+        } catch (e) { hideLoading(); showModal('失敗', e.message); }
+    };
 
-        if (!isFirebaseReady) {
-            // 離線模擬
-            keys.forEach(k => {
-                const c = classDict[k];
-                if (!classDataCache[c.grade]) classDataCache[c.grade] = {};
-                classDataCache[c.grade][c.className] = c.students;
-            });
-            document.getElementById('importModal').classList.add('hidden');
-            document.getElementById('importTextarea').value = '';
-            document.getElementById('csvFileInput').value = '';
-            showModal('匯入成功(離線模式)', `共匯入 ${totalStudents} 筆學生資料。`);
-            updateDropdowns(Object.keys(classDataCache));
-            return;
-        }
+    function showLoading(m) { document.getElementById('loadingMsg').textContent = m; document.getElementById('loadingModal').classList.remove('hidden'); }
+    function hideLoading() { document.getElementById('loadingModal').classList.add('hidden'); }
 
-        document.getElementById('importModal').classList.add('hidden');
+    // ================= 加扣分邏輯 =================
+    window.openGradingModal = function(index, student) {
+        currentSelectedStudentId = index;
+        document.getElementById('gradingGradeClass').textContent = `${currentGrade}年${currentClass}班 - ${student.no}號`;
+        document.getElementById('gradingName').textContent = student.name;
+        document.getElementById('gradingCurrentScore').textContent = student.score;
+        document.getElementById('gradingTAToggle').checked = student.isTA;
+        document.getElementById('gradingModal').classList.remove('hidden');
+    }
+    window.closeGradingModal = () => document.getElementById('gradingModal').classList.add('hidden');
+
+    window.updateScore = async function(amount) {
+        if (currentSelectedStudentId === null) return;
+        const students = window.classDataCache[currentGrade][currentClass];
+        const newScore = students[currentSelectedStudentId].score + amount;
+        document.getElementById('gradingCurrentScore').textContent = newScore;
         
         try {
-            // 寫入 Firebase
-            for (let k of keys) {
-                const docRef = getDocRef('classes', k);
-                await setDoc(docRef, classDict[k]);
-            }
-            
-            // 清空輸入框
-            document.getElementById('importTextarea').value = '';
-            document.getElementById('csvFileInput').value = '';
-            
-            showModal('匯入成功', `成功將 ${totalStudents} 筆資料寫入 Firebase！`);
-            await fetchClassList(); // 重新整理選單
-        } catch (error) {
-            console.error(error);
-            showModal('匯入失敗', error.message);
-        }
+            const docRef = getDocRef('classes', `${currentGrade}_${currentClass}`);
+            students[currentSelectedStudentId].score = newScore;
+            await updateDoc(docRef, { students: students });
+        } catch (e) { console.error(e); }
     }
 
-    // --- 新增：展開匯出 Modal 與全選邏輯 ---
-    window.openExportModal = function() {
-        const listContainer = document.getElementById('exportClassList');
-        listContainer.innerHTML = '';
-        
-        let hasClasses = false;
-        
-        // 建立「全選」核取方塊
-        const selectAllDiv = document.createElement('div');
-        selectAllDiv.className = "flex items-center gap-2 p-2 border-b border-gray-200 mb-1 pb-2";
-        selectAllDiv.innerHTML = `
-            <input type="checkbox" id="exportSelectAll" class="w-4 h-4 text-green-600 rounded cursor-pointer" onchange="toggleAllExportClasses(this.checked)"> 
-            <label for="exportSelectAll" class="font-bold text-green-700 cursor-pointer text-sm select-none">全選 (匯出所有班級)</label>
-        `;
-        listContainer.appendChild(selectAllDiv);
-
-        // 列出快取中所有的班級
-        for (const g in classDataCache) {
-            for (const c in classDataCache[g]) {
-                hasClasses = true;
-                const item = document.createElement('div');
-                item.className = "flex items-center gap-2 p-2 hover:bg-gray-100 rounded transition-colors";
-                // 預設將目前正在看的班級打勾
-                const isCurrent = (g === currentGrade && c === currentClass) ? 'checked' : '';
-                
-                item.innerHTML = `
-                    <input type="checkbox" value="${g}_${c}" class="export-class-cb w-4 h-4 text-blue-600 rounded cursor-pointer" id="cb_export_${g}_${c}" ${isCurrent}> 
-                    <label for="cb_export_${g}_${c}" class="cursor-pointer text-sm text-gray-700 select-none flex-1">${g} 年 ${c} 班</label>
-                `;
-                listContainer.appendChild(item);
-            }
-        }
-
-        if (!hasClasses) {
-            listContainer.innerHTML = '<div class="p-6 text-center text-gray-400 text-sm">系統內目前沒有任何班級資料</div>';
-        }
-
-        document.getElementById('exportModal').classList.remove('hidden');
+    window.updateTAStatus = async function(val) {
+        if (currentSelectedStudentId === null) return;
+        const students = window.classDataCache[currentGrade][currentClass];
+        students[currentSelectedStudentId].isTA = val;
+        try {
+            await updateDoc(getDocRef('classes', `${currentGrade}_${currentClass}`), { students: students });
+        } catch (e) { console.error(e); }
     }
 
-    window.toggleAllExportClasses = function(checked) {
-        document.querySelectorAll('.export-class-cb').forEach(cb => cb.checked = checked);
-    }
-
-    // --- 執行匯出 CSV ---
-    window.executeExport = function() {
-        const selectedCbs = document.querySelectorAll('.export-class-cb:checked');
-        if (selectedCbs.length === 0) { showModal('提示', '請至少勾選一個要匯出的班級！'); return; }
-
-        let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; // 加上 BOM 避免 Excel 亂碼
-        csvContent += "班級,座號,姓名,課堂加扣分,小老師\n";
-
-        // 收集所有勾選的班級資料
-        selectedCbs.forEach(cb => {
-            const parts = cb.value.split('_');
-            const g = parts[0];
-            const c = parts[1];
-            const students = classDataCache[g][c] || [];
-            
-            students.forEach(s => {
-                const classFull = `${g}${c}`;
-                const row = `${classFull},${s.no},${s.name},${s.score},${s.isTA ? 'V' : ''}`;
-                csvContent += row + "\n";
-            });
-        });
-
-        // 建立下載連結
-        const encodedUri = encodeURI(csvContent);
-        const link = document.createElement("a");
-        link.setAttribute("href", encodedUri);
-        
-        // 根據勾選數量決定檔名
-        const totalClasses = document.querySelectorAll('.export-class-cb').length;
-        const fileName = (selectedCbs.length === totalClasses && totalClasses > 1) 
-            ? `全校紀錄匯出_${new Date().toISOString().slice(0,10)}.csv` 
-            : `班級紀錄匯出_${new Date().toISOString().slice(0,10)}.csv`;
-            
-        link.setAttribute("download", fileName);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        document.getElementById('exportModal').classList.add('hidden');
-    }
-
-    // ================= 實驗表格渲染與儲存 =================
-
+    // ================= 實驗表格邏輯 =================
     window.renderTableTemplate = function() {
         const val = document.getElementById('expSelect').value;
         const container = document.getElementById('table-container');
         let html = '';
-        
-        // ... (保留原始的 HTML 表格結構，改為稍微柔和的顏色) ...
         if (val === 'exp1') {
-            html = `
-                <h3 class="font-bold text-center text-blue-900 mb-3 text-lg">1. 固定電阻 (1000Ω 棕黑紅金)</h3>
-                <table class="border-collapse text-center w-full">
-                    <thead><tr class="bg-blue-100 border border-blue-200 text-blue-900"><th class="border border-blue-200 py-1.5">輸入電壓</th><th class="border border-blue-200">實際電壓(V)</th><th class="border border-blue-200">電流(mA)</th><th class="border border-blue-200">比值(Ω)</th></tr></thead>
-                    <tbody>
-                        <tr><td class="border border-gray-200 bg-gray-50 py-1.5 font-medium">1.5V</td><td class="border border-gray-200"><input type="number" class="table-input input-v" step="any"></td><td class="border border-gray-200"><input type="number" class="table-input input-i" step="any"></td><td class="border border-gray-200 font-bold text-blue-700 result-r bg-blue-50/30">-</td></tr>
-                        <tr><td class="border border-gray-200 bg-gray-50 py-1.5 font-medium">3V</td><td class="border border-gray-200"><input type="number" class="table-input input-v" step="any"></td><td class="border border-gray-200"><input type="number" class="table-input input-i" step="any"></td><td class="border border-gray-200 font-bold text-blue-700 result-r bg-blue-50/30">-</td></tr>
-                        <tr><td class="border border-gray-200 bg-gray-50 py-1.5 font-medium">4.5V</td><td class="border border-gray-200"><input type="number" class="table-input input-v" step="any"></td><td class="border border-gray-200"><input type="number" class="table-input input-i" step="any"></td><td class="border border-gray-200 font-bold text-blue-700 result-r bg-blue-50/30">-</td></tr>
-                    </tbody>
-                </table>
-                <div class="mt-4 text-[var(--font-size)] space-y-2 text-gray-700 bg-gray-50 p-3 rounded-lg border border-gray-200">
-                    <p class="flex items-center gap-2">a. 電壓除以電流是否是一個定值？ <input type="text" class="fill-blank w-16"> 意義： <input type="text" class="fill-blank flex-1"></p>
-                    <p class="flex items-center gap-2">b. 電壓變 <input type="text" class="fill-blank w-12"> 倍，電流變 <input type="text" class="fill-blank w-12"> 倍，成 <input type="text" class="fill-blank w-12"> 比</p>
-                </div>`;
+            html = `<h3 class="font-bold text-center text-blue-900 mb-3 text-lg">1. 固定電阻 (1000Ω)</h3><table class="border-collapse text-center w-full"><thead><tr class="bg-blue-100"><th>輸入電壓</th><th>實際電壓(V)</th><th>電流(mA)</th><th>比值(Ω)</th></tr></thead><tbody><tr><td>1.5V</td><td><input type="number" class="table-input input-v" step="any"></td><td><input type="number" class="table-input input-i" step="any"></td><td class="result-r">-</td></tr><tr><td>3V</td><td><input type="number" class="table-input input-v" step="any"></td><td><input type="number" class="table-input input-i" step="any"></td><td class="result-r">-</td></tr><tr><td>4.5V</td><td><input type="number" class="table-input input-v" step="any"></td><td><input type="number" class="table-input input-i" step="any"></td><td class="result-r">-</td></tr></tbody></table>`;
         } else if (val === 'exp2' || val === 'exp3') {
             const sym = val === 'exp2' ? '+' : '//';
-            const title = val === 'exp2' ? '實驗二：電阻串聯 (固定 3V)' : '實驗三：電阻並聯 (固定 3V)';
-            html = `
-                <h3 class="font-bold text-center text-blue-900 mb-3 text-lg">${title}</h3>
-                <table class="border-collapse text-center w-full">
-                    <thead><tr class="bg-blue-100 border border-blue-200 text-blue-900"><th class="border border-blue-200 py-1.5">組合</th><th class="border border-blue-200">三用電表(Ω)</th><th class="border border-blue-200">電壓(V)</th><th class="border border-blue-200">電流(mA)</th><th class="border border-blue-200">比值(Ω)</th></tr></thead>
-                    <tbody>
-                        <tr><td class="border border-gray-200 bg-gray-50 px-1 py-1.5 whitespace-nowrap">1個：<input type="text" class="fill-blank w-8" value="1K"></td><td class="border border-gray-200"><input type="number" class="table-input" step="any"></td><td class="border border-gray-200"><input type="number" class="table-input input-v" step="any"></td><td class="border border-gray-200"><input type="number" class="table-input input-i" step="any"></td><td class="border border-gray-200 font-bold text-blue-700 result-r bg-blue-50/30">-</td></tr>
-                        <tr><td class="border border-gray-200 bg-gray-50 px-1 py-1.5 whitespace-nowrap">2個：<input type="text" class="fill-blank w-6" value="1K">${sym}<input type="text" class="fill-blank w-6" value="1K"></td><td class="border border-gray-200"><input type="number" class="table-input" step="any"></td><td class="border border-gray-200"><input type="number" class="table-input input-v" step="any"></td><td class="border border-gray-200"><input type="number" class="table-input input-i" step="any"></td><td class="border border-gray-200 font-bold text-blue-700 result-r bg-blue-50/30">-</td></tr>
-                        <tr><td class="border border-gray-200 bg-gray-50 px-1 py-1.5 whitespace-nowrap">3個：<input type="text" class="fill-blank w-4" value="1K">${sym}<input type="text" class="fill-blank w-4" value="1K">${sym}<input type="text" class="fill-blank w-4" value="1K"></td><td class="border border-gray-200"><input type="number" class="table-input" step="any"></td><td class="border border-gray-200"><input type="number" class="table-input input-v" step="any"></td><td class="border border-gray-200"><input type="number" class="table-input input-i" step="any"></td><td class="border border-gray-200 font-bold text-blue-700 result-r bg-blue-50/30">-</td></tr>
-                    </tbody>
-                </table>
-                <div class="mt-4 text-[var(--font-size)] bg-gray-50 p-3 rounded-lg border border-gray-200 flex items-center gap-2">
-                    <span class="font-bold text-gray-700">結論：</span><input type="text" class="fill-blank flex-1">
-                </div>`;
+            html = `<h3 class="font-bold text-center text-blue-900 mb-3 text-lg">${val==='exp2'?'串聯':'並聯'}實驗</h3><table class="border-collapse text-center w-full"><thead><tr class="bg-blue-100"><th>組合</th><th>三用電表(Ω)</th><th>電壓(V)</th><th>電流(mA)</th><th>比值(Ω)</th></tr></thead><tbody><tr><td>1個：<input type="text" class="fill-blank w-8" value="1K"></td><td><input type="number" class="table-input"></td><td><input type="number" class="table-input input-v"></td><td><input type="number" class="table-input input-i"></td><td class="result-r">-</td></tr><tr><td>2個：<input type="text" class="fill-blank w-6" value="1K">${sym}<input type="text" class="fill-blank w-6" value="1K"></td><td><input type="number" class="table-input"></td><td><input type="number" class="table-input input-v"></td><td><input type="number" class="table-input input-i"></td><td class="result-r">-</td></tr><tr><td>3個：<input type="text" class="fill-blank w-4" value="1K">${sym}<input type="text" class="fill-blank w-4" value="1K">${sym}<input type="text" class="fill-blank w-4" value="1K"></td><td><input type="number" class="table-input"></td><td><input type="number" class="table-input input-v"></td><td><input type="number" class="table-input input-i"></td><td class="result-r">-</td></tr></tbody></table>`;
         } else if (val === 'exp4') {
-            html = `
-                <h3 class="font-bold text-center text-green-700 mb-3 text-lg">4. 並聯兩個電阻觀察迴路</h3>
-                <table class="border-collapse text-center w-full">
-                    <thead><tr class="bg-green-100 border border-green-200 text-green-900"><th class="border border-green-200 py-1.5">位置</th><th class="border border-green-200">電阻(Ω)</th><th class="border border-green-200">電壓(V)</th><th class="border border-green-200">電流(mA)</th></tr></thead>
-                    <tbody>
-                        <tr><td class="border border-gray-200 font-bold bg-gray-50 py-1.5 text-gray-700">迴路 1</td><td class="border border-gray-200"><input type="number" class="table-input" step="any"></td><td class="border border-gray-200"><input type="number" class="table-input" step="any"></td><td class="border border-gray-200"><input type="number" class="table-input" step="any"></td></tr>
-                        <tr><td class="border border-gray-200 font-bold bg-gray-50 py-1.5 text-gray-700">迴路 2</td><td class="border border-gray-200"><input type="number" class="table-input" step="any"></td><td class="border border-gray-200"><input type="number" class="table-input" step="any"></td><td class="border border-gray-200"><input type="number" class="table-input" step="any"></td></tr>
-                        <tr><td class="border border-gray-200 font-bold bg-green-50/50 py-1.5 text-green-800">總和</td><td class="border border-gray-200"><input type="number" class="table-input bg-green-50/30" step="any"></td><td class="border border-gray-200"><input type="number" class="table-input bg-green-50/30" step="any"></td><td class="border border-gray-200"><input type="number" class="table-input bg-green-50/30" step="any"></td></tr>
-                    </tbody>
-                </table>
-                <div class="mt-4 text-[var(--font-size)] space-y-2 text-gray-700 bg-gray-50 p-3 rounded-lg border border-gray-200">
-                    <p class="flex items-center gap-2">A: 電阻比 迴1:迴2 = <input type="text" class="fill-blank w-12"> : <input type="text" class="fill-blank w-12"></p>
-                    <p class="flex items-center gap-2">B: 電流比 迴1:迴2 = <input type="text" class="fill-blank w-12"> : <input type="text" class="fill-blank w-12"></p>
-                    <p class="flex items-center gap-2">C: 結論 <input type="text" class="fill-blank flex-1"></p>
-                </div>`;
+            html = `<h3 class="font-bold text-center text-green-700 mb-3 text-lg">4. 並聯迴路觀察</h3><table class="border-collapse text-center w-full"><thead><tr class="bg-green-100"><th>位置</th><th>電阻(Ω)</th><th>電壓(V)</th><th>電流(mA)</th></tr></thead><tbody><tr><td>迴路 1</td><td><input type="number" class="table-input"></td><td><input type="number" class="table-input"></td><td><input type="number" class="table-input"></td></tr><tr><td>迴路 2</td><td><input type="number" class="table-input"></td><td><input type="number" class="table-input"></td><td><input type="number" class="table-input"></td></tr><tr><td>總和</td><td><input type="number" class="table-input"></td><td><input type="number" class="table-input"></td><td><input type="number" class="table-input"></td></tr></tbody></table>`;
         }
         container.innerHTML = html;
         loadExpData();
@@ -815,263 +488,134 @@
 
     window.calculateRatio = function() {
         document.querySelectorAll('#table-container tr').forEach(row => {
-            const vIn = row.querySelector('.input-v');
-            const iIn = row.querySelector('.input-i');
-            
-            let v = NaN;
-            if (vIn && vIn.value !== "") v = parseFloat(vIn.value);
-            else if (row.cells[0] && row.cells[0].innerText.includes('V')) v = parseFloat(row.cells[0].innerText.replace('V',''));
-
-            const i = iIn && iIn.value !== "" ? parseFloat(iIn.value) : NaN;
-            const res = row.querySelector('.result-r');
-            
-            if (res) {
-                if (!isNaN(v) && !isNaN(i) && i !== 0) {
-                    res.textContent = ((v / i) * 1000).toFixed(2);
-                } else {
-                    res.textContent = '-';
-                }
-            }
+            const vIn = row.querySelector('.input-v'), iIn = row.querySelector('.input-i');
+            let v = vIn ? parseFloat(vIn.value) : (row.cells[0]?.innerText.includes('V') ? parseFloat(row.cells[0].innerText) : NaN);
+            const i = iIn ? parseFloat(iIn.value) : NaN, res = row.querySelector('.result-r');
+            if (res) res.textContent = (!isNaN(v) && !isNaN(i) && i !== 0) ? ((v / i) * 1000).toFixed(2) : '-';
         });
     }
 
     window.saveExpData = async function() {
-        if (!currentGrade || !currentClass) { showModal('錯誤', '請先選擇班級'); return; }
+        if (!currentGrade || !currentClass || !isFirebaseReady) return showModal('錯誤', '請選擇班級');
         const expType = document.getElementById('expSelect').value;
-        const inputs = Array.from(document.querySelectorAll('#table-container input'));
-        const data = inputs.map(i => i.value);
-
+        const data = Array.from(document.querySelectorAll('#table-container input')).map(i => i.value);
+        const docId = `${currentGrade}_${currentClass}_${expType}`;
         const btn = document.getElementById('saveExpBtn');
-        btn.innerHTML = '<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> 儲存中...';
-
-        if (!isFirebaseReady) {
-            setTimeout(() => {
-                showModal('完成(離線模式)', '實驗數據已暫存。');
-                btn.innerHTML = '儲存表格至雲端';
-            }, 500);
-            return;
-        }
-
+        btn.disabled = true;
         try {
-            const docId = `${currentGrade}_${currentClass}_${expType}`;
-            const docRef = getDocRef('experiments', docId);
-            await setDoc(docRef, {
-                grade: currentGrade,
-                className: currentClass,
-                expType: expType,
-                data: data,
-                updatedAt: new Date().toISOString()
-            });
-            btn.innerHTML = '儲存表格至雲端';
+            await setDoc(getDocRef('experiments', docId), { grade: currentGrade, className: currentClass, expType, data, updatedAt: new Date().toISOString() });
             showSaveSuccess();
-        } catch (error) {
-            btn.innerHTML = '儲存表格至雲端';
-            showModal('錯誤', '表格儲存失敗：' + error.message);
-        }
+        } catch (e) { showModal('錯誤', e.message); }
+        btn.disabled = false;
     }
 
     window.loadExpData = async function() {
-        if (!currentGrade || !currentClass || !isFirebaseReady) {
-            document.querySelectorAll('#table-container input').forEach(input => input.value = input.defaultValue);
-            calculateRatio();
-            return;
-        }
-
+        if (!currentGrade || !currentClass || !isFirebaseReady) return;
         const expType = document.getElementById('expSelect').value;
-        const docId = `${currentGrade}_${currentClass}_${expType}`;
-        const docRef = getDocRef('experiments', docId);
-
         try {
-            const docSnap = await getDoc(docRef);
+            const docSnap = await getDoc(getDocRef('experiments', `${currentGrade}_${currentClass}_${expType}`));
             if (docSnap.exists()) {
                 const data = docSnap.data().data;
                 const ins = document.querySelectorAll('#table-container input');
                 ins.forEach((input, idx) => { if (data[idx] !== undefined) input.value = data[idx]; });
                 calculateRatio();
-            } else {
-                document.querySelectorAll('#table-container input').forEach(input => input.value = input.defaultValue);
-                calculateRatio();
             }
-        } catch (error) {
-            console.error("Load exp error:", error);
-        }
+        } catch (e) {}
     }
 
-    window.clearExpData = async function() {
-        document.querySelectorAll('#table-container input').forEach(i => i.value = i.defaultValue);
-        calculateRatio();
-        
-        if (isFirebaseReady && currentGrade && currentClass) {
-            const expType = document.getElementById('expSelect').value;
-            const docId = `${currentGrade}_${currentClass}_${expType}`;
-            const docRef = getDocRef('experiments', docId);
-            try { await setDoc(docRef, { data: [] }, { merge: true }); } catch (e) {}
-        }
-    }
-
-    // ================= UI 與事件綁定 =================
-    
+    // ================= 初始化與基本控制 =================
     function setupEventListeners() {
         document.getElementById('gradeSelect').addEventListener('change', updateClassDropdown);
         document.getElementById('classSelect').addEventListener('change', () => { loadClassStudents(); loadExpData(); });
         document.getElementById('expSelect').addEventListener('change', renderTableTemplate);
-        
         document.getElementById('calcBtn').addEventListener('click', calculateRatio);
         document.getElementById('saveExpBtn').addEventListener('click', saveExpData);
-        document.getElementById('clearExpBtn').addEventListener('click', clearExpData);
-
-        // UI Layout Controls
-        const fontSlider = document.getElementById('fontSlider');
-        const colWidthSlider = document.getElementById('colWidthSlider');
-        fontSlider.addEventListener('input', () => document.documentElement.style.setProperty('--font-size', fontSlider.value + 'px'));
-        colWidthSlider.addEventListener('input', () => document.documentElement.style.setProperty('--col1-width', colWidthSlider.value + 'px'));
-
-        document.getElementById('swapLayoutBtn').addEventListener('click', () => { 
-            const main = document.getElementById('mainContainer');
-            main.classList.toggle('md:flex-row'); main.classList.toggle('md:flex-row-reverse'); 
-        });
-        document.getElementById('fullscreenBtn').addEventListener('click', () => {
-            if (!document.fullscreenElement) { document.documentElement.requestFullscreen().catch(e => console.log(e)); } 
-            else { document.exitFullscreen(); }
-        });
-
+        document.getElementById('fontSlider').addEventListener('input', (e) => document.documentElement.style.setProperty('--font-size', e.target.value + 'px'));
+        document.getElementById('colWidthSlider').addEventListener('input', (e) => document.documentElement.style.setProperty('--col1-width', e.target.value + 'px'));
+        document.getElementById('swapLayoutBtn').addEventListener('click', () => document.getElementById('mainContainer').classList.toggle('md:flex-row-reverse'));
+        document.getElementById('fullscreenBtn').addEventListener('click', () => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen());
         setupResizer();
     }
 
-    // --- 相機控制 (強制 4K 畫質) ---
     async function initCamera() {
-        const video = document.getElementById('video');
         const cameraSelect = document.getElementById('cameraSelect');
         try {
             await navigator.mediaDevices.getUserMedia({ video: true });
             const devices = await navigator.mediaDevices.enumerateDevices();
             const videoDevices = devices.filter(d => d.kind === 'videoinput');
-            cameraSelect.innerHTML = '';
-            videoDevices.forEach((d, i) => cameraSelect.innerHTML += `<option value="${d.deviceId}">${d.label || '鏡頭'+(i+1)}</option>`);
+            cameraSelect.innerHTML = videoDevices.map((d, i) => `<option value="${d.deviceId}">${d.label || '鏡頭'+(i+1)}</option>`).join('');
             startStream();
         } catch (e) { document.getElementById('noCameraMsg').classList.remove('hidden'); }
     }
     
     async function startStream() {
-        const video = document.getElementById('video');
-        const cameraSelect = document.getElementById('cameraSelect');
-        if (!cameraSelect.value) return;
+        const video = document.getElementById('video'), devId = document.getElementById('cameraSelect').value;
+        if (!devId) return;
         try {
-            const s = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: cameraSelect.value }, width: { ideal: 3840 }, height: { ideal: 2160 } } });
-            video.srcObject = s;
-        } catch (err) {
-            try { const s = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: cameraSelect.value } } }); video.srcObject = s; } catch (e) {}
-        }
+            video.srcObject = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: devId }, width: { ideal: 3840 }, height: { ideal: 2160 } } });
+        } catch (e) { video.srcObject = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: devId } } }); }
     }
-    document.getElementById('cameraSelect')?.addEventListener('change', startStream);
-    document.getElementById('refreshCamBtn')?.addEventListener('click', initCamera);
+    document.getElementById('cameraSelect').addEventListener('change', startStream);
+    document.getElementById('refreshCamBtn').addEventListener('click', initCamera);
 
-    // --- 拖曳分隔線與側邊欄 ---
-    let isSidebarOpen = true;
-    let currentSidebarWidth = 480; 
-    
+    let isSidebarOpen = true, currentSidebarWidth = 480;
     function setupResizer() {
-        const resizer = document.getElementById('resizer');
-        const sidebar = document.getElementById('sidebar');
-        const mainContainer = document.getElementById('mainContainer');
-        const toggleSidebarBtn = document.getElementById('toggleSidebarBtn');
-        const sidebarIcon = document.getElementById('sidebar-icon');
-
-        let isResizing = false;
-        let lastDownX = 0;
-
-        resizer.addEventListener('mousedown', (e) => {
-            isResizing = true;
-            lastDownX = e.clientX;
-            document.body.style.cursor = 'col-resize';
-            document.getElementById('videoContainer').style.pointerEvents = 'none';
-            sidebar.style.pointerEvents = 'none';
-            mainContainer.classList.remove('transition-layout');
-            document.getElementById('videoContainer').classList.remove('transition-layout');
-            sidebar.classList.remove('transition-layout');
-        });
-
+        const resizer = document.getElementById('resizer'), sidebar = document.getElementById('sidebar'), toggleBtn = document.getElementById('toggleSidebarBtn');
+        let isResizing = false, lastX = 0;
+        resizer.addEventListener('mousedown', (e) => { isResizing = true; lastX = e.clientX; document.body.style.cursor = 'col-resize'; });
         document.addEventListener('mousemove', (e) => {
             if (!isResizing) return;
-            const isSwapped = mainContainer.classList.contains('md:flex-row-reverse');
-            let dx = e.clientX - lastDownX;
-            lastDownX = e.clientX;
-            if (isSwapped) currentSidebarWidth += dx; else currentSidebarWidth -= dx; 
-            if (currentSidebarWidth < 320) currentSidebarWidth = 320;
-            if (currentSidebarWidth > window.innerWidth * 0.7) currentSidebarWidth = window.innerWidth * 0.7;
+            const dx = e.clientX - lastX; lastX = e.clientX;
+            currentSidebarWidth += document.getElementById('mainContainer').classList.contains('md:flex-row-reverse') ? dx : -dx;
+            currentSidebarWidth = Math.max(320, Math.min(currentSidebarWidth, window.innerWidth * 0.8));
             sidebar.style.width = currentSidebarWidth + 'px';
         });
-
-        document.addEventListener('mouseup', () => {
-            if (isResizing) {
-                isResizing = false;
-                document.body.style.cursor = '';
-                document.getElementById('videoContainer').style.pointerEvents = '';
-                sidebar.style.pointerEvents = '';
-                mainContainer.classList.add('transition-layout');
-                document.getElementById('videoContainer').classList.add('transition-layout');
-                sidebar.classList.add('transition-layout');
-            }
-        });
-
-        window.updateLayout = function() {
+        document.addEventListener('mouseup', () => { isResizing = false; document.body.style.cursor = ''; });
+        window.updateLayout = () => {
             const isMobile = window.innerWidth < 768;
-            if (!isSidebarOpen) { 
-                sidebar.style.width = '0px'; 
-                sidebar.style.minWidth = '0px'; 
-                sidebarIcon.style.transform = 'rotate(180deg)'; 
-                resizer.style.display = 'none';
-            } else { 
-                sidebar.style.width = isMobile ? '100%' : currentSidebarWidth + 'px'; 
-                sidebar.style.minWidth = isMobile ? '100%' : '320px'; 
-                sidebarIcon.style.transform = 'rotate(0deg)'; 
-                resizer.style.display = isMobile ? 'none' : 'flex';
-            }
-        }
-        toggleSidebarBtn.addEventListener('click', () => { isSidebarOpen = !isSidebarOpen; updateLayout(); });
+            sidebar.style.width = isSidebarOpen ? (isMobile ? '100%' : currentSidebarWidth + 'px') : '0px';
+            resizer.style.display = isSidebarOpen && !isMobile ? 'flex' : 'none';
+        };
+        toggleBtn.addEventListener('click', () => { isSidebarOpen = !isSidebarOpen; updateLayout(); });
         window.addEventListener('resize', updateLayout);
     }
 
-    // 全域 Modal 控制函數
-    window.showModal = function(title, message) {
-        document.getElementById('modalTitle').textContent = title;
-        document.getElementById('modalMessage').textContent = message;
-        document.getElementById('customModal').classList.remove('hidden');
+    function showSaveSuccess() {
+        const ind = document.getElementById('saveStatusIndicator');
+        ind.classList.remove('hidden'); setTimeout(() => ind.classList.add('hidden'), 2000);
     }
+    window.showModal = (t, m) => { document.getElementById('modalTitle').textContent = t; document.getElementById('modalMessage').textContent = m; document.getElementById('customModal').classList.remove('hidden'); };
 
-    // ================= 啟動 Firebase 連線 =================
-    // 將連線邏輯放置於最尾端，確保所有 UI 函式已載入完畢
+    // --- 修正報錯的核心初始化區塊 ---
     try {
-        let configToUse = (typeof __firebase_config !== 'undefined' && __firebase_config) ? JSON.parse(__firebase_config) : myFirebaseConfig;
+        const hasEnvConfig = typeof __firebase_config !== 'undefined' && __firebase_config;
+        const configToUse = hasEnvConfig ? JSON.parse(__firebase_config) : myFirebaseConfig;
 
-        if (configToUse.apiKey) {
-            app = initializeApp(configToUse);
-            auth = getAuth(app);
-            db = getFirestore(app);
-            
-            // 在 Canvas 環境中需使用特定的 Token 登入，自行託管則使用匿名登入
-            const authenticate = async () => {
-                try {
-                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        await signInWithCustomToken(auth, __initial_auth_token);
-                    } else {
-                        await signInAnonymously(auth);
-                    }
-                    isFirebaseReady = true;
-                    if (window.initApp) window.initApp();
-                } catch (error) {
-                    console.error("Firebase Auth Error:", error);
-                    showOfflineMode();
+        app = initializeApp(configToUse); 
+        auth = getAuth(app); 
+        db = getFirestore(app);
+
+        const authenticate = async () => {
+            try {
+                // 如果環境變數與 Config 匹配（預覽模式），使用系統 Token
+                if (hasEnvConfig && typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    // 自行託管或 Token 不匹配時，強制使用匿名登入
+                    await signInAnonymously(auth);
                 }
-            };
-            authenticate();
-        } else {
-            // 沒有提供設定，進入離線測試模式
-            showOfflineMode();
-        }
-    } catch (e) {
-        console.error("Firebase Init Error:", e);
-        showOfflineMode();
+                isFirebaseReady = true; 
+                window.initApp();
+            } catch (err) {
+                console.error("Auth mismatch or error, falling back to anonymous:", err);
+                await signInAnonymously(auth);
+                isFirebaseReady = true; 
+                window.initApp();
+            }
+        };
+        authenticate();
+    } catch (e) { 
+        console.error("Firebase Init Error:", e); 
     }
 
 </script>
