@@ -71,7 +71,7 @@
             <div class="flex items-center justify-between mb-3">
                 <h1 class="text-xl font-extrabold text-blue-900 tracking-tight">實驗紀錄系統 <span class="text-xs font-normal text-white bg-blue-500 px-2 py-0.5 rounded-full ml-1 shadow-sm">v3.0 雲端版</span></h1>
                 <div class="flex gap-2">
-                    <button onclick="openSettingsModal()" class="text-xs bg-white text-gray-600 border border-gray-300 px-2 py-1 rounded hover:bg-gray-50 transition flex items-center gap-1"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>設定</button>
+                    <!-- 移除了設定按鈕 -->
                     <button onclick="document.getElementById('importModal').classList.remove('hidden')" class="text-xs bg-white text-gray-600 border border-gray-300 px-2 py-1 rounded hover:bg-gray-50 transition">匯入名單</button>
                     <button onclick="exportClassData()" class="text-xs bg-white text-gray-600 border border-gray-300 px-2 py-1 rounded hover:bg-gray-50 transition">匯出紀錄</button>
                 </div>
@@ -206,28 +206,19 @@
             匯入班級名單
         </h3>
         
-        <div class="flex gap-3 mb-4">
-            <div class="flex-1">
-                <label class="block text-xs font-bold text-gray-700 mb-1">年級 (例: 8)</label>
-                <input type="text" id="importGrade" class="w-full border border-gray-300 rounded p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
-            </div>
-            <div class="flex-1">
-                <label class="block text-xs font-bold text-gray-700 mb-1">班級 (例: 01)</label>
-                <input type="text" id="importClass" class="w-full border border-gray-300 rounded p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
-            </div>
-        </div>
+        <p class="text-sm text-gray-600 mb-2">請直接從 Excel 框選 <code class="bg-gray-200 px-1.5 py-0.5 rounded text-blue-700 font-mono">班級, 座號, 姓名, 課堂加扣分(可略), 小老師(可略)</code> 五欄並貼上。系統會自動略過標題行。</p>
 
         <div class="mb-4 bg-gray-50 p-3 rounded-lg border border-gray-200">
-            <label class="block text-xs font-bold text-gray-700 mb-2">方式一：上傳 CSV 檔案</label>
+            <label class="block text-xs font-bold text-gray-700 mb-2">方式一：直接上傳 CSV 檔案</label>
             <input type="file" id="csvFileInput" accept=".csv" onchange="handleCSVUpload(event)" class="w-full text-sm text-gray-500 file:mr-4 file:py-1.5 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-100 file:text-blue-700 hover:file:bg-blue-200 transition">
         </div>
 
-        <p class="text-xs text-gray-600 mb-2">方式二：直接從 Excel 複製貼上，或輸入格式 <code class="bg-gray-200 px-1.5 py-0.5 rounded text-blue-700 font-mono">座號,姓名</code></p>
-        <textarea id="importTextarea" class="w-full h-40 border border-gray-300 rounded-lg p-3 text-sm font-mono mb-4 focus:ring-2 focus:ring-blue-500 outline-none bg-gray-50 placeholder-gray-400" placeholder="1,王小明&#10;2,陳大華&#10;..."></textarea>
+        <p class="text-xs text-gray-700 font-bold mb-1">方式二：直接複製貼上</p>
+        <textarea id="importTextarea" class="w-full h-40 border border-gray-300 rounded-lg p-3 text-sm font-mono mb-4 focus:ring-2 focus:ring-blue-500 outline-none bg-white placeholder-gray-400" placeholder="801	1	吳彥霆		&#10;801	2	李祐漢	2	V&#10;..."></textarea>
         
         <div class="flex gap-3">
             <button onclick="document.getElementById('importModal').classList.add('hidden')" class="flex-1 bg-white border border-gray-300 text-gray-700 font-bold py-2 rounded-lg hover:bg-gray-50 transition">取消</button>
-            <button onclick="processImport()" class="flex-[2] bg-blue-600 text-white font-bold py-2 rounded-lg shadow hover:bg-blue-700 transition">確認並匯入</button>
+            <button onclick="processImport()" class="flex-[2] bg-blue-600 text-white font-bold py-2 rounded-lg shadow hover:bg-blue-700 transition">確認並解析匯入</button>
         </div>
     </div>
 </div>
@@ -241,60 +232,6 @@
     </div>
 </div>
 
-<!-- 4. Firebase 設定 Modal -->
-<div id="settingsModal" class="fixed inset-0 z-[75] flex items-center justify-center bg-gray-900/60 hidden backdrop-blur-sm p-4 overflow-y-auto">
-    <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 modal-enter my-8">
-        <div class="flex justify-between items-center mb-4 border-b pb-3">
-            <h3 class="text-xl font-bold text-gray-800 flex items-center gap-2">
-                <svg class="w-6 h-6 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-                Firebase 連線設定
-            </h3>
-            <button onclick="document.getElementById('settingsModal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-            </button>
-        </div>
-        
-        <p class="text-xs text-gray-500 mb-4 bg-yellow-50 p-2 rounded border border-yellow-200">
-            這些設定會安全地保存在您當前瀏覽器的 <code>localStorage</code> 中。上課投影時，密碼欄位預設隱藏以保護隱私。
-        </p>
-
-        <div class="space-y-3 mb-6">
-            <div>
-                <label class="block text-xs font-bold text-gray-700 mb-1">apiKey</label>
-                <div class="relative">
-                    <input type="password" id="fb_apiKey" class="w-full border border-gray-300 rounded p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none pr-10 font-mono" placeholder="AIzaSy...">
-                    <button type="button" onclick="togglePasswordVisibility('fb_apiKey')" class="absolute inset-y-0 right-0 px-3 flex items-center text-gray-500 hover:text-gray-700">👁️</button>
-                </div>
-            </div>
-            <div>
-                <label class="block text-xs font-bold text-gray-700 mb-1">authDomain</label>
-                <input type="text" id="fb_authDomain" class="w-full border border-gray-300 rounded p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-mono" placeholder="your-project.firebaseapp.com">
-            </div>
-            <div>
-                <label class="block text-xs font-bold text-gray-700 mb-1">projectId</label>
-                <input type="text" id="fb_projectId" class="w-full border border-gray-300 rounded p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-mono" placeholder="your-project-id">
-            </div>
-            <div>
-                <label class="block text-xs font-bold text-gray-700 mb-1">storageBucket</label>
-                <input type="text" id="fb_storageBucket" class="w-full border border-gray-300 rounded p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-mono" placeholder="your-project.appspot.com">
-            </div>
-            <div>
-                <label class="block text-xs font-bold text-gray-700 mb-1">messagingSenderId</label>
-                <input type="text" id="fb_messagingSenderId" class="w-full border border-gray-300 rounded p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-mono" placeholder="1234567890">
-            </div>
-            <div>
-                <label class="block text-xs font-bold text-gray-700 mb-1">appId</label>
-                <input type="text" id="fb_appId" class="w-full border border-gray-300 rounded p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-mono" placeholder="1:1234567890:web:abcde12345">
-            </div>
-        </div>
-        
-        <div class="flex gap-2">
-            <button onclick="clearSettings()" class="flex-1 bg-red-50 text-red-600 font-bold py-2 rounded-lg hover:bg-red-100 transition text-sm">清除並離線</button>
-            <button onclick="saveSettings()" class="flex-[2] bg-indigo-600 text-white font-bold py-2 rounded-lg shadow hover:bg-indigo-700 transition">儲存並重新載入</button>
-        </div>
-    </div>
-</div>
-
 <!-- Firebase v11 SDK Modules -->
 <script type="module">
     // 匯入 Firebase 核心與 Auth、Firestore
@@ -305,7 +242,6 @@
     /* * ==========================================
      * 🔥 FIREBASE 設定區 (如果要自行託管在 GitHub，請修改這裡)
      * ==========================================
-     * 將您在 Firebase 控制台得到的 config 貼在這邊。
      */
     const myFirebaseConfig = {
         apiKey: "AIzaSyACZgJU1uxCi1sHZe528cN7Aw7HQ0eMjtM",
@@ -341,7 +277,7 @@
 
     function showOfflineMode() {
         document.getElementById('offlineWarning').classList.remove('hidden');
-        document.getElementById('student-list').innerHTML = '<div class="p-8 text-center text-gray-500">未連接資料庫。請點擊「匯入名單」載入測試資料，或於<button onclick="openSettingsModal()" class="text-blue-500 underline ml-1">設定 Firebase</button>。</div>';
+        document.getElementById('student-list').innerHTML = '<div class="p-8 text-center text-gray-500">未連接資料庫。請點擊「匯入名單」載入測試資料。</div>';
         // 即使離線也讓 UI 可以運作 (存在記憶體中)
         if (window.initApp) window.initApp();
     }
@@ -617,50 +553,67 @@
     };
 
     window.processImport = async function() {
-        const grade = document.getElementById('importGrade').value.trim();
-        const className = document.getElementById('importClass').value.trim();
         const text = document.getElementById('importTextarea').value.trim();
-
-        if (!grade || !className) { showModal('錯誤', '請先填寫上方「年級」與「班級」欄位'); return; }
         if (!text) { showModal('錯誤', '請貼上名單資料或上傳 CSV 檔'); return; }
 
         const lines = text.split('\n');
-        const students = [];
+        const classDict = {}; // 格式: { '8_01': { grade: '8', className: '01', students: [...] } }
+        let totalStudents = 0;
 
         lines.forEach(line => {
             // 支援逗號 (CSV) 或是 Tab 鍵 (Excel直接複製貼上) 作為分隔符
-            const parts = line.split(/[,\t]+/).map(s => s.trim()).filter(s => s !== '');
-            if (parts.length >= 2) {
-                const no = parts[0];
-                const name = parts[1];
+            const parts = line.split(/[,\t]+/).map(s => s.trim());
+            
+            // 至少需要 班級, 座號, 姓名 三個欄位
+            if (parts.length >= 3 && parts[0] !== '') {
+                const classRaw = parts[0];
+                const no = parts[1];
+                const name = parts[2];
+                const scoreStr = parts[3] || "0";
+                const taStr = parts[4] || "";
+
+                // 防呆：如果是標題列 (座號不是數字)，就直接略過
+                if (isNaN(parseInt(no))) return;
                 
+                // 拆解班級代碼 (例如：801 -> 年級 8, 班級 01)
+                let grade = classRaw.substring(0, 1);
+                let className = classRaw.substring(1);
+                
+                // 例外處理：如果使用者班級只有打 1 碼
+                if (classRaw.length === 1) { grade = classRaw; className = "0"; }
+
+                const key = `${grade}_${className}`;
+                if (!classDict[key]) {
+                    classDict[key] = { grade, className, students: [] };
+                }
+
+                // 處理加扣分與小老師
+                const score = parseInt(scoreStr) || 0;
+                const isTA = (taStr === 'V' || taStr === 'v' || taStr === '是' || taStr === '1' || taStr === '✓');
+
                 // 檢查是否已存在 (避免重複)
-                const exists = students.find(s => s.no === no);
-                if (!exists && !isNaN(parseInt(no))) {
-                    students.push({
-                        no: no,
-                        name: name,
-                        score: 0,
-                        isTA: false
-                    });
+                const exists = classDict[key].students.find(s => s.no === no);
+                if (!exists) {
+                    classDict[key].students.push({ no, name, score, isTA });
+                    totalStudents++;
                 }
             }
         });
 
-        if (students.length === 0) { showModal('錯誤', '解析失敗，請確認格式為：座號,姓名'); return; }
-
-        const key = `${grade}_${className}`;
-        const classData = { grade, className, students };
+        const keys = Object.keys(classDict);
+        if (keys.length === 0) { showModal('錯誤', '解析失敗！請確認有複製到包含「班級、座號、姓名」的內容。'); return; }
 
         if (!isFirebaseReady) {
             // 離線模擬
-            if (!classDataCache[grade]) classDataCache[grade] = {};
-            classDataCache[grade][className] = students;
-            
+            keys.forEach(k => {
+                const c = classDict[k];
+                if (!classDataCache[c.grade]) classDataCache[c.grade] = {};
+                classDataCache[c.grade][c.className] = c.students;
+            });
             document.getElementById('importModal').classList.add('hidden');
             document.getElementById('importTextarea').value = '';
             document.getElementById('csvFileInput').value = '';
-            showModal('匯入成功(離線模式)', `共匯入 ${students.length} 筆學生資料至 ${grade}年${className}班。`);
+            showModal('匯入成功(離線模式)', `共匯入 ${totalStudents} 筆學生資料。`);
             updateDropdowns(Object.keys(classDataCache));
             return;
         }
@@ -669,14 +622,16 @@
         
         try {
             // 寫入 Firebase
-            const docRef = getDocRef('classes', key);
-            await setDoc(docRef, classData);
+            for (let k of keys) {
+                const docRef = getDocRef('classes', k);
+                await setDoc(docRef, classDict[k]);
+            }
             
             // 清空輸入框
             document.getElementById('importTextarea').value = '';
             document.getElementById('csvFileInput').value = '';
             
-            showModal('匯入成功', `成功將 ${students.length} 筆資料寫入 ${grade}年${className}班！`);
+            showModal('匯入成功', `成功將 ${totalStudents} 筆資料寫入 Firebase！`);
             await fetchClassList(); // 重新整理選單
         } catch (error) {
             console.error(error);
@@ -693,10 +648,11 @@
         if (!students || students.length === 0) { showModal('錯誤', '該班級沒有學生資料'); return; }
 
         let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; // 加上 BOM 避免 Excel 中文亂碼
-        csvContent += "年級,班級,座號,姓名,加扣分總分,小老師\n";
+        csvContent += "班級,座號,姓名,課堂加扣分,小老師\n"; // 符合原匯入格式
 
         students.forEach(s => {
-            const row = `${g},${c},${s.no},${s.name},${s.score},${s.isTA ? '是' : '否'}`;
+            const classFull = `${g}${c}`;
+            const row = `${classFull},${s.no},${s.name},${s.score},${s.isTA ? 'V' : ''}`;
             csvContent += row + "\n";
         });
 
@@ -995,73 +951,10 @@
         document.getElementById('customModal').classList.remove('hidden');
     }
 
-    // ================= Firebase 設定 Modal 邏輯 =================
-    window.openSettingsModal = function() {
-        const localConfigStr = localStorage.getItem('lab_firebase_config');
-        if (localConfigStr) {
-            const config = JSON.parse(localConfigStr);
-            document.getElementById('fb_apiKey').value = config.apiKey || "";
-            document.getElementById('fb_authDomain').value = config.authDomain || "";
-            document.getElementById('fb_projectId').value = config.projectId || "";
-            document.getElementById('fb_storageBucket').value = config.storageBucket || "";
-            document.getElementById('fb_messagingSenderId').value = config.messagingSenderId || "";
-            document.getElementById('fb_appId').value = config.appId || "";
-        }
-        document.getElementById('settingsModal').classList.remove('hidden');
-    }
-
-    window.saveSettings = function() {
-        const config = {
-            apiKey: document.getElementById('fb_apiKey').value.trim(),
-            authDomain: document.getElementById('fb_authDomain').value.trim(),
-            projectId: document.getElementById('fb_projectId').value.trim(),
-            storageBucket: document.getElementById('fb_storageBucket').value.trim(),
-            messagingSenderId: document.getElementById('fb_messagingSenderId').value.trim(),
-            appId: document.getElementById('fb_appId').value.trim()
-        };
-
-        if (!config.apiKey || !config.projectId) {
-            alert("請至少填寫 apiKey 與 projectId");
-            return;
-        }
-
-        localStorage.setItem('lab_firebase_config', JSON.stringify(config));
-        document.getElementById('settingsModal').classList.add('hidden');
-        
-        // 儲存後重新載入網頁以套用新設定
-        window.location.reload();
-    }
-
-    window.clearSettings = function() {
-        if(confirm("確定要清除瀏覽器中的 Firebase 設定並進入離線模式嗎？")) {
-            localStorage.removeItem('lab_firebase_config');
-            window.location.reload();
-        }
-    }
-
-    window.togglePasswordVisibility = function(inputId) {
-        const input = document.getElementById(inputId);
-        if (input.type === "password") {
-            input.type = "text";
-        } else {
-            input.type = "password";
-        }
-    }
-
     // ================= 啟動 Firebase 連線 =================
     // 將連線邏輯放置於最尾端，確保所有 UI 函式已載入完畢
-    const localConfigStr = localStorage.getItem('lab_firebase_config');
-    const localConfig = localConfigStr ? JSON.parse(localConfigStr) : null;
-
     try {
-        let configToUse;
-        if (typeof __firebase_config !== 'undefined' && __firebase_config) {
-            configToUse = JSON.parse(__firebase_config);
-        } else if (localConfig && localConfig.apiKey) {
-            configToUse = localConfig;
-        } else {
-            configToUse = myFirebaseConfig;
-        }
+        let configToUse = (typeof __firebase_config !== 'undefined' && __firebase_config) ? JSON.parse(__firebase_config) : myFirebaseConfig;
 
         if (configToUse.apiKey) {
             app = initializeApp(configToUse);
