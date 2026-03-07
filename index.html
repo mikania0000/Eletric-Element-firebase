@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>實驗紀錄系統 v3.0 (Firebase旗艦版)</title>
+    <title>實驗紀錄系統 v3.1 (Firebase旗艦版)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         input[type="number"]::-webkit-outer-spin-button,
@@ -69,7 +69,7 @@
         <!-- 頂部控制區 -->
         <div class="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100 shrink-0">
             <div class="flex items-center justify-between mb-3">
-                <h1 class="text-xl font-extrabold text-blue-900 tracking-tight">實驗紀錄系統 <span class="text-xs font-normal text-white bg-blue-500 px-2 py-0.5 rounded-full ml-1 shadow-sm">v3.0 雲端版</span></h1>
+                <h1 class="text-xl font-extrabold text-blue-900 tracking-tight">實驗紀錄系統 <span class="text-xs font-normal text-white bg-blue-500 px-2 py-0.5 rounded-full ml-1 shadow-sm">v3.1 雲端版</span></h1>
                 <div class="flex gap-2">
                     <!-- 移除了設定按鈕 -->
                     <button onclick="document.getElementById('importModal').classList.remove('hidden')" class="text-xs bg-white text-gray-600 border border-gray-300 px-2 py-1 rounded hover:bg-gray-50 transition">匯入名單</button>
@@ -548,8 +548,8 @@
             let text = e.target.result.replace(/"/g, '');
             document.getElementById('importTextarea').value = text;
         };
-        // 預設以 UTF-8 讀取，若您的 Excel CSV 產生亂碼，可以嘗試改用 'Big5'
-        reader.readAsText(file, 'UTF-8');
+        // 將預設編碼改為 Big5，解決微軟 Excel 匯出 CSV 的中文亂碼問題
+        reader.readAsText(file, 'Big5');
     };
 
     window.processImport = async function() {
