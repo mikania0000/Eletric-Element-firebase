@@ -201,17 +201,33 @@
 <!-- 2. 匯入名單 Modal -->
 <div id="importModal" class="fixed inset-0 z-[70] flex items-center justify-center bg-gray-900/60 hidden backdrop-blur-sm p-4">
     <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg p-6 modal-enter">
-        <h3 class="text-xl font-bold mb-2 text-gray-800 flex items-center gap-2">
+        <h3 class="text-xl font-bold mb-4 text-gray-800 flex items-center gap-2 border-b pb-3">
             <svg class="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
             匯入班級名單
         </h3>
-        <p class="text-sm text-gray-500 mb-4">請貼上 CSV 格式的資料，格式為：<br><code class="bg-gray-100 px-1 rounded text-red-500">年級,班級,座號,姓名</code> (每行一筆，無需標題行)</p>
         
-        <textarea id="importTextarea" class="w-full h-48 border border-gray-300 rounded-lg p-3 text-sm font-mono mb-4 focus:ring-2 focus:ring-blue-500 outline-none" placeholder="例如：\n8,01,1,王小明\n8,01,2,陳大華"></textarea>
+        <div class="flex gap-3 mb-4">
+            <div class="flex-1">
+                <label class="block text-xs font-bold text-gray-700 mb-1">年級 (例: 8)</label>
+                <input type="text" id="importGrade" class="w-full border border-gray-300 rounded p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+            </div>
+            <div class="flex-1">
+                <label class="block text-xs font-bold text-gray-700 mb-1">班級 (例: 01)</label>
+                <input type="text" id="importClass" class="w-full border border-gray-300 rounded p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+            </div>
+        </div>
+
+        <div class="mb-4 bg-gray-50 p-3 rounded-lg border border-gray-200">
+            <label class="block text-xs font-bold text-gray-700 mb-2">方式一：上傳 CSV 檔案</label>
+            <input type="file" id="csvFileInput" accept=".csv" onchange="handleCSVUpload(event)" class="w-full text-sm text-gray-500 file:mr-4 file:py-1.5 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-100 file:text-blue-700 hover:file:bg-blue-200 transition">
+        </div>
+
+        <p class="text-xs text-gray-600 mb-2">方式二：直接從 Excel 複製貼上，或輸入格式 <code class="bg-gray-200 px-1.5 py-0.5 rounded text-blue-700 font-mono">座號,姓名</code></p>
+        <textarea id="importTextarea" class="w-full h-40 border border-gray-300 rounded-lg p-3 text-sm font-mono mb-4 focus:ring-2 focus:ring-blue-500 outline-none bg-gray-50 placeholder-gray-400" placeholder="1,王小明&#10;2,陳大華&#10;..."></textarea>
         
         <div class="flex gap-3">
-            <button onclick="document.getElementById('importModal').classList.add('hidden')" class="flex-1 bg-gray-100 text-gray-700 font-bold py-2 rounded-lg hover:bg-gray-200">取消</button>
-            <button onclick="processImport()" class="flex-[2] bg-blue-600 text-white font-bold py-2 rounded-lg shadow hover:bg-blue-700">解析並匯入 Firebase</button>
+            <button onclick="document.getElementById('importModal').classList.add('hidden')" class="flex-1 bg-white border border-gray-300 text-gray-700 font-bold py-2 rounded-lg hover:bg-gray-50 transition">取消</button>
+            <button onclick="processImport()" class="flex-[2] bg-blue-600 text-white font-bold py-2 rounded-lg shadow hover:bg-blue-700 transition">確認並匯入</button>
         </div>
     </div>
 </div>
@@ -292,13 +308,13 @@
      * 將您在 Firebase 控制台得到的 config 貼在這邊。
      */
     const myFirebaseConfig = {
-        // 請替換成您自己的設定！若留白，系統會嘗試使用臨時記憶體模式
-        apiKey: "",
-        authDomain: "",
-        projectId: "",
-        storageBucket: "",
-        messagingSenderId: "",
-        appId: ""
+        apiKey: "AIzaSyACZgJU1uxCi1sHZe528cN7Aw7HQ0eMjtM",
+        authDomain: "eletric-experiment.firebaseapp.com",
+        projectId: "eletric-experiment",
+        storageBucket: "eletric-experiment.firebasestorage.app",
+        messagingSenderId: "21511409437",
+        appId: "1:21511409437:web:4f27d726b5bfb9c4c6dbf4",
+        measurementId: "G-S6BVBCQ6RS"
     };
 
     // 初始化 Firebase (相容 Canvas 預覽環境與 GitHub 自行託管)
@@ -587,30 +603,41 @@
 
     // ================= 匯入/匯出 CSV 邏輯 =================
 
+    window.handleCSVUpload = function(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            // 讀取後移除可能存在的引號，並放入文字框中
+            let text = e.target.result.replace(/"/g, '');
+            document.getElementById('importTextarea').value = text;
+        };
+        // 預設以 UTF-8 讀取，若您的 Excel CSV 產生亂碼，可以嘗試改用 'Big5'
+        reader.readAsText(file, 'UTF-8');
+    };
+
     window.processImport = async function() {
+        const grade = document.getElementById('importGrade').value.trim();
+        const className = document.getElementById('importClass').value.trim();
         const text = document.getElementById('importTextarea').value.trim();
-        if (!text) { showModal('錯誤', '請貼上資料'); return; }
+
+        if (!grade || !className) { showModal('錯誤', '請先填寫上方「年級」與「班級」欄位'); return; }
+        if (!text) { showModal('錯誤', '請貼上名單資料或上傳 CSV 檔'); return; }
 
         const lines = text.split('\n');
-        const classDict = {}; // { '8_01': { grade: '8', className: '01', students: [...] } }
+        const students = [];
 
         lines.forEach(line => {
-            const parts = line.split(',').map(s => s.trim());
-            if (parts.length >= 4) {
-                const grade = parts[0];
-                const className = parts[1];
-                const no = parts[2];
-                const name = parts[3];
-                const key = `${grade}_${className}`;
-                
-                if (!classDict[key]) {
-                    classDict[key] = { grade, className, students: [] };
-                }
+            // 支援逗號 (CSV) 或是 Tab 鍵 (Excel直接複製貼上) 作為分隔符
+            const parts = line.split(/[,\t]+/).map(s => s.trim()).filter(s => s !== '');
+            if (parts.length >= 2) {
+                const no = parts[0];
+                const name = parts[1];
                 
                 // 檢查是否已存在 (避免重複)
-                const exists = classDict[key].students.find(s => s.no === no);
-                if (!exists) {
-                    classDict[key].students.push({
+                const exists = students.find(s => s.no === no);
+                if (!exists && !isNaN(parseInt(no))) {
+                    students.push({
                         no: no,
                         name: name,
                         score: 0,
@@ -620,19 +647,20 @@
             }
         });
 
-        const keys = Object.keys(classDict);
-        if (keys.length === 0) { showModal('錯誤', '解析失敗，請確認格式為：年級,班級,座號,姓名'); return; }
+        if (students.length === 0) { showModal('錯誤', '解析失敗，請確認格式為：座號,姓名'); return; }
+
+        const key = `${grade}_${className}`;
+        const classData = { grade, className, students };
 
         if (!isFirebaseReady) {
             // 離線模擬
-            keys.forEach(k => {
-                const c = classDict[k];
-                if (!classDataCache[c.grade]) classDataCache[c.grade] = {};
-                classDataCache[c.grade][c.className] = c.students;
-            });
+            if (!classDataCache[grade]) classDataCache[grade] = {};
+            classDataCache[grade][className] = students;
+            
             document.getElementById('importModal').classList.add('hidden');
             document.getElementById('importTextarea').value = '';
-            showModal('匯入成功(離線模式)', `共匯入 ${keys.length} 個班級的資料至記憶體。`);
+            document.getElementById('csvFileInput').value = '';
+            showModal('匯入成功(離線模式)', `共匯入 ${students.length} 筆學生資料至 ${grade}年${className}班。`);
             updateDropdowns(Object.keys(classDataCache));
             return;
         }
@@ -641,13 +669,14 @@
         
         try {
             // 寫入 Firebase
-            for (let k of keys) {
-                const docRef = getDocRef('classes', k);
-                // 採用 setDoc (如果存在會覆蓋，這裡簡單處理，實務上可做 merge)
-                await setDoc(docRef, classDict[k]);
-            }
+            const docRef = getDocRef('classes', key);
+            await setDoc(docRef, classData);
+            
+            // 清空輸入框
             document.getElementById('importTextarea').value = '';
-            showModal('匯入成功', `成功將 ${keys.length} 個班級資料寫入 Firebase！`);
+            document.getElementById('csvFileInput').value = '';
+            
+            showModal('匯入成功', `成功將 ${students.length} 筆資料寫入 ${grade}年${className}班！`);
             await fetchClassList(); // 重新整理選單
         } catch (error) {
             console.error(error);
