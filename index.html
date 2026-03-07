@@ -323,55 +323,11 @@
         return doc(db, colName, documentId);
     }
 
-    // 嘗試從 localStorage 讀取使用者設定
-    const localConfigStr = localStorage.getItem('lab_firebase_config');
-    const localConfig = localConfigStr ? JSON.parse(localConfigStr) : null;
-
-    try {
-        let configToUse;
-        if (typeof __firebase_config !== 'undefined' && __firebase_config) {
-            configToUse = JSON.parse(__firebase_config);
-        } else if (localConfig && localConfig.apiKey) {
-            configToUse = localConfig;
-        } else {
-            configToUse = myFirebaseConfig;
-        }
-
-        if (configToUse.apiKey) {
-            app = initializeApp(configToUse);
-            auth = getAuth(app);
-            db = getFirestore(app);
-            
-            // 在 Canvas 環境中需使用特定的 Token 登入，自行託管則使用匿名登入
-            const authenticate = async () => {
-                try {
-                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        await signInWithCustomToken(auth, __initial_auth_token);
-                    } else {
-                        await signInAnonymously(auth);
-                    }
-                    isFirebaseReady = true;
-                    initApp(); // 啟動應用程式
-                } catch (error) {
-                    console.error("Firebase Auth Error:", error);
-                    showOfflineMode();
-                }
-            };
-            authenticate();
-        } else {
-            // 沒有提供設定，進入離線測試模式
-            showOfflineMode();
-        }
-    } catch (e) {
-        console.error("Firebase Init Error:", e);
-        showOfflineMode();
-    }
-
     function showOfflineMode() {
         document.getElementById('offlineWarning').classList.remove('hidden');
         document.getElementById('student-list').innerHTML = '<div class="p-8 text-center text-gray-500">未連接資料庫。請點擊「匯入名單」載入測試資料，或於<button onclick="openSettingsModal()" class="text-blue-500 underline ml-1">設定 Firebase</button>。</div>';
         // 即使離線也讓 UI 可以運作 (存在記憶體中)
-        initApp();
+        if (window.initApp) window.initApp();
     }
 
     // ================= 全域變數與資料狀態 =================
@@ -1061,6 +1017,51 @@
         } else {
             input.type = "password";
         }
+    }
+
+    // ================= 啟動 Firebase 連線 =================
+    // 將連線邏輯放置於最尾端，確保所有 UI 函式已載入完畢
+    const localConfigStr = localStorage.getItem('lab_firebase_config');
+    const localConfig = localConfigStr ? JSON.parse(localConfigStr) : null;
+
+    try {
+        let configToUse;
+        if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+            configToUse = JSON.parse(__firebase_config);
+        } else if (localConfig && localConfig.apiKey) {
+            configToUse = localConfig;
+        } else {
+            configToUse = myFirebaseConfig;
+        }
+
+        if (configToUse.apiKey) {
+            app = initializeApp(configToUse);
+            auth = getAuth(app);
+            db = getFirestore(app);
+            
+            // 在 Canvas 環境中需使用特定的 Token 登入，自行託管則使用匿名登入
+            const authenticate = async () => {
+                try {
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                    isFirebaseReady = true;
+                    if (window.initApp) window.initApp();
+                } catch (error) {
+                    console.error("Firebase Auth Error:", error);
+                    showOfflineMode();
+                }
+            };
+            authenticate();
+        } else {
+            // 沒有提供設定，進入離線測試模式
+            showOfflineMode();
+        }
+    } catch (e) {
+        console.error("Firebase Init Error:", e);
+        showOfflineMode();
     }
 
 </script>
