@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>實驗紀錄系統 v3.1 (Firebase旗艦版)</title>
+    <title>實驗紀錄系統 v3.2 (Firebase旗艦版)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         input[type="number"]::-webkit-outer-spin-button,
@@ -69,11 +69,11 @@
         <!-- 頂部控制區 -->
         <div class="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100 shrink-0">
             <div class="flex items-center justify-between mb-3">
-                <h1 class="text-xl font-extrabold text-blue-900 tracking-tight">實驗紀錄系統 <span class="text-xs font-normal text-white bg-blue-500 px-2 py-0.5 rounded-full ml-1 shadow-sm">v3.1 雲端版</span></h1>
+                <h1 class="text-xl font-extrabold text-blue-900 tracking-tight">實驗紀錄系統 <span class="text-xs font-normal text-white bg-blue-500 px-2 py-0.5 rounded-full ml-1 shadow-sm">v3.2 雲端版</span></h1>
                 <div class="flex gap-2">
-                    <!-- 移除了設定按鈕 -->
                     <button onclick="document.getElementById('importModal').classList.remove('hidden')" class="text-xs bg-white text-gray-600 border border-gray-300 px-2 py-1 rounded hover:bg-gray-50 transition">匯入名單</button>
-                    <button onclick="exportClassData()" class="text-xs bg-white text-gray-600 border border-gray-300 px-2 py-1 rounded hover:bg-gray-50 transition">匯出紀錄</button>
+                    <!-- 修改：點擊後改為開啟匯出選項 Modal -->
+                    <button onclick="openExportModal()" class="text-xs bg-white text-gray-600 border border-gray-300 px-2 py-1 rounded hover:bg-gray-50 transition">匯出紀錄</button>
                 </div>
             </div>
 
@@ -227,7 +227,29 @@
     </div>
 </div>
 
-<!-- 3. 一般訊息 Modal -->
+<!-- 3. 新增：匯出紀錄 Modal -->
+<div id="exportModal" class="fixed inset-0 z-[70] flex items-center justify-center bg-gray-900/60 hidden backdrop-blur-sm p-4">
+    <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 modal-enter">
+        <h3 class="text-xl font-bold mb-4 text-gray-800 flex items-center gap-2 border-b pb-3">
+            <svg class="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+            匯出班級紀錄 (CSV)
+        </h3>
+        
+        <div class="mb-5">
+            <label class="block text-sm font-bold text-gray-700 mb-2">請選擇要匯出的班級範圍：</label>
+            <div id="exportClassList" class="max-h-56 overflow-y-auto border border-gray-200 rounded-lg p-2 bg-gray-50 space-y-1">
+                <!-- 將由 JS 動態產生選項 -->
+            </div>
+        </div>
+        
+        <div class="flex gap-3">
+            <button onclick="document.getElementById('exportModal').classList.add('hidden')" class="flex-1 bg-white border border-gray-300 text-gray-700 font-bold py-2 rounded-lg hover:bg-gray-50 transition">取消</button>
+            <button onclick="executeExport()" class="flex-[2] bg-green-600 text-white font-bold py-2 rounded-lg shadow hover:bg-green-700 transition active:scale-95">確認下載</button>
+        </div>
+    </div>
+</div>
+
+<!-- 4. 一般訊息 Modal -->
 <div id="customModal" class="fixed inset-0 z-[80] flex items-center justify-center bg-gray-900/60 hidden backdrop-blur-sm p-4">
     <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 transform scale-95 transition-transform">
         <h3 id="modalTitle" class="text-lg font-bold mb-3 border-b pb-2 text-gray-800">提示</h3>
@@ -646,30 +668,89 @@
         }
     }
 
-    window.exportClassData = function() {
-        const g = document.getElementById('gradeSelect').value;
-        const c = document.getElementById('classSelect').value;
-        if (!g || !c) { showModal('錯誤', '請先選擇要匯出的班級'); return; }
+    // --- 新增：展開匯出 Modal 與全選邏輯 ---
+    window.openExportModal = function() {
+        const listContainer = document.getElementById('exportClassList');
+        listContainer.innerHTML = '';
+        
+        let hasClasses = false;
+        
+        // 建立「全選」核取方塊
+        const selectAllDiv = document.createElement('div');
+        selectAllDiv.className = "flex items-center gap-2 p-2 border-b border-gray-200 mb-1 pb-2";
+        selectAllDiv.innerHTML = `
+            <input type="checkbox" id="exportSelectAll" class="w-4 h-4 text-green-600 rounded cursor-pointer" onchange="toggleAllExportClasses(this.checked)"> 
+            <label for="exportSelectAll" class="font-bold text-green-700 cursor-pointer text-sm select-none">全選 (匯出所有班級)</label>
+        `;
+        listContainer.appendChild(selectAllDiv);
 
-        const students = classDataCache[g][c];
-        if (!students || students.length === 0) { showModal('錯誤', '該班級沒有學生資料'); return; }
+        // 列出快取中所有的班級
+        for (const g in classDataCache) {
+            for (const c in classDataCache[g]) {
+                hasClasses = true;
+                const item = document.createElement('div');
+                item.className = "flex items-center gap-2 p-2 hover:bg-gray-100 rounded transition-colors";
+                // 預設將目前正在看的班級打勾
+                const isCurrent = (g === currentGrade && c === currentClass) ? 'checked' : '';
+                
+                item.innerHTML = `
+                    <input type="checkbox" value="${g}_${c}" class="export-class-cb w-4 h-4 text-blue-600 rounded cursor-pointer" id="cb_export_${g}_${c}" ${isCurrent}> 
+                    <label for="cb_export_${g}_${c}" class="cursor-pointer text-sm text-gray-700 select-none flex-1">${g} 年 ${c} 班</label>
+                `;
+                listContainer.appendChild(item);
+            }
+        }
 
-        let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; // 加上 BOM 避免 Excel 中文亂碼
-        csvContent += "班級,座號,姓名,課堂加扣分,小老師\n"; // 符合原匯入格式
+        if (!hasClasses) {
+            listContainer.innerHTML = '<div class="p-6 text-center text-gray-400 text-sm">系統內目前沒有任何班級資料</div>';
+        }
 
-        students.forEach(s => {
-            const classFull = `${g}${c}`;
-            const row = `${classFull},${s.no},${s.name},${s.score},${s.isTA ? 'V' : ''}`;
-            csvContent += row + "\n";
+        document.getElementById('exportModal').classList.remove('hidden');
+    }
+
+    window.toggleAllExportClasses = function(checked) {
+        document.querySelectorAll('.export-class-cb').forEach(cb => cb.checked = checked);
+    }
+
+    // --- 執行匯出 CSV ---
+    window.executeExport = function() {
+        const selectedCbs = document.querySelectorAll('.export-class-cb:checked');
+        if (selectedCbs.length === 0) { showModal('提示', '請至少勾選一個要匯出的班級！'); return; }
+
+        let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; // 加上 BOM 避免 Excel 亂碼
+        csvContent += "班級,座號,姓名,課堂加扣分,小老師\n";
+
+        // 收集所有勾選的班級資料
+        selectedCbs.forEach(cb => {
+            const parts = cb.value.split('_');
+            const g = parts[0];
+            const c = parts[1];
+            const students = classDataCache[g][c] || [];
+            
+            students.forEach(s => {
+                const classFull = `${g}${c}`;
+                const row = `${classFull},${s.no},${s.name},${s.score},${s.isTA ? 'V' : ''}`;
+                csvContent += row + "\n";
+            });
         });
 
+        // 建立下載連結
         const encodedUri = encodeURI(csvContent);
         const link = document.createElement("a");
         link.setAttribute("href", encodedUri);
-        link.setAttribute("download", `${g}年${c}班_紀錄匯出.csv`);
+        
+        // 根據勾選數量決定檔名
+        const totalClasses = document.querySelectorAll('.export-class-cb').length;
+        const fileName = (selectedCbs.length === totalClasses && totalClasses > 1) 
+            ? `全校紀錄匯出_${new Date().toISOString().slice(0,10)}.csv` 
+            : `班級紀錄匯出_${new Date().toISOString().slice(0,10)}.csv`;
+            
+        link.setAttribute("download", fileName);
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
+        
+        document.getElementById('exportModal').classList.add('hidden');
     }
 
     // ================= 實驗表格渲染與儲存 =================
