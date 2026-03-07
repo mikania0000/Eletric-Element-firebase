@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>實驗紀錄系統 v3.5 (自動同步版)</title>
+    <title>實驗紀錄系統 v3.8 (智慧同步燈號版)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         input[type="number"]::-webkit-outer-spin-button,
@@ -30,6 +30,10 @@
         .resizer-line { width: 8px; background-color: #e5e7eb; cursor: col-resize; transition: background-color 0.2s; }
         .resizer-line:hover, .resizer-line:active { background-color: #60a5fa; }
 
+        /* 燈號呼吸動畫 */
+        .ping-green { animation: shadow-ping-green 2s cubic-bezier(0, 0, 0.2, 1) infinite; }
+        @keyframes shadow-ping-green { 0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); } 70% { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); } 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); } }
+
         .modal-enter { animation: modalFadeIn 0.2s ease-out forwards; }
         @keyframes modalFadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
     </style>
@@ -39,7 +43,7 @@
 <div id="mainContainer" class="flex h-full w-full flex-col md:flex-row transition-layout">
     
     <!-- 視訊顯示區 -->
-    <div id="videoContainer" class="relative bg-black flex flex-col items-center justify-center p-2 flex-1 h-full min-w-0 transition-layout">
+    <div id="videoContainer" class="relative bg-black flex flex-col items-center justify-center p-2 flex-1 h-full min-w-0 transition-layout text-xs">
         <div class="absolute top-4 left-4 z-10 bg-white/90 p-2 rounded-lg shadow-lg flex items-center gap-2 backdrop-blur-sm">
             <select id="cameraSelect" class="border rounded p-1 text-sm outline-none max-w-[120px] bg-white"></select>
             <button id="refreshCamBtn" class="bg-blue-100 hover:bg-blue-200 p-1.5 rounded transition-colors" title="重新偵測"><svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke-width="2" stroke-linecap="round"/></svg></button>
@@ -64,11 +68,12 @@
         
         <div class="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100 shrink-0">
             <div class="flex items-center justify-between mb-3">
-                <h1 class="text-xl font-extrabold text-blue-900 tracking-tight">實驗紀錄系統 <span class="text-xs font-normal text-white bg-blue-500 px-2 py-0.5 rounded-full ml-1 shadow-sm">v3.5 同步版</span></h1>
-                <div class="flex gap-2">
-                    <!-- 僅保留 Sheets 同步作為主要數據管理入口 -->
-                    <button onclick="openSyncModal()" class="text-sm bg-green-600 text-white px-4 py-1.5 rounded-lg hover:bg-green-700 transition flex items-center gap-2 shadow-md font-bold active:scale-95">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg> Sheets 同步中心
+                <h1 class="text-xl font-extrabold text-blue-900 tracking-tight">實驗紀錄系統 <span class="text-xs font-normal text-white bg-blue-500 px-2 py-0.5 rounded-full ml-1 shadow-sm">v3.8 全校版</span></h1>
+                <div class="flex items-center gap-2">
+                    <!-- Sheets 同步中心 + 狀態燈號 -->
+                    <button onclick="openSyncModal()" class="group relative text-sm bg-white border border-green-500 text-green-700 px-3 py-1.5 rounded-lg hover:bg-green-50 transition flex items-center gap-2 shadow-sm font-bold active:scale-95">
+                        <span id="connStatusDot" class="w-2.5 h-2.5 rounded-full bg-gray-400" title="正在偵測 Sheets 連線..."></span>
+                        Sheets 同步中心
                     </button>
                 </div>
             </div>
@@ -97,37 +102,45 @@
 
         <div class="flex-1 overflow-y-auto bg-gray-50 p-4 space-y-4 no-scrollbar relative">
             <div id="offlineWarning" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-2 rounded relative text-sm" role="alert">
-                <span class="block sm:inline">⚠️ 資料庫未連線，請點擊「同步中心」抓取名單。</span>
+                <span class="block sm:inline">⚠️ Firebase 未連線，請確認權限設定。</span>
             </div>
 
             <div id="table-container" class="bg-white p-3 rounded-xl shadow-sm border border-gray-200 overflow-x-auto min-h-[100px] transition-all"></div>
             
-            <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                <div class="bg-gradient-to-r from-gray-100 to-gray-50 px-4 py-2.5 border-b flex justify-between items-center text-sm font-bold">
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col">
+                <div class="bg-gradient-to-r from-gray-100 to-gray-50 px-4 py-2.5 border-b flex justify-between items-center text-sm font-bold shrink-0">
                     <span class="text-gray-700 flex items-center gap-2">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
                         班級名單
                     </span>
                     <div class="flex items-center gap-2">
-                        <span id="saveStatusIndicator" class="text-xs text-green-600 font-medium hidden">雲端已同步 ✓</span>
+                        <span id="saveStatusIndicator" class="text-xs text-green-600 font-medium hidden">雲端同步中...</span>
                         <span id="studentCount" class="text-xs font-mono bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full shadow-inner">--</span>
                     </div>
                 </div>
+                
+                <div class="p-2 border-b bg-white shrink-0">
+                    <div class="relative">
+                        <input type="text" id="studentSearchInput" placeholder="搜尋全校姓名或座號..." class="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-400 outline-none transition-all">
+                        <svg class="w-4 h-4 text-gray-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                    </div>
+                </div>
+
                 <div id="student-list" class="divide-y divide-gray-100 max-h-[450px] overflow-y-auto no-scrollbar">
                     <div class="p-10 text-center text-gray-400 text-sm flex flex-col items-center">
-                        正在連線 Firebase...
+                        正在載入班級資料...
                     </div>
                 </div>
             </div>
         </div>
 
         <div class="p-4 bg-white border-t shrink-0 flex flex-col gap-2 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-            <button id="calcBtn" class="w-full bg-green-500 text-white font-bold py-2.5 rounded-lg text-sm shadow hover:bg-green-600 active:scale-95 transition-all">自動計算 (V/I) × 1000</button>
+            <button id="calcBtn" class="w-full bg-green-500 text-white font-black py-3 rounded-xl text-sm shadow hover:bg-green-600 active:scale-95 transition-all">自動計算 (V/I) × 1000</button>
             <div class="flex gap-2">
-                <button id="clearExpBtn" class="flex-1 bg-red-50 text-red-600 border border-red-200 font-bold py-2 rounded-lg text-xs hover:bg-red-100 transition-colors">清除表格</button>
-                <button id="saveExpBtn" class="flex-[2] bg-blue-600 text-white font-bold py-2 rounded-lg text-xs shadow hover:bg-blue-700 active:scale-95 transition-all flex items-center justify-center gap-1">
+                <button id="clearExpBtn" class="flex-1 bg-red-50 text-red-600 border border-red-200 font-bold py-2.5 rounded-xl text-xs hover:bg-red-100 transition-colors">清除表格</button>
+                <button id="saveExpBtn" class="flex-[2] bg-blue-600 text-white font-black py-2.5 rounded-xl text-xs shadow hover:bg-blue-700 active:scale-95 transition-all flex items-center justify-center gap-1">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>
-                    儲存表格至 Firebase
+                    儲存至雲端資料庫
                 </button>
             </div>
         </div>
@@ -138,38 +151,38 @@
 
 <!-- 評分 Modal -->
 <div id="gradingModal" class="fixed inset-0 z-[60] flex items-center justify-center bg-gray-900/60 hidden backdrop-blur-sm p-4">
-    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden transform scale-95 transition-transform modal-enter">
-        <div class="bg-blue-600 p-4 text-white flex justify-between items-center">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-sm-w overflow-hidden transform scale-95 transition-transform modal-enter" style="max-width: 320px;">
+        <div class="bg-blue-600 p-4 text-white flex justify-between items-center text-xs">
             <div>
-                <span class="text-blue-200 text-sm font-bold" id="gradingGradeClass"></span>
-                <h2 id="gradingName" class="text-2xl font-black tracking-wider">選擇學生</h2>
+                <span class="text-blue-200 font-bold uppercase tracking-wider" id="gradingGradeClass"></span>
+                <h2 id="gradingName" class="text-2xl font-black tracking-wider text-white">學生評分</h2>
             </div>
             <button onclick="closeGradingModal()" class="text-blue-200 hover:text-white transition-colors bg-blue-700/50 rounded-full p-1">
                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
             </button>
         </div>
-        <div class="p-6">
-            <div class="text-center mb-6 bg-gray-50 rounded-xl p-4 border border-gray-100">
-                <p class="text-gray-500 text-xs font-bold uppercase tracking-widest mb-1">目前總分</p>
+        <div class="p-5 text-xs">
+            <div class="text-center mb-5 bg-gray-50 rounded-xl p-4 border border-gray-100 text-xs">
+                <p class="text-gray-400 font-bold uppercase tracking-widest mb-1 text-[10px]">目前積分</p>
                 <div class="text-5xl font-black text-blue-600" id="gradingCurrentScore">0</div>
             </div>
-            <div class="grid grid-cols-2 gap-4 mb-6">
+            <div class="grid grid-cols-2 gap-3 mb-5">
                 <div class="space-y-2">
-                    <button onclick="updateScore(1)" class="w-full py-2 bg-green-50 text-green-700 border border-green-200 rounded-lg font-bold shadow-sm">+1 分</button>
-                    <button onclick="updateScore(2)" class="w-full py-2 bg-green-50 text-green-700 border border-green-200 rounded-lg font-bold shadow-sm">+2 分</button>
-                    <button onclick="updateScore(5)" class="w-full py-2 bg-green-500 text-white rounded-lg font-bold shadow-sm">+5 分</button>
+                    <button onclick="updateScore(1)" class="w-full py-2.5 bg-green-50 text-green-700 border border-green-200 rounded-lg font-black shadow-sm active:scale-90 transition-transform">+1</button>
+                    <button onclick="updateScore(2)" class="w-full py-2.5 bg-green-50 text-green-700 border border-green-200 rounded-lg font-black shadow-sm active:scale-90 transition-transform">+2</button>
+                    <button onclick="updateScore(5)" class="w-full py-2.5 bg-green-500 text-white rounded-lg font-black shadow-sm active:scale-90 transition-transform">+5</button>
                 </div>
                 <div class="space-y-2">
-                    <button onclick="updateScore(-1)" class="w-full py-2 bg-red-50 text-red-700 border border-red-200 rounded-lg font-bold shadow-sm">-1 分</button>
-                    <button onclick="updateScore(-2)" class="w-full py-2 bg-red-50 text-red-700 border border-red-200 rounded-lg font-bold shadow-sm">-2 分</button>
-                    <button onclick="updateScore(-5)" class="w-full py-2 bg-red-500 text-white rounded-lg font-bold shadow-sm">-5 分</button>
+                    <button onclick="updateScore(-1)" class="w-full py-2.5 bg-red-50 text-red-700 border border-red-200 rounded-lg font-black shadow-sm active:scale-90 transition-transform">-1</button>
+                    <button onclick="updateScore(-2)" class="w-full py-2.5 bg-red-50 text-red-700 border border-red-200 rounded-lg font-black shadow-sm active:scale-90 transition-transform">-2</button>
+                    <button onclick="updateScore(-5)" class="w-full py-2.5 bg-red-500 text-white rounded-lg font-black shadow-sm active:scale-90 transition-transform">-5</button>
                 </div>
             </div>
             <div class="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-100">
-                <span class="font-bold text-blue-900 text-sm">設為小老師</span>
+                <span class="font-bold text-blue-900">設為小老師</span>
                 <label class="relative inline-flex items-center cursor-pointer">
                     <input type="checkbox" id="gradingTAToggle" class="sr-only peer" onchange="updateTAStatus(this.checked)">
-                    <div class="w-11 h-6 bg-gray-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-blue-600 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all"></div>
+                    <div class="w-10 h-5 bg-gray-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-blue-600 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all"></div>
                 </label>
             </div>
         </div>
@@ -177,39 +190,59 @@
 </div>
 
 <!-- Sheets 同步中心 Modal -->
-<div id="syncModal" class="fixed inset-0 z-[70] flex items-center justify-center bg-gray-900/60 hidden backdrop-blur-sm p-4">
+<div id="syncModal" class="fixed inset-0 z-[70] flex items-center justify-center bg-gray-900/60 hidden backdrop-blur-sm p-4 text-xs">
     <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 modal-enter">
-        <h3 class="text-xl font-bold mb-2 flex items-center gap-2 border-b pb-3 text-green-700">Google Sheets 雲端同步中心</h3>
+        <div class="flex items-center justify-between mb-4 border-b pb-3">
+            <div class="flex items-center gap-3 text-green-700">
+                <div class="p-2 bg-green-100 rounded-lg text-green-600">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                </div>
+                <h3 class="text-xl font-black">Google Sheets 同步中心</h3>
+            </div>
+            <div id="syncStatusBadge" class="px-2 py-1 rounded text-[10px] font-bold bg-gray-100 text-gray-400">連線中...</div>
+        </div>
+        
         <div class="mb-4">
-            <label class="block text-sm font-bold text-gray-700 mb-1">Apps Script 網址 (URL)</label>
-            <input type="text" id="gasUrlInput" class="w-full border rounded-lg p-2 text-sm bg-gray-50 focus:ring-2 focus:ring-green-500 outline-none" placeholder="貼上網址...">
+            <label class="block text-xs font-black text-gray-400 uppercase mb-1">API 部署網址 (GAS URL)</label>
+            <input type="text" id="gasUrlInput" class="w-full border border-gray-200 rounded-lg p-2.5 text-[10px] bg-gray-50 focus:ring-2 focus:ring-green-500 outline-none font-mono" placeholder="貼上部屬網址...">
         </div>
-        <div class="mb-5 bg-blue-50 p-3 rounded-lg border border-blue-100">
-            <label class="flex items-center gap-2 text-sm font-bold text-blue-800 cursor-pointer">
-                <input type="checkbox" id="syncExpsToggle" checked class="w-4 h-4"> 同時備份實驗表格數據
+        
+        <div class="mb-6 bg-blue-50 p-4 rounded-xl border border-blue-100">
+            <label class="flex items-center gap-3 text-sm font-black text-blue-900 cursor-pointer">
+                <input type="checkbox" id="syncExpsToggle" checked class="w-4 h-4 rounded text-blue-600"> 同時備份實驗表格數據 (五欄格式)
             </label>
-            <p class="text-[10px] text-blue-600 mt-1">啟用後，數據將會同步至試算表的「實驗」分頁。</p>
+            <p class="text-[10px] text-blue-600 mt-2 font-medium opacity-80 leading-relaxed italic">系統將自動按照「時間、年級、班級、實驗、數據」填入試算表。</p>
         </div>
+
         <div class="flex flex-col gap-3 mb-4">
-            <button onclick="pullFromSheets()" class="bg-blue-600 text-white font-bold py-3 rounded-lg shadow-sm hover:bg-blue-700 transition active:scale-95">下載名單與紀錄 (Pull)</button>
-            <button onclick="pushToSheets()" class="bg-green-600 text-white font-bold py-3 rounded-lg shadow-sm hover:bg-green-700 transition active:scale-95">備份成績與實驗 (Push)</button>
+            <button onclick="pullFromSheets()" class="bg-blue-600 text-white font-black py-4 rounded-xl shadow-lg hover:bg-blue-700 transition active:scale-95 flex items-center justify-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"></path></svg>
+                下載最新名單 (Pull)
+            </button>
+            <button onclick="pushToSheets()" class="bg-green-600 text-white font-black py-4 rounded-xl shadow-lg hover:bg-green-700 transition active:scale-95 flex items-center justify-center gap-2">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                將成績備份至 Sheets (Push)
+            </button>
         </div>
-        <button onclick="closeSyncModal()" class="w-full border border-gray-300 py-2 rounded-lg hover:bg-gray-50 transition">關閉</button>
+        <button onclick="closeSyncModal()" class="w-full border border-gray-200 py-2.5 rounded-lg text-gray-500 font-bold hover:bg-gray-50 transition">關閉面板</button>
     </div>
 </div>
 
-<div id="loadingModal" class="fixed inset-0 z-[100] flex items-center justify-center bg-gray-900/70 hidden backdrop-blur-sm">
-    <div class="bg-white rounded-xl p-6 flex flex-col items-center shadow-2xl">
-        <svg class="w-12 h-12 text-blue-600 animate-spin mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-        <p id="loadingMsg" class="font-bold text-gray-800">同步進行中...</p>
+<div id="loadingModal" class="fixed inset-0 z-[100] flex items-center justify-center bg-gray-900/70 hidden backdrop-blur-sm text-xs">
+    <div class="bg-white rounded-2xl p-8 flex flex-col items-center shadow-2xl">
+        <div class="relative w-16 h-16 mb-4">
+            <div class="absolute inset-0 rounded-full border-4 border-blue-50"></div>
+            <div class="absolute inset-0 rounded-full border-4 border-blue-600 border-t-transparent animate-spin"></div>
+        </div>
+        <p id="loadingMsg" class="font-black text-gray-800 tracking-widest">數據傳輸中</p>
     </div>
 </div>
 
-<div id="customModal" class="fixed inset-0 z-[80] flex items-center justify-center bg-gray-900/60 hidden backdrop-blur-sm p-4">
-    <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 transform scale-95">
-        <h3 id="modalTitle" class="text-lg font-bold mb-3 border-b pb-2">提示</h3>
-        <p id="modalMessage" class="text-gray-600 mb-6 text-sm whitespace-pre-wrap"></p>
-        <button onclick="document.getElementById('customModal').classList.add('hidden')" class="w-full bg-blue-600 text-white font-bold py-2.5 rounded-lg">確認</button>
+<div id="customModal" class="fixed inset-0 z-[80] flex items-center justify-center bg-gray-900/60 hidden backdrop-blur-sm p-4 text-xs">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 transform scale-95 transition-all">
+        <h3 id="modalTitle" class="text-xl font-black mb-3 border-b pb-2 text-gray-800">系統提示</h3>
+        <p id="modalMessage" class="text-gray-600 mb-6 whitespace-pre-wrap leading-relaxed"></p>
+        <button onclick="document.getElementById('customModal').classList.add('hidden')" class="w-full bg-blue-600 text-white font-black py-3 rounded-xl shadow-lg hover:bg-blue-700 active:scale-95 transition-all">確認</button>
     </div>
 </div>
 
@@ -218,7 +251,7 @@
     import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
     import { getFirestore, collection, doc, setDoc, getDoc, getDocs, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-    /* 🔥 FIREBASE 設定區 */
+    /* 🔥 FIREBASE 專屬設定 */
     const myFirebaseConfig = {
         apiKey: "AIzaSyACZgJU1uxCi1sHZe528cN7Aw7HQ0eMjtM",
         authDomain: "eletric-experiment.firebaseapp.com",
@@ -229,7 +262,7 @@
         measurementId: "G-S6BVBCQ6RS"
     };
 
-    /* 🌐 GOOGLE SHEETS 設定區 */
+    /* 🌐 GOOGLE SHEETS 部署 ID */
     const myDefaultGasUrl = "https://script.google.com/macros/s/AKfycbzGj5KcJxD9iXeR5jiQEe_g9FhK5eYF3UFpyqPaQzxm5Fcns5-KdcOCGUYbbZw6AQ0g/exec";
 
     let app, auth, db, user, isFirebaseReady = false;
@@ -240,38 +273,74 @@
 
     window.classDataCache = {};
     let unsubscribeStudents = null, currentGrade = '', currentClass = '', currentSelectedStudentId = null;
+    let isSidebarOpen = true, currentSidebarWidth = 480;
 
-    // --- 佈局控制參數 ---
-    let isSidebarOpen = true;
-    let currentSidebarWidth = 480;
-
-    // 定義 updateLayout 函數在頂層範圍
+    // --- 佈局更新 ---
     window.updateLayout = function() {
-        const sidebar = document.getElementById('sidebar');
-        const resizer = document.getElementById('resizer');
+        const sidebar = document.getElementById('sidebar'), resizer = document.getElementById('resizer');
         const isMobile = window.innerWidth < 768;
-        
-        if (sidebar) {
-            sidebar.style.width = isSidebarOpen ? (isMobile ? '100%' : currentSidebarWidth + 'px') : '0px';
-        }
-        if (resizer) {
-            resizer.style.display = isSidebarOpen && !isMobile ? 'flex' : 'none';
-        }
+        if (sidebar) sidebar.style.width = isSidebarOpen ? (isMobile ? '100%' : currentSidebarWidth + 'px') : '0px';
+        if (resizer) resizer.style.display = isSidebarOpen && !isMobile ? 'flex' : 'none';
     };
 
+    // --- 連線檢查與重試機制 ---
+    async function fetchWithRetry(url, options, retries = 5, delay = 1000) {
+        for (let i = 0; i < retries; i++) {
+            try {
+                const response = await fetch(url, options);
+                if (!response.ok) throw new Error('HTTP error ' + response.status);
+                return await response.json();
+            } catch (err) {
+                if (i === retries - 1) throw err;
+                await new Promise(res => setTimeout(res, delay));
+                delay *= 2; // 指數退避
+            }
+        }
+    }
+
+    async function checkSheetsConnection() {
+        const dot = document.getElementById('connStatusDot');
+        const badge = document.getElementById('syncStatusBadge');
+        const url = localStorage.getItem('gasUrl') || myDefaultGasUrl;
+        
+        if (!dot) return;
+        dot.className = "w-2.5 h-2.5 rounded-full bg-yellow-400 animate-pulse";
+        
+        try {
+            const res = await fetchWithRetry(url, { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'text/plain' }, 
+                body: JSON.stringify({ action: 'check' }) 
+            });
+            
+            if (res.status === 'success') {
+                dot.className = "w-2.5 h-2.5 rounded-full bg-green-500 ping-green";
+                dot.title = "Google Sheets 連線正常";
+                if (badge) { badge.textContent = "已連線"; badge.className = "px-2 py-1 rounded text-[10px] font-bold bg-green-100 text-green-600"; }
+            } else {
+                throw new Error();
+            }
+        } catch (e) {
+            dot.className = "w-2.5 h-2.5 rounded-full bg-red-500";
+            dot.title = "Google Sheets 連線失敗";
+            if (badge) { badge.textContent = "連線失敗"; badge.className = "px-2 py-1 rounded text-[10px] font-bold bg-red-100 text-red-600"; }
+        }
+    }
+
+    // --- 應用程式初始化 ---
     window.initApp = async function() {
         await fetchClassList();
         renderTableTemplate();
         setupEventListeners();
         initCamera();
         window.updateLayout();
+        checkSheetsConnection(); // 自動檢查連線
     };
 
     async function fetchClassList() {
         if (!isFirebaseReady) return;
         try {
-            const classesRef = getCollectionRef('classes');
-            const snapshot = await getDocs(classesRef);
+            const snapshot = await getDocs(getCollectionRef('classes'));
             window.classDataCache = {};
             const gradesSet = new Set();
             snapshot.forEach(docSnap => {
@@ -282,9 +351,7 @@
             });
             const grades = Array.from(gradesSet).sort();
             if (grades.length > 0) updateDropdowns(grades);
-            else {
-                document.getElementById('gradeSelect').innerHTML = '<option value="">請同步名單</option>';
-            }
+            else document.getElementById('gradeSelect').innerHTML = '<option value="">請同步名單</option>';
         } catch (e) { console.error(e); }
     }
 
@@ -327,57 +394,61 @@
                 const data = docSnap.data();
                 if (!window.classDataCache[currentGrade]) window.classDataCache[currentGrade] = {};
                 window.classDataCache[currentGrade][currentClass] = data.students || [];
-                renderStudentList(data.students || []);
+                renderFilteredStudentList();
                 showSaveSuccess();
             }
         });
     }
 
-    function renderStudentList(students) {
+    function renderFilteredStudentList() {
+        const students = window.classDataCache[currentGrade][currentClass] || [];
+        const keyword = document.getElementById('studentSearchInput').value.trim().toLowerCase();
+        const filtered = students.filter(s => s.name.toLowerCase().includes(keyword) || s.no.toString().includes(keyword));
         const listContainer = document.getElementById('student-list');
         if (!listContainer) return;
         document.getElementById('studentCount').textContent = students.length + '人';
         listContainer.innerHTML = '';
-        students.forEach((s, idx) => {
+        if (filtered.length === 0) { listContainer.innerHTML = '<div class="p-8 text-center text-gray-400 text-xs">查無學生</div>'; return; }
+        filtered.forEach((s) => {
+            const originalIndex = students.findIndex(orig => orig.no === s.no);
             const item = document.createElement('div');
             item.className = `student-item ${s.isTA ? 'bg-indigo-50' : 'bg-white'} flex items-center justify-between px-4 py-3 border-b`;
-            item.onclick = () => openGradingModal(idx, s);
-            item.innerHTML = `
-                <div class="flex items-center gap-3">
-                    <span class="w-8 h-8 rounded-full ${s.isTA ? 'bg-indigo-200 text-indigo-800' : 'bg-blue-100 text-blue-700'} flex items-center justify-center font-bold text-xs">${s.no}</span>
-                    <span class="font-bold ${s.isTA ? 'text-indigo-700' : 'text-gray-800'} text-base">${s.name}</span>
-                    ${s.isTA ? '<span class="text-[10px] bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded font-bold border">小老師</span>' : ''}
-                </div>
-                <span class="text-lg font-black ${s.score > 0 ? 'text-green-600' : (s.score < 0 ? 'text-red-500' : 'text-gray-400')} w-8 text-right">${s.score}</span>`;
+            item.onclick = () => openGradingModal(originalIndex, s);
+            item.innerHTML = `<div class="flex items-center gap-3"><span class="w-8 h-8 rounded-full ${s.isTA ? 'bg-indigo-200 text-indigo-800' : 'bg-blue-100 text-blue-700'} flex items-center justify-center font-bold text-xs shrink-0">${s.no}</span><span class="font-bold ${s.isTA ? 'text-indigo-700' : 'text-gray-800'} text-base">${s.name}</span>${s.isTA ? '<span class="text-[10px] bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded font-black border border-indigo-200">小老師</span>' : ''}</div><span class="text-lg font-black ${s.score > 0 ? 'text-green-600' : (s.score < 0 ? 'text-red-500' : 'text-gray-400')} w-8 text-right">${s.score}</span>`;
             listContainer.appendChild(item);
         });
     }
 
-    /* 同步中心邏輯 */
+    /* --- 同步中心功能 --- */
     window.openSyncModal = () => {
-        const savedUrl = localStorage.getItem('gasUrl') || myDefaultGasUrl;
-        document.getElementById('gasUrlInput').value = savedUrl;
+        document.getElementById('gasUrlInput').value = localStorage.getItem('gasUrl') || myDefaultGasUrl;
         document.getElementById('syncModal').classList.remove('hidden');
+        checkSheetsConnection(); // 打開時再次確認
     };
     window.closeSyncModal = () => {
-        localStorage.setItem('gasUrl', document.getElementById('gasUrlInput').value.trim());
+        const val = document.getElementById('gasUrlInput').value.trim();
+        localStorage.setItem('gasUrl', val);
         document.getElementById('syncModal').classList.add('hidden');
+        checkSheetsConnection();
     };
 
     window.pullFromSheets = async function() {
         const url = document.getElementById('gasUrlInput').value.trim();
-        if (!url || !isFirebaseReady) return showModal('錯誤', '請確認連線與資料庫狀態');
+        if (!url || !isFirebaseReady) return showModal('錯誤', '請確認連線正常');
         localStorage.setItem('gasUrl', url);
-        showLoading('正在從試算表抓取最新資料...');
+        showLoading('正在抓取名單與歷史數據...');
         try {
-            const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action: 'pull' }) });
-            const res = await resp.json();
+            const res = await fetchWithRetry(url, { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'text/plain' }, 
+                body: JSON.stringify({ action: 'pull' }) 
+            });
             if (res.status === 'success') {
                 for (let k in res.classes) await setDoc(getDocRef('classes', k), res.classes[k]);
                 if (document.getElementById('syncExpsToggle').checked && res.experiments) {
-                    for (let id in res.experiments) await setDoc(getDocRef('experiments', id), { ...res.experiments[id], id: id });
+                    for (let id in res.experiments) await setDoc(getDocRef('experiments', id), res.experiments[id]);
                 }
-                hideLoading(); showModal('同步完成', '所有名單與實驗紀錄已更新至 Firebase。');
+                hideLoading(); showModal('同步完成', '最新數據已載入！');
                 await fetchClassList();
                 document.getElementById('syncModal').classList.add('hidden');
             } else throw new Error(res.message);
@@ -386,18 +457,21 @@
 
     window.pushToSheets = async function() {
         const url = document.getElementById('gasUrlInput').value.trim();
-        if (!url || !isFirebaseReady) return showModal('錯誤', '請確認連線與資料庫狀態');
-        showLoading('正在備份數據至 Google 試算表...');
+        if (!url || !isFirebaseReady) return showModal('錯誤', '請確認連線正常');
+        showLoading('正在備份全校數據至試算表...');
         try {
             let exps = {};
             if (document.getElementById('syncExpsToggle').checked) {
                 const qSnap = await getDocs(getCollectionRef('experiments'));
-                qSnap.forEach(d => exps[d.id] = d.data());
+                qSnap.forEach(d => { exps[d.id] = d.data(); });
             }
-            const resp = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ action: 'push', classes: window.classDataCache, experiments: exps }) });
-            const res = await resp.json();
+            const res = await fetchWithRetry(url, { 
+                method: 'POST', 
+                headers: { 'Content-Type': 'text/plain' }, 
+                body: JSON.stringify({ action: 'push', classes: window.classDataCache, experiments: exps }) 
+            });
             if (res.status === 'success') {
-                hideLoading(); showModal('備份成功', `已同步成績與實驗紀錄至您的 Google 試算表。`);
+                hideLoading(); showModal('備份成功', `成績與 ${res.updatedExps || 0} 筆實驗紀錄已更新回 Sheets。`);
                 document.getElementById('syncModal').classList.add('hidden');
             } else throw new Error(res.message);
         } catch (e) { hideLoading(); showModal('備份失敗', e.message); }
@@ -406,59 +480,36 @@
     function showLoading(m) { document.getElementById('loadingMsg').textContent = m; document.getElementById('loadingModal').classList.remove('hidden'); }
     function hideLoading() { document.getElementById('loadingModal').classList.add('hidden'); }
 
-    /* 評分與實驗 */
+    /* --- 評分邏輯 --- */
     window.openGradingModal = (idx, s) => { currentSelectedStudentId = idx; document.getElementById('gradingGradeClass').textContent = `${currentGrade}年${currentClass}班 - ${s.no}號`; document.getElementById('gradingName').textContent = s.name; document.getElementById('gradingCurrentScore').textContent = s.score; document.getElementById('gradingTAToggle').checked = s.isTA; document.getElementById('gradingModal').classList.remove('hidden'); };
     window.closeGradingModal = () => document.getElementById('gradingModal').classList.add('hidden');
     window.updateScore = async (amt) => { if (currentSelectedStudentId === null) return; const list = window.classDataCache[currentGrade][currentClass]; list[currentSelectedStudentId].score += amt; document.getElementById('gradingCurrentScore').textContent = list[currentSelectedStudentId].score; await updateDoc(getDocRef('classes', `${currentGrade}_${currentClass}`), { students: list }); };
     window.updateTAStatus = async (val) => { if (currentSelectedStudentId === null) return; const list = window.classDataCache[currentGrade][currentClass]; list[currentSelectedStudentId].isTA = val; await updateDoc(getDocRef('classes', `${currentGrade}_${currentClass}`), { students: list }); };
 
+    /* --- 實驗表格渲染 --- */
     window.renderTableTemplate = () => {
-        const val = document.getElementById('expSelect').value;
-        const container = document.getElementById('table-container');
+        const val = document.getElementById('expSelect').value, container = document.getElementById('table-container');
         if (!container) return;
-        if (val === 'exp1') {
-            container.innerHTML = `<h3 class="font-bold text-center text-blue-900 mb-3 text-lg">1. 固定電阻 (1000Ω)</h3><table class="border-collapse text-center w-full"><thead><tr class="bg-blue-100"><th>輸入電壓</th><th>實際電壓(V)</th><th>電流(mA)</th><th>比值(Ω)</th></tr></thead><tbody><tr><td>1.5V</td><td><input type="number" class="table-input input-v"></td><td><input type="number" class="table-input input-i"></td><td class="result-r">-</td></tr><tr><td>3V</td><td><input type="number" class="table-input input-v"></td><td><input type="number" class="table-input input-i"></td><td class="result-r">-</td></tr><tr><td>4.5V</td><td><input type="number" class="table-input input-v"></td><td><input type="number" class="table-input input-i"></td><td class="result-r">-</td></tr></tbody></table>`;
-        } else if (val === 'exp2' || val === 'exp3') {
-            const sym = val === 'exp2' ? '+' : '//';
-            container.innerHTML = `<h3 class="font-bold text-center text-blue-900 mb-3 text-lg">${val==='exp2'?'串聯':'並聯'}實驗</h3><table class="border-collapse text-center w-full"><thead><tr class="bg-blue-100"><th>組合</th><th>三用電表(Ω)</th><th>電壓(V)</th><th>電流(mA)</th><th>比值(Ω)</th></tr></thead><tbody><tr><td>1個：1K</td><td><input type="number" class="table-input"></td><td><input type="number" class="table-input input-v"></td><td><input type="number" class="table-input input-i"></td><td class="result-r">-</td></tr><tr><td>2個：1K${sym}1K</td><td><input type="number" class="table-input"></td><td><input type="number" class="table-input input-v"></td><td><input type="number" class="table-input input-i"></td><td class="result-r">-</td></tr><tr><td>3個：1K${sym}1K${sym}1K</td><td><input type="number" class="table-input"></td><td><input type="number" class="table-input input-v"></td><td><input type="number" class="table-input input-i"></td><td class="result-r">-</td></tr></tbody></table>`;
-        } else {
-            container.innerHTML = `<h3 class="font-bold text-center text-green-700 mb-3 text-lg">4. 並聯迴路觀察</h3><table class="border-collapse text-center w-full"><thead><tr class="bg-green-100"><th>位置</th><th>電阻(Ω)</th><th>電壓(V)</th><th>電流(mA)</th></tr></thead><tbody><tr><td>迴路 1</td><td><input type="number" class="table-input"></td><td><input type="number" class="table-input"></td><td><input type="number" class="table-input"></td></tr><tr><td>迴路 2</td><td><input type="number" class="table-input"></td><td><input type="number" class="table-input"></td><td><input type="number" class="table-input"></td></tr><tr><td>總和</td><td><input type="number" class="table-input"></td><td><input type="number" class="table-input"></td><td><input type="number" class="table-input"></td></tr></tbody></table>`;
-        }
+        if (val === 'exp1') container.innerHTML = `<h3 class="font-black text-center text-blue-900 mb-3 text-lg underline decoration-blue-200">1. 固定電阻 (1000Ω)</h3><table class="border-collapse text-center w-full shadow-sm rounded-lg overflow-hidden border border-blue-100"><thead><tr class="bg-blue-600 text-white text-[10px]"><th>輸入電壓</th><th>實際電壓(V)</th><th>電流(mA)</th><th>比值(Ω)</th></tr></thead><tbody><tr class="border-b border-blue-50"><td>1.5V</td><td><input type="number" class="table-input input-v" step="any"></td><td><input type="number" class="table-input input-i" step="any"></td><td class="result-r font-black text-blue-600">-</td></tr><tr class="border-b border-blue-50"><td>3V</td><td><input type="number" class="table-input input-v" step="any"></td><td><input type="number" class="table-input input-i" step="any"></td><td class="result-r font-black text-blue-600">-</td></tr><tr><td>4.5V</td><td><input type="number" class="table-input input-v" step="any"></td><td><input type="number" class="table-input input-i" step="any"></td><td class="result-r font-black text-blue-600">-</td></tr></tbody></table>`;
+        else if (val === 'exp2' || val === 'exp3') { const sym = val === 'exp2' ? '+' : '//'; container.innerHTML = `<h3 class="font-black text-center text-blue-900 mb-3 text-lg underline decoration-blue-200">${val==='exp2'?'串聯':'並聯'}實驗</h3><table class="border-collapse text-center w-full shadow-sm rounded-lg overflow-hidden border border-blue-100"><thead><tr class="bg-blue-600 text-white text-[10px]"><th>組合</th><th>三用電表(Ω)</th><th>電壓(V)</th><th>電流(mA)</th><th>比值(Ω)</th></tr></thead><tbody><tr class="border-b border-blue-50"><td>1個：1K</td><td><input type="number" class="table-input"></td><td><input type="number" class="table-input input-v" step="any"></td><td><input type="number" class="table-input input-i" step="any"></td><td class="result-r font-black text-blue-600">-</td></tr><tr class="border-b border-blue-50"><td>2個：1K${sym}1K</td><td><input type="number" class="table-input"></td><td><input type="number" class="table-input input-v" step="any"></td><td><input type="number" class="table-input input-i" step="any"></td><td class="result-r font-black text-blue-600">-</td></tr><tr><td>3個：1K${sym}1K${sym}1K</td><td><input type="number" class="table-input"></td><td><input type="number" class="table-input input-v" step="any"></td><td><input type="number" class="table-input input-i" step="any"></td><td class="result-r font-black text-blue-600">-</td></tr></tbody></table>`; }
+        else container.innerHTML = `<h3 class="font-black text-center text-green-700 mb-3 text-lg underline decoration-green-200">4. 並聯迴路觀察</h3><table class="border-collapse text-center w-full shadow-sm rounded-lg overflow-hidden border border-green-100"><thead><tr class="bg-green-600 text-white text-[10px]"><th>位置</th><th>電阻(Ω)</th><th>電壓(V)</th><th>電流(mA)</th></tr></thead><tbody><tr class="border-b border-green-50"><td>迴路 1</td><td><input type="number" class="table-input"></td><td><input type="number" class="table-input"></td><td><input type="number" class="table-input"></td></tr><tr class="border-b border-green-50"><td>迴路 2</td><td><input type="number" class="table-input"></td><td><input type="number" class="table-input"></td><td><input type="number" class="table-input"></td></tr><tr class="bg-green-50"><td>總和</td><td><input type="number" class="table-input font-bold"></td><td><input type="number" class="table-input font-bold"></td><td><input type="number" class="table-input font-bold"></td></tr></tbody></table>`;
         loadExpData();
     };
 
-    window.calculateRatio = () => {
-        document.querySelectorAll('#table-container tr').forEach(row => {
-            const vIn = row.querySelector('.input-v'), iIn = row.querySelector('.input-i'), res = row.querySelector('.result-r');
-            if (res) {
-                let v = vIn ? parseFloat(vIn.value) : (row.cells[0]?.innerText.includes('V') ? parseFloat(row.cells[0].innerText) : NaN);
-                const i = iIn ? parseFloat(iIn.value) : NaN;
-                res.textContent = (!isNaN(v) && !isNaN(i) && i !== 0) ? ((v / i) * 1000).toFixed(2) : '-';
-            }
-        });
-    };
-
-    window.saveExpData = async () => {
-        if (!currentGrade || !currentClass || !isFirebaseReady) return showModal('錯誤', '請選擇班級');
-        const expType = document.getElementById('expSelect').value;
-        const data = Array.from(document.querySelectorAll('#table-container input')).map(i => i.value);
-        await setDoc(getDocRef('experiments', `${currentGrade}_${currentClass}_${expType}`), { grade: currentGrade, className: currentClass, expType, data, updatedAt: new Date().toISOString() });
-        showSaveSuccess();
-    };
-
-    window.loadExpData = async () => {
-        if (!currentGrade || !currentClass || !isFirebaseReady) return;
+    window.calculateRatio = () => { document.querySelectorAll('#table-container tr').forEach(row => { const vIn = row.querySelector('.input-v'), iIn = row.querySelector('.input-i'), res = row.querySelector('.result-r'); if (res) { let v = vIn ? parseFloat(vIn.value) : (row.cells[0]?.innerText.includes('V') ? parseFloat(row.cells[0].innerText) : NaN); const i = iIn ? parseFloat(iIn.value) : NaN; res.textContent = (!isNaN(v) && !isNaN(i) && i !== 0) ? ((v / i) * 1000).toFixed(2) : '-'; } }); };
+    window.saveExpData = async function() { 
+        if (!currentGrade || !currentClass || !isFirebaseReady) return showModal('錯誤', '請選擇班級'); 
+        const btn = document.getElementById('saveExpBtn'), expType = document.getElementById('expSelect').value, data = Array.from(document.querySelectorAll('#table-container input')).map(i => i.value); 
+        btn.disabled = true;
         try {
-            const snap = await getDoc(getDocRef('experiments', `${currentGrade}_${currentClass}_${document.getElementById('expSelect').value}`));
-            if (snap.exists()) {
-                const ins = document.querySelectorAll('#table-container input');
-                snap.data().data.forEach((v, i) => { if (ins[i]) ins[i].value = v; });
-                calculateRatio();
-            }
-        } catch (e) {}
+            await setDoc(getDocRef('experiments', `${currentGrade}_${currentClass}_${expType}`), { grade: currentGrade, className: currentClass, expType, data, updatedAt: new Date().toLocaleString() }); 
+            showSaveSuccess(); 
+        } catch (e) { showModal('儲存失敗', e.message); }
+        btn.disabled = false;
     };
+    window.loadExpData = async () => { if (!currentGrade || !currentClass || !isFirebaseReady) return; try { const snap = await getDoc(getDocRef('experiments', `${currentGrade}_${currentClass}_${document.getElementById('expSelect').value}`)); if (snap.exists()) { const ins = document.querySelectorAll('#table-container input'); snap.data().data.forEach((v, i) => { if (ins[i]) ins[i].value = v; }); calculateRatio(); } } catch (e) {} };
 
-    /* 基本事件綁定 */
+    /* --- 基本事件設定 --- */
     function setupEventListeners() {
         document.getElementById('gradeSelect').addEventListener('change', updateClassDropdown);
         document.getElementById('classSelect').addEventListener('change', () => { loadClassStudents(); loadExpData(); });
@@ -469,89 +520,35 @@
         document.getElementById('colWidthSlider').addEventListener('input', (e) => document.documentElement.style.setProperty('--col1-width', e.target.value + 'px'));
         document.getElementById('swapLayoutBtn').addEventListener('click', () => document.getElementById('mainContainer').classList.toggle('md:flex-row-reverse'));
         document.getElementById('fullscreenBtn').addEventListener('click', () => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen());
-        
-        const resizer = document.getElementById('resizer');
-        const toggleBtn = document.getElementById('toggleSidebarBtn');
-        let isResizing = false;
-        
+        document.getElementById('studentSearchInput').addEventListener('input', renderFilteredStudentList);
+
+        const resizer = document.getElementById('resizer'), toggleBtn = document.getElementById('toggleSidebarBtn');
         if (resizer) {
-            resizer.addEventListener('mousedown', (e) => { isResizing = true; document.body.style.cursor = 'col-resize'; });
-            document.addEventListener('mousemove', (e) => {
-                if (!isResizing) return;
-                const dx = e.movementX;
-                const isReverse = document.getElementById('mainContainer').classList.contains('md:flex-row-reverse');
-                currentSidebarWidth += isReverse ? dx : -dx;
-                currentSidebarWidth = Math.max(320, Math.min(currentSidebarWidth, window.innerWidth * 0.8));
-                window.updateLayout();
-            });
-            document.addEventListener('mouseup', () => { isResizing = false; document.body.style.cursor = ''; });
+            resizer.addEventListener('mousedown', () => { window.isResizing = true; document.body.style.cursor = 'col-resize'; });
+            document.addEventListener('mousemove', (e) => { if (!window.isResizing) return; currentSidebarWidth += document.getElementById('mainContainer').classList.contains('md:flex-row-reverse') ? e.movementX : -e.movementX; currentSidebarWidth = Math.max(320, Math.min(currentSidebarWidth, window.innerWidth * 0.8)); window.updateLayout(); });
+            document.addEventListener('mouseup', () => { window.isResizing = false; document.body.style.cursor = ''; });
         }
-        
-        if (toggleBtn) {
-            toggleBtn.addEventListener('click', () => { isSidebarOpen = !isSidebarOpen; window.updateLayout(); });
-        }
+        if (toggleBtn) toggleBtn.addEventListener('click', () => { isSidebarOpen = !isSidebarOpen; window.updateLayout(); });
         window.addEventListener('resize', window.updateLayout);
     }
 
-    async function initCamera() {
-        try {
-            await navigator.mediaDevices.getUserMedia({ video: true });
-            const devices = await navigator.mediaDevices.enumerateDevices();
-            const videoDevices = devices.filter(d => d.kind === 'videoinput');
-            const cameraSelect = document.getElementById('cameraSelect');
-            if (cameraSelect) {
-                cameraSelect.innerHTML = videoDevices.map((d, i) => `<option value="${d.deviceId}">${d.label || '鏡頭'+(i+1)}</option>`).join('');
-            }
-            startStream();
-        } catch (e) { 
-            const msg = document.getElementById('noCameraMsg');
-            if (msg) msg.classList.remove('hidden'); 
-        }
-    }
+    async function initCamera() { try { await navigator.mediaDevices.getUserMedia({ video: true }); const devices = await navigator.mediaDevices.enumerateDevices(), videoDevices = devices.filter(d => d.kind === 'videoinput'); if (document.getElementById('cameraSelect')) document.getElementById('cameraSelect').innerHTML = videoDevices.map((d, i) => `<option value="${d.deviceId}">${d.label || '鏡頭'+(i+1)}</option>`).join(''); startStream(); } catch (e) { if (document.getElementById('noCameraMsg')) document.getElementById('noCameraMsg').classList.remove('hidden'); } }
+    async function startStream() { const video = document.getElementById('video'), select = document.getElementById('cameraSelect'); if (!video || !select || !select.value) return; try { video.srcObject = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: select.value }, width: { ideal: 3840 }, height: { ideal: 2160 } } }); } catch (e) { video.srcObject = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: select.value } } }); } }
     
-    async function startStream() {
-        const video = document.getElementById('video');
-        const select = document.getElementById('cameraSelect');
-        if (!video || !select || !select.value) return;
-        try {
-            video.srcObject = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: select.value }, width: { ideal: 3840 }, height: { ideal: 2160 } } });
-        } catch (e) { 
-            video.srcObject = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: select.value } } }); 
-        }
-    }
-    
-    const camSelect = document.getElementById('cameraSelect');
+    const camSelect = document.getElementById('cameraSelect'), refreshBtn = document.getElementById('refreshCamBtn');
     if (camSelect) camSelect.addEventListener('change', startStream);
-    const refreshBtn = document.getElementById('refreshCamBtn');
     if (refreshBtn) refreshBtn.addEventListener('click', initCamera);
 
-    function showSaveSuccess() { 
-        const ind = document.getElementById('saveStatusIndicator');
-        if (ind) { ind.classList.remove('hidden'); setTimeout(() => ind.classList.add('hidden'), 2000); }
-    }
-    window.showModal = (t, m) => { 
-        const title = document.getElementById('modalTitle'), msg = document.getElementById('modalMessage'), modal = document.getElementById('customModal');
-        if (title) title.textContent = t; if (msg) msg.textContent = m; if (modal) modal.classList.remove('hidden'); 
-    };
+    function showSaveSuccess() { const ind = document.getElementById('saveStatusIndicator'); if (ind) { ind.classList.remove('hidden'); setTimeout(() => ind.classList.add('hidden'), 2000); } }
+    window.showModal = (t, m) => { const title = document.getElementById('modalTitle'), msg = document.getElementById('modalMessage'), modal = document.getElementById('customModal'); if (title) title.textContent = t; if (msg) msg.textContent = m; if (modal) modal.classList.remove('hidden'); };
 
-    /* Firebase 初始化 */
+    /* --- Firebase 初始化 --- */
     try {
-        const hasEnv = typeof __firebase_config !== 'undefined' && __firebase_config;
-        const config = hasEnv ? JSON.parse(__firebase_config) : myFirebaseConfig;
+        const hasEnv = typeof __firebase_config !== 'undefined' && __firebase_config, config = hasEnv ? JSON.parse(__firebase_config) : myFirebaseConfig;
         app = initializeApp(config); auth = getAuth(app); db = getFirestore(app);
-        const authenticate = async () => {
-            try {
-                if (hasEnv && typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else await signInAnonymously(auth);
-                isFirebaseReady = true; window.initApp();
-            } catch (err) {
-                await signInAnonymously(auth); isFirebaseReady = true; window.initApp();
-            }
-        };
+        const authenticate = async () => { try { if (hasEnv && typeof __initial_auth_token !== 'undefined' && __initial_auth_token) await signInWithCustomToken(auth, __initial_auth_token); else await signInAnonymously(auth); isFirebaseReady = true; window.initApp(); } catch (err) { await signInAnonymously(auth); isFirebaseReady = true; window.initApp(); } };
         authenticate();
     } catch (e) { console.error(e); }
-
 </script>
 </body>
 </html>
