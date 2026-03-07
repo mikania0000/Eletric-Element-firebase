@@ -23,9 +23,9 @@
         .student-item:hover { background-color: #f3f4f6; cursor: pointer; transform: translateX(4px); }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         
-        .table-input { width: 100%; text-align: center; background: transparent; outline: none; border-bottom: 1px solid #e5e7eb; }
+        .table-input { width: 100%; text-align: center; background: transparent; outline: none; border-bottom: 1px solid #e5e7eb; font-size: inherit; }
         .table-input:focus { border-bottom: 2px solid #3b82f6; }
-        .fill-blank { border-bottom: 1px solid #4b5563; text-align: center; outline: none; background: transparent; }
+        .fill-blank { border-bottom: 1px solid #4b5563; text-align: center; outline: none; background: transparent; font-size: inherit; }
 
         /* 拖曳分隔線樣式 */
         .resizer-line { width: 8px; background-color: #e5e7eb; cursor: col-resize; transition: background-color 0.2s; }
@@ -210,10 +210,14 @@
 
         <div class="mb-4 bg-gray-50 p-3 rounded-lg border border-gray-200">
             <label class="block text-xs font-bold text-gray-700 mb-2">方式一：直接上傳 CSV 檔案</label>
+            <div class="flex items-center gap-4 mb-2">
+                <label class="text-xs text-gray-600 flex items-center gap-1 cursor-pointer"><input type="radio" name="csvEncoding" value="UTF-8" checked class="cursor-pointer"> UTF-8 (無亂碼/支援特殊字)</label>
+                <label class="text-xs text-gray-600 flex items-center gap-1 cursor-pointer"><input type="radio" name="csvEncoding" value="Big5" class="cursor-pointer"> Big5 (舊版Excel)</label>
+            </div>
             <input type="file" id="csvFileInput" accept=".csv" onchange="handleCSVUpload(event)" class="w-full text-sm text-gray-500 file:mr-4 file:py-1.5 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-100 file:text-blue-700 hover:file:bg-blue-200 transition">
         </div>
 
-        <p class="text-xs text-gray-700 font-bold mb-1">方式二：直接複製貼上</p>
+        <p class="text-xs text-gray-700 font-bold mb-1">方式二：直接複製貼上 <span class="text-red-500 font-normal">(強烈推薦！不會遺失特殊字)</span></p>
         <textarea id="importTextarea" class="w-full h-40 border border-gray-300 rounded-lg p-3 text-sm font-mono mb-4 focus:ring-2 focus:ring-blue-500 outline-none bg-white placeholder-gray-400" placeholder="801	1	吳彥霆		&#10;801	2	李祐漢	2	V&#10;..."></textarea>
         
         <div class="flex gap-3">
@@ -542,14 +546,17 @@
     window.handleCSVUpload = function(event) {
         const file = event.target.files[0];
         if (!file) return;
+        
+        const encoding = document.querySelector('input[name="csvEncoding"]:checked').value;
+        
         const reader = new FileReader();
         reader.onload = function(e) {
             // 讀取後移除可能存在的引號，並放入文字框中
             let text = e.target.result.replace(/"/g, '');
             document.getElementById('importTextarea').value = text;
         };
-        // 將預設編碼改為 Big5，解決微軟 Excel 匯出 CSV 的中文亂碼問題
-        reader.readAsText(file, 'Big5');
+        // 根據使用者選擇的編碼來讀取
+        reader.readAsText(file, encoding);
     };
 
     window.processImport = async function() {
@@ -694,11 +701,11 @@
             html = `
                 <h3 class="font-bold text-center text-blue-900 mb-3 text-lg">${title}</h3>
                 <table class="border-collapse text-center w-full">
-                    <thead><tr class="bg-blue-100 border border-blue-200 text-blue-900 text-[0.85em]"><th class="border border-blue-200 py-1.5">組合</th><th class="border border-blue-200">三用電表(Ω)</th><th class="border border-blue-200">電壓(V)</th><th class="border border-blue-200">電流(mA)</th><th class="border border-blue-200">比值(Ω)</th></tr></thead>
+                    <thead><tr class="bg-blue-100 border border-blue-200 text-blue-900"><th class="border border-blue-200 py-1.5">組合</th><th class="border border-blue-200">三用電表(Ω)</th><th class="border border-blue-200">電壓(V)</th><th class="border border-blue-200">電流(mA)</th><th class="border border-blue-200">比值(Ω)</th></tr></thead>
                     <tbody>
-                        <tr><td class="border border-gray-200 bg-gray-50 px-1 py-1.5 text-xs whitespace-nowrap">1個：<input type="text" class="fill-blank w-8" value="1K"></td><td class="border border-gray-200"><input type="number" class="table-input" step="any"></td><td class="border border-gray-200"><input type="number" class="table-input input-v" step="any"></td><td class="border border-gray-200"><input type="number" class="table-input input-i" step="any"></td><td class="border border-gray-200 font-bold text-blue-700 result-r bg-blue-50/30">-</td></tr>
-                        <tr><td class="border border-gray-200 bg-gray-50 px-1 py-1.5 text-xs whitespace-nowrap">2個：<input type="text" class="fill-blank w-6" value="1K">${sym}<input type="text" class="fill-blank w-6" value="1K"></td><td class="border border-gray-200"><input type="number" class="table-input" step="any"></td><td class="border border-gray-200"><input type="number" class="table-input input-v" step="any"></td><td class="border border-gray-200"><input type="number" class="table-input input-i" step="any"></td><td class="border border-gray-200 font-bold text-blue-700 result-r bg-blue-50/30">-</td></tr>
-                        <tr><td class="border border-gray-200 bg-gray-50 px-1 py-1.5 text-xs whitespace-nowrap">3個：<input type="text" class="fill-blank w-4" value="1K">${sym}<input type="text" class="fill-blank w-4" value="1K">${sym}<input type="text" class="fill-blank w-4" value="1K"></td><td class="border border-gray-200"><input type="number" class="table-input" step="any"></td><td class="border border-gray-200"><input type="number" class="table-input input-v" step="any"></td><td class="border border-gray-200"><input type="number" class="table-input input-i" step="any"></td><td class="border border-gray-200 font-bold text-blue-700 result-r bg-blue-50/30">-</td></tr>
+                        <tr><td class="border border-gray-200 bg-gray-50 px-1 py-1.5 whitespace-nowrap">1個：<input type="text" class="fill-blank w-8" value="1K"></td><td class="border border-gray-200"><input type="number" class="table-input" step="any"></td><td class="border border-gray-200"><input type="number" class="table-input input-v" step="any"></td><td class="border border-gray-200"><input type="number" class="table-input input-i" step="any"></td><td class="border border-gray-200 font-bold text-blue-700 result-r bg-blue-50/30">-</td></tr>
+                        <tr><td class="border border-gray-200 bg-gray-50 px-1 py-1.5 whitespace-nowrap">2個：<input type="text" class="fill-blank w-6" value="1K">${sym}<input type="text" class="fill-blank w-6" value="1K"></td><td class="border border-gray-200"><input type="number" class="table-input" step="any"></td><td class="border border-gray-200"><input type="number" class="table-input input-v" step="any"></td><td class="border border-gray-200"><input type="number" class="table-input input-i" step="any"></td><td class="border border-gray-200 font-bold text-blue-700 result-r bg-blue-50/30">-</td></tr>
+                        <tr><td class="border border-gray-200 bg-gray-50 px-1 py-1.5 whitespace-nowrap">3個：<input type="text" class="fill-blank w-4" value="1K">${sym}<input type="text" class="fill-blank w-4" value="1K">${sym}<input type="text" class="fill-blank w-4" value="1K"></td><td class="border border-gray-200"><input type="number" class="table-input" step="any"></td><td class="border border-gray-200"><input type="number" class="table-input input-v" step="any"></td><td class="border border-gray-200"><input type="number" class="table-input input-i" step="any"></td><td class="border border-gray-200 font-bold text-blue-700 result-r bg-blue-50/30">-</td></tr>
                     </tbody>
                 </table>
                 <div class="mt-4 text-[var(--font-size)] bg-gray-50 p-3 rounded-lg border border-gray-200 flex items-center gap-2">
