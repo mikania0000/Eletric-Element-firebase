@@ -540,7 +540,7 @@
         }
     };
 
-    // --- 視窗拖曳與縮放邏輯 (新增縮放功能) ---
+    // --- 視窗拖曳與縮放邏輯 ---
     function initInteractiveModal(modalId, headerId) {
         const modal = document.getElementById(modalId);
         const header = document.getElementById(headerId);
@@ -655,7 +655,6 @@
         renderTableTemplate();
         setupEventListeners();
         
-        // 初始化視窗的拖曳與縮放功能
         initInteractiveModal('floatingTableModal', 'floatingHeader');
         initInteractiveModal('floatingGradingModal', 'floatingGradingHeader');
         
@@ -709,7 +708,6 @@
                 const data = docSnap.data();
                 window.classDataCache[currentGrade][currentClass] = data.students || [];
                 renderFilteredStudentList();
-                // removed showSaveSuccess();
             }
         });
     }
