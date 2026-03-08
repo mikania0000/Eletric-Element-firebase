@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>實驗紀錄系統 v3.9 (連線燈號版)</title>
+    <title>實驗紀錄系統 v4.4 (完美排版繁中版)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         input[type="number"]::-webkit-outer-spin-button,
@@ -12,152 +12,282 @@
         
         :root {
             --table-width: 100%;
-            --font-size: 14px;
+            --font-size: 16px; /* 預設調大一點 */
             --col1-width: 140px; 
         }
 
-        #table-container table { width: var(--table-width); font-size: var(--font-size); margin: 0 auto; table-layout: fixed; }
-        #table-container th:first-child, #table-container td:first-child { width: var(--col1-width); word-break: break-all; }
+        /* ================= 實驗表格核心樣式美化 ================= */
+        #table-container table { 
+            width: var(--table-width); 
+            margin: 0 auto; 
+            table-layout: fixed; 
+            border-collapse: separate; 
+            border-spacing: 0;
+            border: 1px solid #bfdbfe; /* Tailwind blue-200 */
+            border-radius: 12px;
+            overflow: hidden;
+            background: white;
+            box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.1);
+        }
+
+        /* 強制套用文字大小拉桿數值 */
+        #table-container table, 
+        #table-container th, 
+        #table-container td, 
+        #table-container input, 
+        #table-container span {
+            font-size: var(--font-size) !important;
+        }
+
+        #table-container th { 
+            background-color: #3b82f6; /* Tailwind blue-500 */
+            color: white; 
+            padding: 12px 8px; 
+            font-weight: 700; 
+            border-bottom: 2px solid #2563eb; 
+            letter-spacing: 0.05em;
+        }
+
+        /* 綠色版表頭 (實驗4) */
+        #table-container table.theme-green {
+            border-color: #bbf7d0;
+            box-shadow: 0 4px 6px -1px rgba(34, 197, 94, 0.1);
+        }
+        #table-container table.theme-green th {
+            background-color: #22c55e;
+            border-bottom: 2px solid #16a34a;
+        }
+
+        #table-container td { 
+            padding: 10px 6px; 
+            border-bottom: 1px solid #f1f5f9; 
+            border-right: 1px solid #f1f5f9;
+            text-align: center;
+            color: #334155;
+            vertical-align: middle;
+        }
+        #table-container td:last-child { border-right: none; }
+        #table-container tr:last-child td { border-bottom: none; }
         
-        .student-item { transition: all 0.2s; border-radius: 8px; }
-        .student-item:hover { background-color: #f3f4f6; cursor: pointer; transform: translateX(4px); }
+        /* 首欄樣式與寬度控制 */
+        #table-container td:first-child, #table-container th:first-child {
+            width: var(--col1-width) !important;
+            font-weight: 700;
+            background-color: #f8fafc;
+        }
+        #table-container table.theme-green td:first-child { background-color: #f0fdf4; }
+        
+        /* 輸入框精緻化 */
+        .table-input { 
+            width: 90%; 
+            text-align: center; 
+            background: #f1f5f9; 
+            outline: none; 
+            border: 2px solid transparent;
+            border-radius: 8px;
+            padding: 6px 4px;
+            font-weight: 600;
+            color: #1e293b;
+            transition: all 0.2s ease;
+        }
+        .table-input:hover { background: #e2e8f0; }
+        .table-input:focus { background: white; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15); }
+        #table-container table.theme-green .table-input:focus { border-color: #22c55e; box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.15); }
+        
+        /* 底線填空框 */
+        .fill-blank { 
+            border-bottom: 2px solid #94a3b8; 
+            text-align: center; 
+            outline: none; 
+            background: transparent; 
+            font-weight: 800;
+            color: #1d4ed8;
+            width: 45px;
+            padding: 0 2px;
+            transition: border-color 0.2s;
+        }
+        .fill-blank:focus { border-bottom-color: #3b82f6; }
+        /* ========================================================= */
+
+        .student-item { transition: all 0.2s; border-radius: 14px; border: 1px solid transparent; }
+        .student-item:hover { background-color: #f0f7ff; border-color: #dbeafe; cursor: pointer; transform: translateX(8px); }
+        
+        .resizer-line { width: 8px; background-color: #f1f5f9; cursor: col-resize; transition: background-color 0.2s; }
+        .resizer-line:hover { background-color: #3b82f6; }
+
+        .ping-green { animation: shadow-ping-green 2s infinite; }
+        @keyframes shadow-ping-green { 0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); } 70% { box-shadow: 0 0 0 8px rgba(34, 197, 94, 0); } 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); } }
+        
         .no-scrollbar::-webkit-scrollbar { display: none; }
-        
-        .table-input { width: 100%; text-align: center; background: transparent; outline: none; border-bottom: 1px solid #e5e7eb; font-size: inherit; }
-        .table-input:focus { border-bottom: 2px solid #3b82f6; }
-        .fill-blank { border-bottom: 1px solid #4b5563; text-align: center; outline: none; background: transparent; font-size: inherit; }
-
-        .resizer-line { width: 8px; background-color: #e5e7eb; cursor: col-resize; transition: background-color 0.2s; }
-        .resizer-line:hover, .resizer-line:active { background-color: #60a5fa; }
-
-        /* 燈號呼吸動畫 */
-        .ping-green { animation: shadow-ping-green 2s cubic-bezier(0, 0, 0.2, 1) infinite; }
-        @keyframes shadow-ping-green { 0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); } 70% { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); } 100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); } }
-
-        .modal-enter { animation: modalFadeIn 0.2s ease-out forwards; }
-        @keyframes modalFadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
     </style>
 </head>
-<body class="bg-gray-100 font-sans h-screen overflow-hidden text-gray-800 text-xs md:text-sm">
+<body class="bg-slate-100 font-sans h-screen overflow-hidden text-slate-800">
 
 <div id="mainContainer" class="flex h-full w-full flex-col md:flex-row transition-layout">
     
     <!-- 視訊顯示區 -->
-    <div id="videoContainer" class="relative bg-black flex flex-col items-center justify-center p-2 flex-1 h-full min-w-0 transition-layout">
-        <div class="absolute top-4 left-4 z-10 bg-white/90 p-2 rounded-lg shadow-lg flex items-center gap-2 backdrop-blur-sm">
-            <select id="cameraSelect" class="border rounded p-1 text-sm outline-none max-w-[120px] bg-white"></select>
-            <button id="refreshCamBtn" class="bg-blue-100 hover:bg-blue-200 p-1.5 rounded transition-colors" title="重新偵測"><svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke-width="2" stroke-linecap="round"/></svg></button>
-            <button id="swapLayoutBtn" class="bg-gray-200 hover:bg-gray-300 p-1.5 rounded transition-colors" title="左右互換"><svg class="w-4 h-4 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" stroke-width="2" stroke-linecap="round"/></svg></button>
-            <button id="fullscreenBtn" class="bg-gray-200 hover:bg-gray-300 p-1.5 rounded transition-colors" title="全螢幕模式"><svg class="w-4 h-4 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg></button>
+    <div id="videoContainer" class="relative bg-slate-900 flex flex-col items-center justify-center p-2 flex-1 h-full min-w-0 transition-layout">
+        <div class="absolute top-4 left-4 z-10 bg-white/95 p-2 rounded-xl shadow-2xl flex items-center gap-2 backdrop-blur-md border border-white">
+            <select id="cameraSelect" class="border rounded-lg p-1.5 text-xs outline-none bg-white font-bold text-slate-700"></select>
+            <button id="refreshCamBtn" class="bg-blue-50 hover:bg-blue-100 p-2 rounded-lg text-blue-600 transition-colors" title="重新偵測鏡頭"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke-width="2" stroke-linecap="round"/></svg></button>
+            <button id="swapLayoutBtn" class="bg-slate-100 hover:bg-slate-200 p-2 rounded-lg text-slate-700 transition-colors" title="左右互換"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" stroke-width="2" stroke-linecap="round"/></svg></button>
+            <button id="fullscreenBtn" class="bg-slate-100 hover:bg-slate-200 p-2 rounded-lg text-slate-700 transition-colors" title="全螢幕模式"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg></button>
         </div>
         
-        <button id="toggleSidebarBtn" class="absolute top-4 right-4 z-30 bg-blue-600 text-white p-2.5 rounded-full shadow-2xl hover:bg-blue-700 transform active:scale-95 transition-all">
-            <svg id="sidebar-icon" class="w-6 h-6 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"></path></svg>
+        <button id="toggleSidebarBtn" class="absolute top-4 right-4 z-30 bg-blue-600 text-white p-3 rounded-full shadow-2xl hover:bg-blue-700 active:scale-90 transition-all">
+            <svg id="sidebar-icon" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"></path></svg>
         </button>
 
-        <video id="video" class="w-full h-full object-contain bg-gray-900 rounded-lg shadow-inner" autoplay playsinline></video>
-        <div id="noCameraMsg" class="hidden absolute inset-0 flex flex-col items-center justify-center text-gray-400 bg-gray-900/80 rounded-lg">偵測不到攝影機</div>
+        <video id="video" class="w-full h-full object-contain rounded-2xl shadow-inner bg-black" autoplay playsinline></video>
+        <div id="noCameraMsg" class="hidden absolute inset-0 flex flex-col items-center justify-center text-slate-400 bg-slate-900/80 rounded-2xl font-bold">偵測不到攝影機</div>
     </div>
 
+    <!-- 拖曳分隔線 -->
     <div id="resizer" class="hidden md:flex resizer-line z-40 items-center justify-center shrink-0">
-        <div class="w-1 h-12 bg-gray-400 rounded-full"></div>
+        <div class="w-1.5 h-16 bg-slate-300 rounded-full"></div>
     </div>
 
-    <!-- 紀錄面板側邊欄 -->
+    <!-- 右側：紀錄面板 -->
     <div id="sidebar" class="w-full bg-white flex flex-col shadow-2xl z-20 h-1/2 md:h-full transition-layout overflow-hidden shrink-0" style="width: 480px; min-width: 320px;">
         
-        <div class="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100 shrink-0">
-            <div class="flex items-center justify-between mb-3">
-                <h1 class="text-xl font-extrabold text-blue-900 tracking-tight">實驗紀錄系統 <span class="text-xs font-normal text-white bg-blue-500 px-2 py-0.5 rounded-full ml-1 shadow-sm">v3.9 全校版</span></h1>
-                <div class="flex items-center gap-2">
-                    <button onclick="openSyncModal()" class="group relative text-sm bg-white border border-green-500 text-green-700 px-3 py-1.5 rounded-lg hover:bg-green-50 transition flex items-center gap-2 shadow-sm font-bold active:scale-95">
-                        <span id="connStatusDot" class="w-2.5 h-2.5 rounded-full bg-gray-400" title="正在偵測 Sheets 連線..."></span>
-                        Sheets 同步中心
-                    </button>
-                </div>
+        <div class="p-5 bg-white border-b border-slate-100 shrink-0">
+            <div class="flex items-center justify-between mb-4">
+                <h1 class="text-2xl font-black text-slate-900 tracking-tighter">實驗紀錄系統 <span class="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-lg">v4.4 修復版</span></h1>
+                <button onclick="openSyncModal()" class="group flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-xl hover:bg-emerald-700 transition shadow-lg shadow-emerald-200/50 font-black active:scale-95 text-xs">
+                    <span id="connStatusDot" class="w-2.5 h-2.5 rounded-full bg-slate-300 transition-colors"></span>
+                    雲端同步中心
+                </button>
             </div>
 
-            <div class="grid grid-cols-2 gap-2 mb-3 text-sm">
-                <select id="gradeSelect" class="border border-blue-200 rounded p-1.5 outline-none bg-white shadow-sm focus:ring-2 focus:ring-blue-400 transition"><option value="">讀取中...</option></select>
-                <select id="classSelect" class="border border-blue-200 rounded p-1.5 outline-none bg-white shadow-sm focus:ring-2 focus:ring-blue-400 transition"><option value="">讀取中...</option></select>
+            <div class="grid grid-cols-2 gap-3 mb-4 text-sm font-bold">
+                <select id="gradeSelect" class="bg-slate-50 border border-slate-200 rounded-xl p-2 focus:ring-2 focus:ring-blue-500 outline-none"></select>
+                <select id="classSelect" class="bg-slate-50 border border-slate-200 rounded-xl p-2 focus:ring-2 focus:ring-blue-500 outline-none"></select>
             </div>
             
-            <select id="expSelect" class="w-full border border-blue-200 rounded p-1.5 font-bold text-blue-800 text-sm mb-2 shadow-sm focus:ring-2 focus:ring-blue-400 transition">
-                <option value="exp1">1. 固定電阻 (1000Ω)</option>
-                <option value="exp2">2. 電阻串聯 (固定 3V)</option>
-                <option value="exp3">3. 電阻並聯 (固定 3V)</option>
-                <option value="exp4">4. 並聯迴路觀察</option>
+            <select id="expSelect" class="w-full bg-blue-600 border-none rounded-xl p-3 font-black text-white text-sm mb-5 shadow-xl shadow-blue-200 outline-none cursor-pointer hover:bg-blue-700 transition-colors">
+                <option value="exp1">1. 固定電阻實驗 (1000Ω)</option>
+                <option value="exp2">2. 電阻串聯實驗 (固定 3V)</option>
+                <option value="exp3">3. 電阻並聯實驗 (固定 3V)</option>
+                <option value="exp4">4. 並聯迴路電流觀察</option>
             </select>
 
-            <div class="bg-white/60 p-2 rounded-lg border border-blue-100 flex gap-4 shadow-sm backdrop-blur-sm">
-                <div class="flex items-center gap-2 text-[10px] text-gray-600 font-bold flex-1">
-                    文字 <input type="range" id="fontSlider" min="10" max="22" value="14" class="flex-1 h-1.5 bg-blue-200 rounded-lg appearance-none cursor-pointer">
+            <div class="bg-slate-50 p-4 rounded-2xl flex gap-6 items-center border border-slate-100 shadow-inner">
+                <div class="flex-1 space-y-1">
+                    <div class="flex justify-between text-[10px] font-black text-slate-400 uppercase tracking-widest"><span>文字大小</span><span id="fontVal">16px</span></div>
+                    <input type="range" id="fontSlider" min="10" max="32" value="16" class="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
                 </div>
-                <div class="flex items-center gap-2 text-[10px] text-gray-600 font-bold flex-1">
-                    首欄 <input type="range" id="colWidthSlider" min="50" max="200" value="140" class="flex-1 h-1.5 bg-blue-200 rounded-lg appearance-none cursor-pointer">
+                <div class="flex-1 space-y-1">
+                    <div class="flex justify-between text-[10px] font-black text-slate-400 uppercase tracking-widest"><span>首欄寬度</span><span id="colVal">140px</span></div>
+                    <input type="range" id="colWidthSlider" min="60" max="250" value="140" class="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
                 </div>
             </div>
         </div>
 
-        <div class="flex-1 overflow-y-auto bg-gray-50 p-4 space-y-4 no-scrollbar relative">
-            <div id="offlineWarning" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-2 rounded relative text-sm" role="alert">
-                <span class="block sm:inline">⚠️ Firebase 未連線，請檢查網路狀態。</span>
-            </div>
-
-            <div id="table-container" class="bg-white p-3 rounded-xl shadow-sm border border-gray-200 overflow-x-auto min-h-[100px] transition-all"></div>
+        <div class="flex-1 overflow-y-auto bg-slate-50 p-5 space-y-6 no-scrollbar relative">
+            <!-- 實驗表格容器 -->
+            <div id="table-container" class="transition-all min-h-[100px]"></div>
             
-            <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col">
-                <div class="bg-gradient-to-r from-gray-100 to-gray-50 px-4 py-2.5 border-b flex justify-between items-center text-sm font-bold shrink-0">
-                    <span class="text-gray-700 flex items-center gap-2">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+            <!-- 名單容器 -->
+            <div class="bg-white rounded-3xl shadow-xl border border-slate-100 overflow-hidden flex flex-col">
+                <div class="bg-slate-50/50 px-6 py-4 border-b flex justify-between items-center shrink-0">
+                    <h3 class="font-black text-slate-700 flex items-center gap-2 text-sm tracking-wider">
+                        <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" stroke-width="2.5"/></svg>
                         班級名單
-                    </span>
-                    <div class="flex items-center gap-2">
-                        <span id="saveStatusIndicator" class="text-xs text-green-600 font-medium hidden">Firebase 已同步 ✓</span>
-                        <span id="studentCount" class="text-xs font-mono bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full shadow-inner">--</span>
-                    </div>
+                    </h3>
+                    <div id="saveStatusIndicator" class="hidden text-[10px] font-black text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-100">已同步至 Firebase</div>
+                    <span id="studentCount" class="text-[10px] font-black bg-slate-900 text-white px-3 py-1 rounded-full shadow-lg">--</span>
                 </div>
                 
-                <div class="p-2 border-b bg-white shrink-0">
-                    <div class="relative">
-                        <input type="text" id="studentSearchInput" placeholder="搜尋全校姓名或座號..." class="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-400 outline-none transition-all">
-                        <svg class="w-4 h-4 text-gray-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                <div class="p-3 border-b bg-white shrink-0">
+                    <div class="relative group">
+                        <input type="text" id="studentSearchInput" placeholder="輸入姓名或座號搜尋..." class="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-all font-bold">
+                        <svg class="w-5 h-5 text-slate-300 absolute left-3.5 top-3 group-focus-within:text-blue-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" stroke-width="2.5"/></svg>
                     </div>
                 </div>
 
-                <div id="student-list" class="divide-y divide-gray-100 max-h-[450px] overflow-y-auto no-scrollbar">
-                    <div class="p-10 text-center text-gray-400 text-sm flex flex-col items-center">
-                        正在載入 Firebase 名單...
-                    </div>
+                <div id="student-list" class="divide-y divide-slate-50 p-2 max-h-[400px] overflow-y-auto no-scrollbar bg-white">
+                    <div class="p-10 text-center text-slate-300 font-bold italic text-xs">正在讀取雲端名單...</div>
                 </div>
             </div>
         </div>
 
-        <div class="p-4 bg-white border-t shrink-0 flex flex-col gap-2 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-            <button id="calcBtn" class="w-full bg-green-500 text-white font-black py-3 rounded-xl text-sm shadow hover:bg-green-600 active:scale-95 transition-all">自動計算 (V/I) × 1000</button>
-            <div class="flex gap-2">
-                <button id="clearExpBtn" class="flex-1 bg-red-50 text-red-600 border border-red-200 font-bold py-2.5 rounded-xl text-xs hover:bg-red-100 transition-colors">清除表格</button>
-                <button id="saveExpBtn" class="flex-[2] bg-blue-600 text-white font-black py-2.5 rounded-xl text-xs shadow hover:bg-blue-700 active:scale-95 transition-all flex items-center justify-center gap-1">
+        <div class="p-5 bg-white border-t border-slate-100 shrink-0 flex flex-col gap-3">
+            <button id="calcBtn" class="w-full bg-blue-600 text-white font-black py-4 rounded-2xl shadow-xl shadow-blue-100 hover:bg-blue-700 active:scale-95 transition-all text-sm tracking-widest">自動計算比值 (V/I)</button>
+            <div class="flex gap-3">
+                <button id="clearExpBtn" class="flex-1 bg-slate-100 text-slate-500 font-bold py-3 rounded-2xl hover:bg-slate-200 transition-colors text-xs font-bold text-center">重置表格</button>
+                <button id="saveExpBtn" class="flex-[3] bg-slate-900 text-white font-black py-3 rounded-2xl shadow-xl hover:bg-black active:scale-95 transition-all flex items-center justify-center gap-2 text-xs font-bold">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path></svg>
-                    儲存數據至 Firebase
+                    儲存數據到 Firebase
                 </button>
             </div>
         </div>
     </div>
 </div>
 
-<!-- ================= 彈出視窗區 ================= -->
+<!-- 同步中心 Modal -->
+<div id="syncModal" class="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/60 hidden backdrop-blur-md p-4 text-sm">
+    <div class="bg-white rounded-[32px] shadow-2xl w-full max-w-md p-8 modal-enter border border-white">
+        <div class="flex items-center gap-4 mb-8">
+            <div class="p-4 bg-emerald-100 rounded-2xl text-emerald-600 shadow-inner"><svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" stroke-width="2"/></svg></div>
+            <div>
+                <h3 class="text-2xl font-black text-slate-800 tracking-tight">雲端同步中心</h3>
+                <p id="syncStatusBadge" class="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">連線檢查中...</p>
+            </div>
+        </div>
+        
+        <div class="space-y-4 mb-8 text-xs">
+            <div class="bg-blue-50 p-5 rounded-3xl border border-blue-100/50">
+                <label class="flex items-center gap-3 text-sm font-black text-blue-900 cursor-pointer">
+                    <input type="checkbox" id="syncExpsToggle" checked class="w-6 h-6 rounded-xl border-blue-200 text-blue-600 focus:ring-0"> 
+                    <span>同步實驗表格數據</span>
+                </label>
+                <p class="text-[10px] text-blue-400 mt-2 font-bold leading-relaxed ml-9 italic tracking-tight">自動將數據備份至試算表「實驗」分頁。</p>
+            </div>
+        </div>
+
+        <div class="flex flex-col gap-4 mb-4">
+            <button onclick="pullFromSheets()" class="bg-blue-600 text-white font-black py-4 rounded-2xl shadow-xl shadow-blue-100 hover:bg-blue-700 transition active:scale-95 flex items-center justify-center gap-3">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" stroke-width="2"/></svg>
+                從試算表下載 (Pull)
+            </button>
+            <button onclick="pushToSheets()" class="bg-emerald-600 text-white font-black py-4 rounded-2xl shadow-xl shadow-emerald-200 hover:bg-emerald-700 transition active:scale-95 flex items-center justify-center gap-3">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" stroke-width="2"/></svg>
+                備份到試算表 (Push)
+            </button>
+        </div>
+        <button onclick="closeSyncModal()" class="w-full py-2 text-slate-300 font-black hover:text-slate-500 transition-colors text-[10px] uppercase tracking-widest tracking-widest">關閉</button>
+    </div>
+</div>
+
+<!-- 載入與提示 UI -->
+<div id="loadingModal" class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/90 hidden backdrop-blur-xl">
+    <div class="flex flex-col items-center">
+        <div class="relative w-24 h-24 mb-6">
+            <div class="absolute inset-0 rounded-full border-8 border-slate-800"></div>
+            <div class="absolute inset-0 rounded-full border-8 border-blue-500 border-t-transparent animate-spin"></div>
+        </div>
+        <p id="loadingMsg" class="font-black text-white tracking-[0.3em] text-sm uppercase">正在同步雲端數據</p>
+    </div>
+</div>
+
+<div id="customModal" class="fixed inset-0 z-[80] flex items-center justify-center bg-slate-900/60 hidden backdrop-blur-md p-4 text-sm">
+    <div class="bg-white rounded-[40px] shadow-2xl w-full max-w-sm p-10 transform scale-95 transition-all">
+        <h3 id="modalTitle" class="text-2xl font-black text-slate-900 tracking-tighter mb-4">提示</h3>
+        <p id="modalMessage" class="text-slate-500 font-bold leading-relaxed mb-10 text-xs whitespace-pre-wrap"></p>
+        <button onclick="document.getElementById('customModal').classList.add('hidden')" class="w-full bg-slate-900 text-white font-black py-5 rounded-[24px] shadow-2xl hover:bg-black active:scale-95 transition-all text-xs tracking-widest">確定</button>
+    </div>
+</div>
 
 <!-- 評分 Modal -->
-<div id="gradingModal" class="fixed inset-0 z-[60] flex items-center justify-center bg-gray-900/60 hidden backdrop-blur-sm p-4">
+<div id="gradingModal" class="fixed inset-0 z-[60] flex items-center justify-center bg-gray-900/60 hidden backdrop-blur-sm p-4 text-sm">
     <div class="bg-white rounded-2xl shadow-2xl w-full max-sm-w overflow-hidden transform scale-95 transition-transform modal-enter" style="max-width: 320px;">
         <div class="bg-blue-600 p-4 text-white flex justify-between items-center text-xs">
             <div>
                 <span class="text-blue-200 font-bold uppercase tracking-wider" id="gradingGradeClass"></span>
-                <h2 id="gradingName" class="text-2xl font-black tracking-wider text-white">學生評分</h2>
+                <h2 id="gradingName" class="text-xl font-black tracking-wider text-white">學生評分</h2>
             </div>
             <button onclick="closeGradingModal()" class="text-blue-200 hover:text-white transition-colors bg-blue-700/50 rounded-full p-1">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"></path></svg>
             </button>
         </div>
         <div class="p-5 text-xs">
@@ -165,7 +295,7 @@
                 <p class="text-gray-400 font-bold uppercase tracking-widest mb-1 text-[10px]">目前積分</p>
                 <div class="text-5xl font-black text-blue-600" id="gradingCurrentScore">0</div>
             </div>
-            <div class="grid grid-cols-2 gap-3 mb-5">
+            <div class="grid grid-cols-2 gap-3 mb-5 font-bold">
                 <div class="space-y-2">
                     <button onclick="updateScore(1)" class="w-full py-2.5 bg-green-50 text-green-700 border border-green-200 rounded-lg font-black shadow-sm active:scale-90 transition-transform">+1</button>
                     <button onclick="updateScore(2)" class="w-full py-2.5 bg-green-50 text-green-700 border border-green-200 rounded-lg font-black shadow-sm active:scale-90 transition-transform">+2</button>
@@ -177,71 +307,14 @@
                     <button onclick="updateScore(-5)" class="w-full py-2.5 bg-red-500 text-white rounded-lg font-black shadow-sm active:scale-90 transition-transform">-5</button>
                 </div>
             </div>
-            <div class="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-100">
+            <div class="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-100 font-bold">
                 <span class="font-bold text-blue-900">設為小老師</span>
                 <label class="relative inline-flex items-center cursor-pointer">
                     <input type="checkbox" id="gradingTAToggle" class="sr-only peer" onchange="updateTAStatus(this.checked)">
-                    <div class="w-10 h-5 bg-gray-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-blue-600 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all"></div>
+                    <div class="w-10 h-5 bg-gray-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:bg-blue-600 after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-4 after:w-4 after:transition-all"></div>
                 </label>
             </div>
         </div>
-    </div>
-</div>
-
-<!-- Sheets 同步中心 Modal -->
-<div id="syncModal" class="fixed inset-0 z-[70] flex items-center justify-center bg-gray-900/60 hidden backdrop-blur-sm p-4 text-xs">
-    <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 modal-enter text-sm">
-        <div class="flex items-center justify-between mb-4 border-b pb-3">
-            <div class="flex items-center gap-3 text-green-700">
-                <div class="p-2 bg-green-100 rounded-lg text-green-600">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                </div>
-                <h3 class="text-xl font-black">Google Sheets 同步中心</h3>
-            </div>
-            <div id="syncStatusBadge" class="px-2 py-1 rounded text-[10px] font-bold bg-gray-100 text-gray-400 uppercase">連線中...</div>
-        </div>
-        
-        <div class="mb-4">
-            <label class="block text-[10px] font-black text-gray-400 uppercase mb-1 tracking-wider">Web App 部署網址 (需以 /exec 結尾)</label>
-            <input type="text" id="gasUrlInput" class="w-full border border-gray-200 rounded-lg p-2.5 text-[10px] bg-gray-50 focus:ring-2 focus:ring-green-500 outline-none font-mono" placeholder="貼上部屬網址 (例如: https://script.google.com/.../exec)">
-        </div>
-        
-        <div class="mb-6 bg-blue-50 p-4 rounded-xl border border-blue-100">
-            <label class="flex items-center gap-3 text-sm font-black text-blue-900 cursor-pointer">
-                <input type="checkbox" id="syncExpsToggle" checked class="w-4 h-4 rounded text-blue-600"> 同時備份實驗表格數據 (五欄格式)
-            </label>
-            <p class="text-[10px] text-blue-600 mt-2 font-medium opacity-80 leading-relaxed italic">系統將使用 doPost 方法進行連線，支援大數據傳輸。</p>
-        </div>
-
-        <div class="flex flex-col gap-3 mb-4">
-            <button onclick="pullFromSheets()" class="bg-blue-600 text-white font-black py-4 rounded-xl shadow-lg hover:bg-blue-700 transition active:scale-95 flex items-center justify-center gap-2">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"></path></svg>
-                下載名單與紀錄 (Pull)
-            </button>
-            <button onclick="pushToSheets()" class="bg-green-600 text-white font-black py-4 rounded-xl shadow-lg hover:bg-green-700 transition active:scale-95 flex items-center justify-center gap-2">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
-                備份成績與實驗 (Push)
-            </button>
-        </div>
-        <button onclick="closeSyncModal()" class="w-full border border-gray-200 py-2.5 rounded-lg text-gray-500 font-bold hover:bg-gray-50 transition">關閉面板</button>
-    </div>
-</div>
-
-<div id="loadingModal" class="fixed inset-0 z-[100] flex items-center justify-center bg-gray-900/70 hidden backdrop-blur-sm text-xs">
-    <div class="bg-white rounded-2xl p-8 flex flex-col items-center shadow-2xl">
-        <div class="relative w-16 h-16 mb-4">
-            <div class="absolute inset-0 rounded-full border-4 border-blue-50"></div>
-            <div class="absolute inset-0 rounded-full border-4 border-blue-600 border-t-transparent animate-spin"></div>
-        </div>
-        <p id="loadingMsg" class="font-black text-gray-800 tracking-widest uppercase">數據連線中</p>
-    </div>
-</div>
-
-<div id="customModal" class="fixed inset-0 z-[80] flex items-center justify-center bg-gray-900/60 hidden backdrop-blur-sm p-4 text-xs text-sm">
-    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 transform scale-95 transition-all">
-        <h3 id="modalTitle" class="text-xl font-black mb-3 border-b pb-2 text-gray-800">提示</h3>
-        <p id="modalMessage" class="text-gray-600 mb-6 whitespace-pre-wrap leading-relaxed"></p>
-        <button onclick="document.getElementById('customModal').classList.add('hidden')" class="w-full bg-blue-600 text-white font-black py-3 rounded-xl shadow-lg hover:bg-blue-700 active:scale-95 transition-all">確定</button>
     </div>
 </div>
 
@@ -250,7 +323,6 @@
     import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
     import { getFirestore, collection, doc, setDoc, getDoc, getDocs, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-    /* 🔥 FIREBASE 設定 */
     const myFirebaseConfig = {
         apiKey: "AIzaSyACZgJU1uxCi1sHZe528cN7Aw7HQ0eMjtM",
         authDomain: "eletric-experiment.firebaseapp.com",
@@ -261,7 +333,6 @@
         measurementId: "G-S6BVBCQ6RS"
     };
 
-    /* 🌐 GOOGLE SHEETS 預設連線 (您的新 ID) */
     const myDefaultGasUrl = "https://script.google.com/macros/s/AKfycbzGj5KcJxD9iXeR5jiQEe_g9FhK5eYF3UFpyqPaQzxm5Fcns5-KdcOCGUYbbZw6AQ0g/exec";
 
     let app, auth, db, user, isFirebaseReady = false;
@@ -274,7 +345,7 @@
     let unsubscribeStudents = null, currentGrade = '', currentClass = '', currentSelectedStudentId = null;
     let isSidebarOpen = true, currentSidebarWidth = 480;
 
-    // --- 佈局控制 ---
+    // --- 全域佈局更新 ---
     window.updateLayout = function() {
         const sidebar = document.getElementById('sidebar'), resizer = document.getElementById('resizer');
         const isMobile = window.innerWidth < 768;
@@ -282,58 +353,31 @@
         if (resizer) resizer.style.display = isSidebarOpen && !isMobile ? 'flex' : 'none';
     };
 
-    // --- 強化版連線工具 (支援 POST 重試) ---
-    async function fetchWithRetry(url, options, retries = 5, delay = 1000) {
-        for (let i = 0; i < retries; i++) {
-            try {
-                const response = await fetch(url, options);
-                if (!response.ok) throw new Error('HTTP ' + response.status);
-                return await response.json();
-            } catch (err) {
-                if (i === retries - 1) throw err;
-                await new Promise(res => setTimeout(res, delay));
-                delay *= 2; 
-            }
-        }
-    }
-
-    // --- 連線燈號邏輯 (發送 action: check 給 doPost) ---
+    // --- 燈號連線 ---
     async function checkSheetsConnection() {
-        const dot = document.getElementById('connStatusDot');
-        const badge = document.getElementById('syncStatusBadge');
-        let url = localStorage.getItem('gasUrl') || myDefaultGasUrl;
-        
+        const dot = document.getElementById('connStatusDot'), badge = document.getElementById('syncStatusBadge');
         if (!dot) return;
-        if (url && !url.endsWith('/exec')) {
-            dot.className = "w-2.5 h-2.5 rounded-full bg-red-500";
-            if (badge) { badge.textContent = "網址錯誤"; badge.className = "px-2 py-1 rounded text-[10px] font-bold bg-red-100 text-red-600"; }
-            return;
-        }
-
         dot.className = "w-2.5 h-2.5 rounded-full bg-yellow-400 animate-pulse";
         try {
-            const res = await fetchWithRetry(url, { 
-                method: 'POST', 
-                headers: { 'Content-Type': 'text/plain' }, 
-                body: JSON.stringify({ action: 'check' }) 
-            });
-            if (res && res.status === 'success') {
-                dot.className = "w-2.5 h-2.5 rounded-full bg-green-500 ping-green";
-                if (badge) { badge.textContent = "已連線"; badge.className = "px-2 py-1 rounded text-[10px] font-bold bg-green-100 text-green-600"; }
-            } else throw new Error();
+            const res = await fetch(myDefaultGasUrl, { method: 'POST', body: JSON.stringify({ action: 'check' }) }).then(r => r.json());
+            if (res.status === 'success') {
+                dot.className = "w-2.5 h-2.5 rounded-full bg-green-500 ping-green shadow-lg shadow-green-200";
+                if (badge) { badge.textContent = "已連線至 Google Sheets"; badge.className = "text-[10px] font-black text-emerald-500 tracking-widest mt-1"; }
+            }
         } catch (e) {
-            dot.className = "w-2.5 h-2.5 rounded-full bg-red-500";
-            if (badge) { badge.textContent = "連線失敗"; badge.className = "px-2 py-1 rounded text-[10px] font-bold bg-red-100 text-red-600"; }
+            dot.className = "w-2.5 h-2.5 rounded-full bg-rose-500";
+            if (badge) { badge.textContent = "連線失敗，請檢查網址或權限"; badge.className = "text-[10px] font-black text-rose-500 tracking-widest mt-1"; }
         }
     }
 
+    // --- 初始化 ---
     window.initApp = async function() {
         await fetchClassList();
         renderTableTemplate();
         setupEventListeners();
         initCamera();
         window.updateLayout();
-        setTimeout(checkSheetsConnection, 1500); 
+        checkSheetsConnection();
     };
 
     async function fetchClassList() {
@@ -350,19 +394,13 @@
             });
             const grades = Array.from(gradesSet).sort();
             if (grades.length > 0) updateDropdowns(grades);
-            else document.getElementById('gradeSelect').innerHTML = '<option value="">請同步名單</option>';
+            else document.getElementById('gradeSelect').innerHTML = '<option value="">請同步雲端名單</option>';
         } catch (e) { console.error(e); }
     }
 
     function updateDropdowns(grades) {
         const gradeSelect = document.getElementById('gradeSelect');
-        if (!gradeSelect) return;
-        gradeSelect.innerHTML = '';
-        grades.forEach(g => {
-            const opt = document.createElement('option');
-            opt.value = g; opt.textContent = `${g} 年級`;
-            gradeSelect.appendChild(opt);
-        });
+        gradeSelect.innerHTML = grades.map(g => `<option value="${g}">${g} 年級</option>`).join('');
         if(grades.length > 0) { gradeSelect.value = grades[0]; updateClassDropdown(); }
     }
 
@@ -370,15 +408,9 @@
         const g = document.getElementById('gradeSelect').value;
         currentGrade = g;
         const classSelect = document.getElementById('classSelect');
-        if (!classSelect) return;
-        classSelect.innerHTML = '';
         if (window.classDataCache[g]) {
             const classes = Object.keys(window.classDataCache[g]).sort();
-            classes.forEach(c => {
-                const opt = document.createElement('option');
-                opt.value = c; opt.textContent = `${c} 班`;
-                classSelect.appendChild(opt);
-            });
+            classSelect.innerHTML = classes.map(c => `<option value="${c}">${c} 班</option>`).join('');
             if(classes.length > 0) { classSelect.value = classes[0]; currentClass = classes[0]; loadClassStudents(); loadExpData(); }
         }
     }
@@ -391,7 +423,6 @@
         unsubscribeStudents = onSnapshot(getDocRef('classes', `${currentGrade}_${currentClass}`), (docSnap) => {
             if (docSnap.exists()) {
                 const data = docSnap.data();
-                if (!window.classDataCache[currentGrade]) window.classDataCache[currentGrade] = {};
                 window.classDataCache[currentGrade][currentClass] = data.students || [];
                 renderFilteredStudentList();
                 showSaveSuccess();
@@ -404,98 +435,125 @@
         const keyword = document.getElementById('studentSearchInput').value.trim().toLowerCase();
         const filtered = students.filter(s => s.name.toLowerCase().includes(keyword) || s.no.toString().includes(keyword));
         const listContainer = document.getElementById('student-list');
-        if (!listContainer) return;
-        document.getElementById('studentCount').textContent = students.length + '人';
-        listContainer.innerHTML = '';
-        if (filtered.length === 0) { listContainer.innerHTML = '<div class="p-8 text-center text-gray-400 text-xs">查無學生</div>'; return; }
-        filtered.forEach((s) => {
+        document.getElementById('studentCount').textContent = students.length + ' 人';
+        listContainer.innerHTML = filtered.map((s) => {
             const originalIndex = students.findIndex(orig => orig.no === s.no);
-            const item = document.createElement('div');
-            item.className = `student-item ${s.isTA ? 'bg-indigo-50' : 'bg-white'} flex items-center justify-between px-4 py-3 border-b`;
-            item.onclick = () => openGradingModal(originalIndex, s);
-            item.innerHTML = `<div class="flex items-center gap-3 text-xs"><span class="w-8 h-8 rounded-full ${s.isTA ? 'bg-indigo-200 text-indigo-800' : 'bg-blue-100 text-blue-700'} flex items-center justify-center font-bold shrink-0">${s.no}</span><span class="font-bold ${s.isTA ? 'text-indigo-700' : 'text-gray-800'} text-base">${s.name}</span>${s.isTA ? '<span class="text-[10px] bg-indigo-100 text-indigo-600 px-1.5 py-0.5 rounded font-black border border-indigo-200">小老師</span>' : ''}</div><span class="text-lg font-black ${s.score > 0 ? 'text-green-600' : (s.score < 0 ? 'text-red-500' : 'text-gray-400')} w-8 text-right">${s.score}</span>`;
-            listContainer.appendChild(item);
-        });
+            return `
+            <div class="student-item bg-white flex items-center justify-between px-6 py-4 border-b border-slate-50" onclick="openGradingModal(${originalIndex}, ${JSON.stringify(s).replace(/"/g, '&quot;')})">
+                <div class="flex items-center gap-4 text-xs">
+                    <span class="w-10 h-10 rounded-2xl ${s.isTA ? 'bg-blue-600 text-white shadow-blue-200' : 'bg-slate-100 text-slate-500'} flex items-center justify-center font-black shrink-0 shadow-lg">${s.no}</span>
+                    <div>
+                        <p class="font-black ${s.isTA ? 'text-blue-700' : 'text-slate-800'} text-base">${s.name}</p>
+                        ${s.isTA ? '<span class="text-[9px] font-black text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded-lg border border-blue-100">小老師</span>' : ''}
+                    </div>
+                </div>
+                <span class="text-xl font-black ${s.score > 0 ? 'text-emerald-500' : (s.score < 0 ? 'text-rose-500' : 'text-slate-300')} w-12 text-right">${s.score}</span>
+            </div>`;
+        }).join('');
     }
 
     /* --- 同步功能 --- */
-    window.openSyncModal = () => {
-        document.getElementById('gasUrlInput').value = localStorage.getItem('gasUrl') || myDefaultGasUrl;
-        document.getElementById('syncModal').classList.remove('hidden');
-        checkSheetsConnection();
-    };
-    window.closeSyncModal = () => {
-        localStorage.setItem('gasUrl', document.getElementById('gasUrlInput').value.trim());
-        document.getElementById('syncModal').classList.add('hidden');
-        checkSheetsConnection();
-    };
+    window.openSyncModal = () => document.getElementById('syncModal').classList.remove('hidden');
+    window.closeSyncModal = () => document.getElementById('syncModal').classList.add('hidden');
 
     window.pullFromSheets = async function() {
-        let url = document.getElementById('gasUrlInput').value.trim();
-        if (!url || !isFirebaseReady) return showModal('錯誤', 'Firebase 連線中...');
-        showLoading('正在同步最新名單與數據...');
+        if (!isFirebaseReady) return;
+        showLoading('正在從試算表下載全校名單與歷史紀錄...');
         try {
-            const res = await fetchWithRetry(url, { 
-                method: 'POST', 
-                headers: { 'Content-Type': 'text/plain' }, 
-                body: JSON.stringify({ action: 'pull' }) 
-            });
-            if (res && res.status === 'success') {
+            const res = await fetch(myDefaultGasUrl, { method: 'POST', body: JSON.stringify({ action: 'pull' }) }).then(r => r.json());
+            if (res.status === 'success') {
                 for (let k in res.classes) await setDoc(getDocRef('classes', k), res.classes[k]);
                 if (document.getElementById('syncExpsToggle').checked && res.experiments) {
                     for (let id in res.experiments) await setDoc(getDocRef('experiments', id), res.experiments[id]);
                 }
-                hideLoading(); showModal('同步完成', '數據已更新！');
+                hideLoading(); showModal('同步完成', '所有班級名單與紀錄已由雲端更新！');
                 await fetchClassList();
                 document.getElementById('syncModal').classList.add('hidden');
-            } else throw new Error(res.message);
-        } catch (e) { hideLoading(); showModal('同步失敗', e.message); }
+            }
+        } catch (e) { hideLoading(); showModal('同步失敗', e.toString()); }
     };
 
     window.pushToSheets = async function() {
-        let url = document.getElementById('gasUrlInput').value.trim();
-        if (!url || !isFirebaseReady) return showModal('錯誤', 'Firebase 連線中...');
-        showLoading('正在將數據上傳備份...');
+        if (!isFirebaseReady) return;
+        showLoading('正在備份全校數據至 Google 試算表...');
         try {
             let exps = {};
             if (document.getElementById('syncExpsToggle').checked) {
                 const qSnap = await getDocs(getCollectionRef('experiments'));
                 qSnap.forEach(d => { exps[d.id] = d.data(); });
             }
-            const res = await fetchWithRetry(url, { 
-                method: 'POST', 
-                headers: { 'Content-Type': 'text/plain' }, 
-                body: JSON.stringify({ action: 'push', classes: window.classDataCache, experiments: exps }) 
-            });
-            if (res && res.status === 'success') {
-                hideLoading(); showModal('備份成功', `成績與實驗紀錄已更新回試算表。`);
+            const res = await fetch(myDefaultGasUrl, { method: 'POST', body: JSON.stringify({ action: 'push', classes: window.classDataCache, experiments: exps }) }).then(r => r.json());
+            if (res.status === 'success') {
+                hideLoading(); showModal('備份成功', '數據已按照「時間、年級、班級、實驗、數據」格式全數備份！');
                 document.getElementById('syncModal').classList.add('hidden');
-            } else throw new Error(res.message);
-        } catch (e) { hideLoading(); showModal('上傳失敗', e.message); }
+            }
+        } catch (e) { hideLoading(); showModal('備份失敗', e.toString()); }
     };
 
     function showLoading(m) { document.getElementById('loadingMsg').textContent = m; document.getElementById('loadingModal').classList.remove('hidden'); }
     function hideLoading() { document.getElementById('loadingModal').classList.add('hidden'); }
 
-    /* --- 評分 --- */
-    window.openGradingModal = (idx, s) => { currentSelectedStudentId = idx; document.getElementById('gradingGradeClass').textContent = `${currentGrade}年${currentClass}班 - ${s.no}號`; document.getElementById('gradingName').textContent = s.name; document.getElementById('gradingCurrentScore').textContent = s.score; document.getElementById('gradingTAToggle').checked = s.isTA; document.getElementById('gradingModal').classList.remove('hidden'); };
-    window.closeGradingModal = () => document.getElementById('gradingModal').classList.add('hidden');
-    window.updateScore = async (amt) => { if (currentSelectedStudentId === null) return; const list = window.classDataCache[currentGrade][currentClass]; list[currentSelectedStudentId].score += amt; document.getElementById('gradingCurrentScore').textContent = list[currentSelectedStudentId].score; await updateDoc(getDocRef('classes', `${currentGrade}_${currentClass}`), { students: list }); };
-    window.updateTAStatus = async (val) => { if (currentSelectedStudentId === null) return; const list = window.classDataCache[currentGrade][currentClass]; list[currentSelectedStudentId].isTA = val; await updateDoc(getDocRef('classes', `${currentGrade}_${currentClass}`), { students: list }); };
-
-    /* --- 實驗表格 --- */
+    /* --- 實驗表格渲染 (核心修復：徹底保證標籤閉合與拉桿控制) --- */
     window.renderTableTemplate = () => {
         const val = document.getElementById('expSelect').value, container = document.getElementById('table-container');
         if (!container) return;
-        if (val === 'exp1') container.innerHTML = `<h3 class="font-black text-center text-blue-900 mb-3 text-lg underline decoration-blue-200">1. 固定電阻 (1000Ω)</h3><table class="border-collapse text-center w-full shadow-sm rounded-lg overflow-hidden border border-blue-100"><thead><tr class="bg-blue-600 text-white text-[10px]"><th>輸入電壓</th><th>實際電壓(V)</th><th>電流(mA)</th><th>比值(Ω)</th></tr></thead><tbody><tr class="border-b border-blue-50"><td>1.5V</td><td><input type="number" class="table-input input-v" step="any"></td><td><input type="number" class="table-input input-i" step="any"></td><td class="result-r font-black text-blue-600">-</td></tr><tr class="border-b border-blue-50"><td>3V</td><td><input type="number" class="table-input input-v" step="any"></td><td><input type="number" class="table-input input-i" step="any"></td><td class="result-r font-black text-blue-600">-</td></tr><tr><td>4.5V</td><td><input type="number" class="table-input input-v" step="any"></td><td><input type="number" class="table-input input-i" step="any"></td><td class="result-r font-black text-blue-600">-</td></tr></tbody></table>`;
-        else if (val === 'exp2' || val === 'exp3') { const sym = val === 'exp2' ? '+' : '//'; container.innerHTML = `<h3 class="font-black text-center text-blue-900 mb-3 text-lg underline decoration-blue-200">${val==='exp2'?'串聯':'並聯'}實驗</h3><table class="border-collapse text-center w-full shadow-sm rounded-lg overflow-hidden border border-blue-100"><thead><tr class="bg-blue-600 text-white text-[10px]"><th>組合</th><th>三用電表(Ω)</th><th>電壓(V)</th><th>電流(mA)</th><th>比值(Ω)</th></tr></thead><tbody><tr class="border-b border-blue-50"><td>1個：1K</td><td><input type="number" class="table-input"></td><td><input type="number" class="table-input input-v" step="any"></td><td><input type="number" class="table-input input-i" step="any"></td><td class="result-r font-black text-blue-600">-</td></tr><tr class="border-b border-blue-50"><td>2個：1K${sym}1K</td><td><input type="number" class="table-input"></td><td><input type="number" class="table-input input-v" step="any"></td><td><input type="number" class="table-input input-i" step="any"></td><td class="result-r font-black text-blue-600">-</td></tr><tr><td>3個：1K${sym}1K${sym}1K</td><td><input type="number" class="table-input"></td><td><input type="number" class="table-input input-v" step="any"></td><td><input type="number" class="table-input input-i" step="any"></td><td class="result-r font-black text-blue-600">-</td></tr></tbody></table>`; }
-        else container.innerHTML = `<h3 class="font-black text-center text-green-700 mb-3 text-lg underline decoration-green-200">4. 並聯迴路觀察</h3><table class="border-collapse text-center w-full shadow-sm rounded-lg overflow-hidden border border-green-100"><thead><tr class="bg-green-600 text-white text-[10px]"><th>位置</th><th>電阻(Ω)</th><th>電壓(V)</th><th>電流(mA)</th></tr></thead><tbody><tr class="border-b border-green-50"><td>迴路 1</td><td><input type="number" class="table-input"></td><td><input type="number" class="table-input"></td><td><input type="number" class="table-input"></td></tr><tr class="border-b border-green-50"><td>迴路 2</td><td><input type="number" class="table-input"></td><td><input type="number" class="table-input"></td><td><input type="number" class="table-input"></td></tr><tr class="bg-green-50 text-xs"><td>總和</td><td><input type="number" class="table-input font-bold"></td><td><input type="number" class="table-input font-bold"></td><td><input type="number" class="table-input font-bold"></td></tr></tbody></table>`;
+        
+        let html = '';
+        if (val === 'exp1') {
+            html = `
+            <h3 class="font-bold text-center text-blue-800 mb-3 text-lg">1. 固定電阻 (1000Ω)</h3>
+            <table>
+                <thead><tr><th>輸入電壓</th><th>實際電壓(V)</th><th>電流(mA)</th><th>比值(Ω)</th></tr></thead>
+                <tbody>
+                    <tr><td class="font-bold text-slate-500">1.5V</td><td><input type="number" class="table-input input-v" step="any"></td><td><input type="number" class="table-input input-i" step="any"></td><td class="result-r font-bold text-blue-600">-</td></tr>
+                    <tr><td class="font-bold text-slate-500">3V</td><td><input type="number" class="table-input input-v" step="any"></td><td><input type="number" class="table-input input-i" step="any"></td><td class="result-r font-bold text-blue-600">-</td></tr>
+                    <tr><td class="font-bold text-slate-500">4.5V</td><td><input type="number" class="table-input input-v" step="any"></td><td><input type="number" class="table-input input-i" step="any"></td><td class="result-r font-bold text-blue-600">-</td></tr>
+                </tbody>
+            </table>`;
+        } else if (val === 'exp2' || val === 'exp3') { 
+            const sym = val === 'exp2' ? '+' : '//'; 
+            const title = val === 'exp2' ? '串聯' : '並聯';
+            html = `
+            <h3 class="font-bold text-center text-blue-800 mb-3 text-lg">${title}實驗</h3>
+            <table>
+                <thead><tr><th>組合</th><th>三用電表(Ω)</th><th>電壓(V)</th><th>電流(mA)</th><th>比值(Ω)</th></tr></thead>
+                <tbody>
+                    <tr><td class="text-left whitespace-nowrap"><span>1個：</span><input type="text" class="fill-blank" value="1K"></td><td><input type="number" class="table-input" step="any"></td><td><input type="number" class="table-input input-v" step="any"></td><td><input type="number" class="table-input input-i" step="any"></td><td class="result-r font-bold text-blue-600">-</td></tr>
+                    <tr><td class="text-left whitespace-nowrap"><span>2個：</span><input type="text" class="fill-blank" value="1K">${sym}<input type="text" class="fill-blank" value="1K"></td><td><input type="number" class="table-input" step="any"></td><td><input type="number" class="table-input input-v" step="any"></td><td><input type="number" class="table-input input-i" step="any"></td><td class="result-r font-bold text-blue-600">-</td></tr>
+                    <tr><td class="text-left whitespace-nowrap"><span>3個：</span><input type="text" class="fill-blank" value="1K">${sym}<input type="text" class="fill-blank" value="1K">${sym}<input type="text" class="fill-blank" value="1K"></td><td><input type="number" class="table-input" step="any"></td><td><input type="number" class="table-input input-v" step="any"></td><td><input type="number" class="table-input input-i" step="any"></td><td class="result-r font-bold text-blue-600">-</td></tr>
+                </tbody>
+            </table>`; 
+        } else { 
+            html = `
+            <h3 class="font-bold text-center text-green-700 mb-3 text-lg">4. 並聯迴路觀察</h3>
+            <table class="theme-green">
+                <thead><tr><th>位置</th><th>電阻(Ω)</th><th>電壓(V)</th><th>電流(mA)</th></tr></thead>
+                <tbody>
+                    <tr><td class="font-bold text-slate-500">迴路 1</td><td><input type="number" class="table-input" step="any"></td><td><input type="number" class="table-input" step="any"></td><td><input type="number" class="table-input" step="any"></td></tr>
+                    <tr><td class="font-bold text-slate-500">迴路 2</td><td><input type="number" class="table-input" step="any"></td><td><input type="number" class="table-input" step="any"></td><td><input type="number" class="table-input" step="any"></td></tr>
+                    <tr><td class="font-bold text-blue-600 italic">總和</td><td><input type="number" class="table-input" step="any"></td><td><input type="number" class="table-input" step="any"></td><td><input type="number" class="table-input" step="any"></td></tr>
+                </tbody>
+            </table>`;
+        }
+        
+        container.innerHTML = html;
         loadExpData();
     };
 
-    window.calculateRatio = () => { document.querySelectorAll('#table-container tr').forEach(row => { const vIn = row.querySelector('.input-v'), iIn = row.querySelector('.input-i'), res = row.querySelector('.result-r'); if (res) { let v = vIn ? parseFloat(vIn.value) : (row.cells[0]?.innerText.includes('V') ? parseFloat(row.cells[0].innerText) : NaN); const i = iIn ? parseFloat(iIn.value) : NaN; res.textContent = (!isNaN(v) && !isNaN(i) && i !== 0) ? ((v / i) * 1000).toFixed(2) : '-'; } }); };
+    /* --- 邏輯功能 --- */
+    window.calculateRatio = () => { 
+        document.querySelectorAll('#table-container tr').forEach(row => { 
+            const vIn = row.querySelector('.input-v'), iIn = row.querySelector('.input-i'), res = row.querySelector('.result-r'); 
+            if (res) { 
+                let v = vIn ? parseFloat(vIn.value) : (row.cells[0]?.innerText.includes('V') ? parseFloat(row.cells[0].innerText) : NaN); 
+                const i = iIn ? parseFloat(iIn.value) : NaN; 
+                res.textContent = (!isNaN(v) && !isNaN(i) && i !== 0) ? ((v / i) * 1000).toFixed(2) : '-'; 
+            } 
+        }); 
+    };
+    
     window.saveExpData = async function() { 
-        if (!currentGrade || !currentClass || !isFirebaseReady) return showModal('錯誤', '未選班級'); 
+        if (!currentGrade || !currentClass || !isFirebaseReady) return showModal('系統提示', '請先選擇班級'); 
         const btn = document.getElementById('saveExpBtn'), expType = document.getElementById('expSelect').value, data = Array.from(document.querySelectorAll('#table-container input')).map(i => i.value); 
         btn.disabled = true;
         try {
@@ -504,17 +562,45 @@
         } catch (e) { showModal('儲存失敗', e.message); }
         btn.disabled = false;
     };
-    window.loadExpData = async () => { if (!currentGrade || !currentClass || !isFirebaseReady) return; try { const snap = await getDoc(getDocRef('experiments', `${currentGrade}_${currentClass}_${document.getElementById('expSelect').value}`)); if (snap.exists()) { const ins = document.querySelectorAll('#table-container input'); snap.data().data.forEach((v, i) => { if (ins[i]) ins[i].value = v; }); calculateRatio(); } } catch (e) {} };
 
-    /* --- 基本設定 --- */
+    window.loadExpData = async () => { 
+        if (!currentGrade || !currentClass || !isFirebaseReady) return; 
+        try { 
+            const snap = await getDoc(getDocRef('experiments', `${currentGrade}_${currentClass}_${document.getElementById('expSelect').value}`)); 
+            if (snap.exists()) { 
+                const ins = document.querySelectorAll('#table-container input'); 
+                snap.data().data.forEach((v, i) => { if (ins[i]) ins[i].value = v; }); 
+                calculateRatio(); 
+            } else { 
+                document.querySelectorAll('#table-container input').forEach(i => i.value = ""); 
+                calculateRatio(); 
+            } 
+        } catch (e) {} 
+    };
+
     function setupEventListeners() {
         document.getElementById('gradeSelect').addEventListener('change', updateClassDropdown);
         document.getElementById('classSelect').addEventListener('change', () => { loadClassStudents(); loadExpData(); });
         document.getElementById('expSelect').addEventListener('change', renderTableTemplate);
         document.getElementById('calcBtn').addEventListener('click', calculateRatio);
         document.getElementById('saveExpBtn').addEventListener('click', saveExpData);
-        document.getElementById('fontSlider').addEventListener('input', (e) => document.documentElement.style.setProperty('--font-size', e.target.value + 'px'));
-        document.getElementById('colWidthSlider').addEventListener('input', (e) => document.documentElement.style.setProperty('--col1-width', e.target.value + 'px'));
+        document.getElementById('clearExpBtn').addEventListener('click', () => {
+            document.querySelectorAll('#table-container input').forEach(i => i.value = "");
+            calculateRatio();
+        });
+        
+        // 拉桿事件修復
+        document.getElementById('fontSlider').addEventListener('input', (e) => { 
+            const val = e.target.value + 'px';
+            document.documentElement.style.setProperty('--font-size', val);
+            document.getElementById('fontVal').textContent = val;
+        });
+        document.getElementById('colWidthSlider').addEventListener('input', (e) => { 
+            const val = e.target.value + 'px';
+            document.documentElement.style.setProperty('--col1-width', val);
+            document.getElementById('colVal').textContent = val;
+        });
+        
         document.getElementById('swapLayoutBtn').addEventListener('click', () => document.getElementById('mainContainer').classList.toggle('md:flex-row-reverse'));
         document.getElementById('fullscreenBtn').addEventListener('click', () => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen());
         document.getElementById('studentSearchInput').addEventListener('input', renderFilteredStudentList);
@@ -522,28 +608,72 @@
         const resizer = document.getElementById('resizer'), toggleBtn = document.getElementById('toggleSidebarBtn');
         if (resizer) {
             resizer.addEventListener('mousedown', () => { window.isResizing = true; document.body.style.cursor = 'col-resize'; });
-            document.addEventListener('mousemove', (e) => { if (!window.isResizing) return; currentSidebarWidth += document.getElementById('mainContainer').classList.contains('md:flex-row-reverse') ? e.movementX : -e.movementX; currentSidebarWidth = Math.max(320, Math.min(currentSidebarWidth, window.innerWidth * 0.8)); window.updateLayout(); });
+            document.addEventListener('mousemove', (e) => { 
+                if (!window.isResizing) return; 
+                let dx = e.movementX;
+                if (document.getElementById('mainContainer').classList.contains('md:flex-row-reverse')) currentSidebarWidth += dx;
+                else currentSidebarWidth -= dx;
+                currentSidebarWidth = Math.max(320, Math.min(currentSidebarWidth, window.innerWidth * 0.8)); 
+                window.updateLayout(); 
+            });
             document.addEventListener('mouseup', () => { window.isResizing = false; document.body.style.cursor = ''; });
         }
         if (toggleBtn) toggleBtn.addEventListener('click', () => { isSidebarOpen = !isSidebarOpen; window.updateLayout(); });
         window.addEventListener('resize', window.updateLayout);
     }
 
-    async function initCamera() { try { await navigator.mediaDevices.getUserMedia({ video: true }); const devices = await navigator.mediaDevices.enumerateDevices(), videoDevices = devices.filter(d => d.kind === 'videoinput'); if (document.getElementById('cameraSelect')) document.getElementById('cameraSelect').innerHTML = videoDevices.map((d, i) => `<option value="${d.deviceId}">${d.label || '鏡頭'+(i+1)}</option>`).join(''); startStream(); } catch (e) { if (document.getElementById('noCameraMsg')) document.getElementById('noCameraMsg').classList.remove('hidden'); } }
-    async function startStream() { const video = document.getElementById('video'), select = document.getElementById('cameraSelect'); if (!video || !select || !select.value) return; try { video.srcObject = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: select.value }, width: { ideal: 3840 }, height: { ideal: 2160 } } }); } catch (e) { video.srcObject = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: select.value } } }); } }
+    async function initCamera() { 
+        try { 
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true }); 
+            const devices = await navigator.mediaDevices.enumerateDevices(), videoDevices = devices.filter(d => d.kind === 'videoinput'); 
+            if (document.getElementById('cameraSelect')) document.getElementById('cameraSelect').innerHTML = videoDevices.map((d, i) => `<option value="${d.deviceId}">${d.label || '鏡頭'+(i+1)}</option>`).join(''); 
+            startStream(); 
+        } catch (e) { if (document.getElementById('noCameraMsg')) document.getElementById('noCameraMsg').classList.remove('hidden'); } 
+    }
+    async function startStream() { 
+        const video = document.getElementById('video'), select = document.getElementById('cameraSelect'); 
+        if (!video || !select || !select.value) return; 
+        try { video.srcObject = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: select.value }, width: { ideal: 3840 }, height: { ideal: 2160 } } }); } 
+        catch (e) { video.srcObject = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: select.value } } }); } 
+    }
     
     const camSelect = document.getElementById('cameraSelect'), refreshBtn = document.getElementById('refreshCamBtn');
     if (camSelect) camSelect.addEventListener('change', startStream);
     if (refreshBtn) refreshBtn.addEventListener('click', initCamera);
 
-    function showSaveSuccess() { const ind = document.getElementById('saveStatusIndicator'); if (ind) { ind.classList.remove('hidden'); setTimeout(() => ind.classList.add('hidden'), 2000); } }
-    window.showModal = (t, m) => { const title = document.getElementById('modalTitle'), msg = document.getElementById('modalMessage'), modal = document.getElementById('customModal'); if (title) title.textContent = t; if (msg) msg.textContent = m; if (modal) modal.classList.remove('hidden'); };
+    function showSaveSuccess() { 
+        const ind = document.getElementById('saveStatusIndicator'); 
+        if (ind) { ind.classList.remove('hidden'); setTimeout(() => ind.classList.add('hidden'), 3000); } 
+    }
+    window.showModal = (t, m) => { 
+        const title = document.getElementById('modalTitle'), msg = document.getElementById('modalMessage'), modal = document.getElementById('customModal'); 
+        if (title) title.textContent = t; if (msg) msg.textContent = m; if (modal) modal.classList.remove('hidden'); 
+    };
 
-    /* --- 初始化 --- */
+    /* --- 評分 Modal --- */
+    window.openGradingModal = (idx, s) => { 
+        currentSelectedStudentId = idx; 
+        document.getElementById('gradingGradeClass').textContent = `${currentGrade}年${currentClass}班 - ${s.no}號`; 
+        document.getElementById('gradingName').textContent = s.name; 
+        document.getElementById('gradingCurrentScore').textContent = s.score; 
+        document.getElementById('gradingTAToggle').checked = s.isTA; 
+        document.getElementById('gradingModal').classList.remove('hidden'); 
+    };
+    window.closeGradingModal = () => document.getElementById('gradingModal').classList.add('hidden');
+    window.updateScore = async (amt) => { if (currentSelectedStudentId === null) return; const list = window.classDataCache[currentGrade][currentClass]; list[currentSelectedStudentId].score += amt; document.getElementById('gradingCurrentScore').textContent = list[currentSelectedStudentId].score; await updateDoc(getDocRef('classes', `${currentGrade}_${currentClass}`), { students: list }); };
+    window.updateTAStatus = async (val) => { if (currentSelectedStudentId === null) return; const list = window.classDataCache[currentGrade][currentClass]; list[currentSelectedStudentId].isTA = val; await updateDoc(getDocRef('classes', `${currentGrade}_${currentClass}`), { students: list }); };
+
+    /* --- Firebase 啟動 --- */
     try {
         const hasEnv = typeof __firebase_config !== 'undefined' && __firebase_config, config = hasEnv ? JSON.parse(__firebase_config) : myFirebaseConfig;
         app = initializeApp(config); auth = getAuth(app); db = getFirestore(app);
-        const authenticate = async () => { try { if (hasEnv && typeof __initial_auth_token !== 'undefined' && __initial_auth_token) await signInWithCustomToken(auth, __initial_auth_token); else await signInAnonymously(auth); isFirebaseReady = true; window.initApp(); } catch (err) { await signInAnonymously(auth); isFirebaseReady = true; window.initApp(); } };
+        const authenticate = async () => { 
+            try { 
+                if (hasEnv && typeof __initial_auth_token !== 'undefined' && __initial_auth_token) await signInWithCustomToken(auth, __initial_auth_token); 
+                else await signInAnonymously(auth); 
+                isFirebaseReady = true; window.initApp(); 
+            } catch (err) { await signInAnonymously(auth); isFirebaseReady = true; window.initApp(); } 
+        };
         authenticate();
     } catch (e) { console.error(e); }
 </script>
