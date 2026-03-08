@@ -89,6 +89,8 @@
         /* 輸入框精緻化 */
         .table-input { 
             width: 100%; 
+            max-width: 12ch; /* 限制最大寬度，大約 10 個字元寬 */
+            margin: 0 auto; /* 確保輸入框在欄位內置中 */
             min-width: 80px; 
             text-align: center; 
             background: #f1f5f9; 
@@ -707,7 +709,7 @@
                 const data = docSnap.data();
                 window.classDataCache[currentGrade][currentClass] = data.students || [];
                 renderFilteredStudentList();
-                showSaveSuccess();
+                // removed showSaveSuccess();
             }
         });
     }
@@ -740,7 +742,7 @@
 
     window.pullFromSheets = async function() {
         if (!isFirebaseReady) return;
-        showLoading('正在從試算表下載全校名單與歷史紀錄...');
+        showLoadingModal('正在從試算表下載全校名單與歷史紀錄...');
         try {
             const res = await fetch(myDefaultGasUrl, { method: 'POST', body: JSON.stringify({ action: 'pull' }) }).then(r => r.json());
             if (res.status === 'success') {
@@ -748,16 +750,16 @@
                 if (document.getElementById('syncExpsToggle').checked && res.experiments) {
                     for (let id in res.experiments) await setDoc(getDocRef('experiments', id), res.experiments[id]);
                 }
-                hideLoading(); showModal('同步完成', '所有班級名單與紀錄已由雲端更新！');
+                hideLoadingModal(); showModal('同步完成', '所有班級名單與紀錄已由雲端更新！');
                 await fetchClassList();
                 document.getElementById('syncModal').classList.add('hidden');
             }
-        } catch (e) { hideLoading(); showModal('同步失敗', e.toString()); }
+        } catch (e) { hideLoadingModal(); showModal('同步失敗', e.toString()); }
     };
 
     window.pushToSheets = async function() {
         if (!isFirebaseReady) return;
-        showLoading('正在備份全校數據至 Google 試算表...');
+        showLoadingModal('正在備份全校數據至 Google 試算表...');
         try {
             let exps = {};
             if (document.getElementById('syncExpsToggle').checked) {
@@ -766,14 +768,14 @@
             }
             const res = await fetch(myDefaultGasUrl, { method: 'POST', body: JSON.stringify({ action: 'push', classes: window.classDataCache, experiments: exps }) }).then(r => r.json());
             if (res.status === 'success') {
-                hideLoading(); showModal('備份成功', '數據已按照「時間、年級、班級、實驗、數據」格式全數備份！');
+                hideLoadingModal(); showModal('備份成功', '數據已按照「時間、年級、班級、實驗、數據」格式全數備份！');
                 document.getElementById('syncModal').classList.add('hidden');
             }
-        } catch (e) { hideLoading(); showModal('備份失敗', e.toString()); }
+        } catch (e) { hideLoadingModal(); showModal('備份失敗', e.toString()); }
     };
 
-    function showLoading(m) { document.getElementById('loadingMsg').textContent = m; document.getElementById('loadingModal').classList.remove('hidden'); }
-    function hideLoading() { document.getElementById('loadingModal').classList.add('hidden'); }
+    function showLoadingModal(m) { document.getElementById('loadingMsg').textContent = m; document.getElementById('loadingModal').classList.remove('hidden'); }
+    function hideLoadingModal() { document.getElementById('loadingModal').classList.add('hidden'); }
 
     /* --- 實驗表格渲染 --- */
     window.renderTableTemplate = () => {
@@ -785,7 +787,7 @@
             html = `
             <h3 class="font-bold text-center text-blue-800 mb-4 text-2xl">1. 固定電阻 (1000Ω)</h3>
             <table>
-                <thead><tr><th>輸入電壓</th><th>實際電壓(V)</th><th>電流(mA)</th><th>比值(Ω)</th></tr></thead>
+                <thead><tr><th>輸入電壓</th><th>實際電壓(V)</th><th>電流(mA)</th><th>電阻=電壓/電流</th></tr></thead>
                 <tbody>
                     <tr><td class="font-bold text-slate-500">1.5V</td><td><input type="number" class="table-input input-v" step="any"></td><td><input type="number" class="table-input input-i" step="any"></td><td class="result-r font-bold text-blue-600">-</td></tr>
                     <tr><td class="font-bold text-slate-500">3V</td><td><input type="number" class="table-input input-v" step="any"></td><td><input type="number" class="table-input input-i" step="any"></td><td class="result-r font-bold text-blue-600">-</td></tr>
@@ -798,7 +800,7 @@
             html = `
             <h3 class="font-bold text-center text-blue-800 mb-4 text-2xl">${title}實驗</h3>
             <table>
-                <thead><tr><th>組合</th><th>三用電表(Ω)</th><th>電壓(V)</th><th>電流(mA)</th><th>比值(Ω)</th></tr></thead>
+                <thead><tr><th>組合</th><th>三用電表(Ω)</th><th>電壓(V)</th><th>電流(mA)</th><th>電阻=電壓/電流</th></tr></thead>
                 <tbody>
                     <tr><td class="text-left whitespace-nowrap px-2"><span>1個：</span><input type="text" class="fill-blank" value="1K"></td><td><input type="number" class="table-input" step="any"></td><td><input type="number" class="table-input input-v" step="any"></td><td><input type="number" class="table-input input-i" step="any"></td><td class="result-r font-bold text-blue-600">-</td></tr>
                     <tr><td class="text-left whitespace-nowrap px-2"><span>2個：</span><input type="text" class="fill-blank" value="1K">${sym}<input type="text" class="fill-blank" value="1K"></td><td><input type="number" class="table-input" step="any"></td><td><input type="number" class="table-input input-v" step="any"></td><td><input type="number" class="table-input input-i" step="any"></td><td class="result-r font-bold text-blue-600">-</td></tr>
