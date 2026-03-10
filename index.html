@@ -218,7 +218,7 @@
         <!-- Header -->
         <div id="floatingTableHeader" class="bg-blue-600/95 cursor-move p-4 flex justify-between items-center shrink-0 shadow-sm z-10" title="按住此處可拖曳視窗">
             <div class="flex items-center gap-3 pointer-events-none">
-                <svg class="w-7 h-7 text-blue-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                <svg class="w-7 h-7 text-blue-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                 <h2 class="text-2xl font-black tracking-widest text-white drop-shadow-sm">實驗記錄面板</h2>
                 <div id="saveStatusIndicator" class="hidden ml-4 text-sm font-black text-emerald-300 bg-emerald-800/50 px-3 py-1 rounded-lg border border-emerald-500/30">已儲存</div>
             </div>
@@ -272,11 +272,15 @@
 <!-- ================= 彈出視窗與鍵盤區 ================= -->
 
 <!-- 專屬數字輸入小鍵盤 -->
-<div id="numPad" class="fixed z-[100] hidden bg-white/95 backdrop-blur-2xl rounded-[28px] shadow-[0_30px_60px_-15px_rgba(0,0,0,0.6)] border border-slate-200 p-5 w-[290px] transform transition-all touch-none">
-    <div class="flex justify-between items-center mb-4 px-1">
-        <span class="text-base font-black tracking-widest text-blue-600 uppercase">數值輸入</span>
-        <button onclick="hideNumPad()" class="text-slate-400 hover:text-rose-500 font-black p-1 transition-colors bg-slate-100 rounded-full">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg>
+<div id="numPad" class="fixed z-[100] hidden bg-white/95 backdrop-blur-2xl rounded-[28px] shadow-[0_30px_60px_-15px_rgba(0,0,0,0.6)] border border-slate-200 p-4 w-[280px] transform transition-all touch-none">
+    <!-- 拖曳標題列 -->
+    <div id="numPadHeader" class="flex justify-between items-center mb-4 px-2 py-2 cursor-move bg-slate-100 rounded-xl" title="按住拖曳">
+        <div class="flex items-center gap-2 pointer-events-none">
+            <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"></path></svg>
+            <span class="text-sm font-black tracking-widest text-blue-600 uppercase">數值輸入</span>
+        </div>
+        <button onclick="hideNumPad()" class="text-slate-400 hover:text-rose-500 font-black p-1 transition-colors bg-white rounded-full shadow-sm" title="關閉">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg>
         </button>
     </div>
     <div class="grid grid-cols-3 gap-3">
@@ -292,7 +296,7 @@
         <button onclick="handleNumPadClick('.')" class="bg-slate-50 text-slate-800 rounded-2xl py-4 text-4xl font-black shadow-sm active:scale-90 transition-all border border-slate-200 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200">.</button>
         <button onclick="handleNumPadClick('0')" class="bg-slate-50 text-slate-800 rounded-2xl py-4 text-3xl font-black shadow-sm active:scale-90 transition-all border border-slate-200 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200">0</button>
         <button onclick="handleNumPadClick('backspace')" class="bg-slate-100 text-slate-600 rounded-2xl py-4 text-2xl font-black shadow-sm active:scale-90 transition-all border border-slate-300 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-300">⌫</button>
-        <button onclick="handleNumPadClick('done')" class="col-span-3 bg-blue-600 text-white rounded-2xl py-5 text-2xl font-black shadow-xl shadow-blue-200 active:scale-95 transition-all mt-2 hover:bg-blue-700 tracking-widest">確認 (完成)</button>
+        <button onclick="handleNumPadClick('done')" class="col-span-3 bg-blue-600 text-white rounded-2xl py-4 text-2xl font-black shadow-xl shadow-blue-200 active:scale-95 transition-all mt-2 hover:bg-blue-700 tracking-widest">確認 (完成)</button>
     </div>
 </div>
 
@@ -497,11 +501,17 @@
     window.showNumPad = function(input) {
         currentActiveInput = input;
         const pad = document.getElementById('numPad');
+        
+        // 核心：如果鍵盤已經顯示，就不自動跳動，保留使用者拖曳好的位置
+        if (!pad.classList.contains('hidden')) {
+            return;
+        }
+
         pad.classList.remove('hidden');
         
         const rect = input.getBoundingClientRect();
-        const padWidth = 290;
-        const padHeight = 360; 
+        const padWidth = 280;
+        const padHeight = 380; 
 
         // 預設將鍵盤對齊輸入框置中
         let left = rect.left + (rect.width / 2) - (padWidth / 2);
