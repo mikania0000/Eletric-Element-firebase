@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>實驗紀錄系統 v4.16 (全螢幕乾淨版)</title>
+    <title>實驗紀錄系統 v4.17 (全螢幕乾淨版)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         input[type="number"]::-webkit-outer-spin-button,
@@ -11,8 +11,8 @@
         
         :root {
             --table-width: 100%;
-            --font-size: 20px; 
-            --col1-width: 140px; 
+            --font-size: 22px; 
+            --col1-width: auto; 
         }
 
         body { font-size: 18px; }
@@ -38,7 +38,6 @@
         #table-container input, 
         #table-container span {
             font-size: var(--font-size) !important;
-            transition: font-size 0.3s ease; 
         }
 
         #table-container th { 
@@ -70,7 +69,6 @@
             width: var(--col1-width);
             font-weight: 700;
             background-color: #f8fafc;
-            transition: width 0.3s ease;
         }
         #table-container table.theme-green td:first-child { background-color: #f0fdf4; }
         
@@ -106,6 +104,7 @@
             width: 2.5em; 
             padding: 0 2px;
             transition: border-color 0.2s;
+            cursor: pointer;
         }
         .fill-blank:focus { border-bottom-color: #3b82f6; }
 
@@ -185,18 +184,6 @@
                 <option value="exp3">3. 電阻並聯 (固定 3V)</option>
                 <option value="exp4">4. 並聯迴路電流</option>
             </select>
-        </div>
-    </div>
-
-    <!-- 表格設定列 -->
-    <div id="table-settings-row" class="flex gap-6 w-full px-2 py-2">
-        <div class="flex-1 flex items-center gap-4">
-            <span class="text-sm font-black text-slate-500 whitespace-nowrap">文字大小</span>
-            <input type="range" id="fontSlider" min="14" max="36" value="20" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
-        </div>
-        <div class="flex-1 flex items-center gap-4">
-            <span class="text-sm font-black text-slate-500 whitespace-nowrap">首欄寬度</span>
-            <input type="range" id="colWidthSlider" min="80" max="300" value="140" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
         </div>
     </div>
 
@@ -438,18 +425,15 @@
         const table = document.getElementById('table-container');
         const controlsContainer = document.getElementById('floating-controls-container-table');
         const controlsRow = document.getElementById('shared-controls-row');
-        const settingsRow = document.getElementById('table-settings-row');
 
-        if (modal && content && table && controlsContainer && controlsRow && settingsRow) {
+        if (modal && content && table && controlsContainer && controlsRow) {
             if (!modal.dataset.positioned) {
                 modal.style.left = Math.max(20, window.innerWidth - 850) + 'px';
                 modal.style.top = '12vh';
                 modal.dataset.positioned = 'true';
             }
             
-            // Move shared items
             controlsContainer.appendChild(controlsRow);
-            controlsContainer.appendChild(settingsRow);
             document.getElementById('expSelectContainer').style.display = 'block';
             content.appendChild(table); 
             
@@ -462,12 +446,10 @@
         const hiddenStash = document.getElementById('hidden-stash');
         const table = document.getElementById('table-container');
         const controlsRow = document.getElementById('shared-controls-row');
-        const settingsRow = document.getElementById('table-settings-row');
 
         if (modal && hiddenStash && table && controlsRow && !modal.classList.contains('hidden')) {
-            window.hideNumPad(); // 關閉時順便收起數字鍵盤
+            window.hideNumPad(); 
             hiddenStash.appendChild(controlsRow);
-            hiddenStash.appendChild(settingsRow);
             hiddenStash.appendChild(table); 
             modal.classList.add('hidden');
         }
@@ -488,7 +470,6 @@
                 modal.dataset.positioned = 'true';
             }
             
-            // Move shared items, hide experiment select
             controlsContainer.appendChild(controlsRow);
             document.getElementById('expSelectContainer').style.display = 'none';
             content.appendChild(studentListContainer); 
@@ -518,17 +499,30 @@
         const pad = document.getElementById('numPad');
         pad.classList.remove('hidden');
         
-        // 算出面板位置 (優先下方)
         const rect = input.getBoundingClientRect();
+        const padWidth = 290;
+        const padHeight = 360; 
+
+        // 預設將鍵盤對齊輸入框置中
+        let left = rect.left + (rect.width / 2) - (padWidth / 2);
+        // 預設顯示在輸入框下方
         let top = rect.bottom + 10;
-        let left = rect.left;
         
-        if (left + 300 > window.innerWidth) left = window.innerWidth - 310;
-        if (left < 10) left = 10;
+        // 邊界防護：避免超出畫面右側
+        if (left + padWidth > window.innerWidth - 20) {
+            left = window.innerWidth - padWidth - 20;
+        }
+        // 邊界防護：避免超出畫面左側
+        if (left < 20) left = 20;
         
-        if (top + 450 > window.innerHeight) {
-            top = rect.top - 460; 
-            if (top < 10) top = 10; 
+        // 邊界防護：避免下方超出畫面 (被擋住)
+        if (top + padHeight > window.innerHeight - 20) {
+            // 如果下方空間不夠，改顯示在輸入框的上方
+            top = rect.top - padHeight - 10;
+            // 如果連上方也超出畫面，強制貼齊底部
+            if (top < 20) {
+                top = window.innerHeight - padHeight - 20;
+            }
         }
         
         pad.style.top = top + 'px';
@@ -785,6 +779,7 @@
         const val = document.getElementById('expSelect').value, container = document.getElementById('table-container');
         if (!container) return;
         
+        // 將原本的 type="number" 換成 type="text" inputmode="none" 以完美支援自訂鍵盤與小數點
         let html = '';
         if (val === 'exp1') {
             html = `
@@ -792,9 +787,9 @@
             <table>
                 <thead><tr><th>輸入電壓</th><th>實際電壓(V)</th><th>電流(mA)</th><th>電阻=電壓/電流</th></tr></thead>
                 <tbody>
-                    <tr><td class="font-bold text-slate-500">1.5V</td><td><input type="number" class="table-input input-v" step="any"></td><td><input type="number" class="table-input input-i" step="any"></td><td class="result-r font-bold text-blue-600">-</td></tr>
-                    <tr><td class="font-bold text-slate-500">3V</td><td><input type="number" class="table-input input-v" step="any"></td><td><input type="number" class="table-input input-i" step="any"></td><td class="result-r font-bold text-blue-600">-</td></tr>
-                    <tr><td class="font-bold text-slate-500">4.5V</td><td><input type="number" class="table-input input-v" step="any"></td><td><input type="number" class="table-input input-i" step="any"></td><td class="result-r font-bold text-blue-600">-</td></tr>
+                    <tr><td class="font-bold text-slate-500">1.5V</td><td><input type="text" inputmode="none" class="table-input input-v"></td><td><input type="text" inputmode="none" class="table-input input-i"></td><td class="result-r font-bold text-blue-600">-</td></tr>
+                    <tr><td class="font-bold text-slate-500">3V</td><td><input type="text" inputmode="none" class="table-input input-v"></td><td><input type="text" inputmode="none" class="table-input input-i"></td><td class="result-r font-bold text-blue-600">-</td></tr>
+                    <tr><td class="font-bold text-slate-500">4.5V</td><td><input type="text" inputmode="none" class="table-input input-v"></td><td><input type="text" inputmode="none" class="table-input input-i"></td><td class="result-r font-bold text-blue-600">-</td></tr>
                 </tbody>
             </table>`;
         } else if (val === 'exp2' || val === 'exp3') { 
@@ -805,9 +800,9 @@
             <table>
                 <thead><tr><th>組合</th><th>三用電表(Ω)</th><th>電壓(V)</th><th>電流(mA)</th><th>電阻=電壓/電流</th></tr></thead>
                 <tbody>
-                    <tr><td class="text-left whitespace-nowrap px-2"><span>1個：</span><input type="text" class="fill-blank" value="1K"></td><td><input type="number" class="table-input" step="any"></td><td><input type="number" class="table-input input-v" step="any"></td><td><input type="number" class="table-input input-i" step="any"></td><td class="result-r font-bold text-blue-600">-</td></tr>
-                    <tr><td class="text-left whitespace-nowrap px-2"><span>2個：</span><input type="text" class="fill-blank" value="1K">${sym}<input type="text" class="fill-blank" value="1K"></td><td><input type="number" class="table-input" step="any"></td><td><input type="number" class="table-input input-v" step="any"></td><td><input type="number" class="table-input input-i" step="any"></td><td class="result-r font-bold text-blue-600">-</td></tr>
-                    <tr><td class="text-left whitespace-nowrap px-2"><span>3個：</span><input type="text" class="fill-blank" value="1K">${sym}<input type="text" class="fill-blank" value="1K">${sym}<input type="text" class="fill-blank" value="1K"></td><td><input type="number" class="table-input" step="any"></td><td><input type="number" class="table-input input-v" step="any"></td><td><input type="number" class="table-input input-i" step="any"></td><td class="result-r font-bold text-blue-600">-</td></tr>
+                    <tr><td class="text-left whitespace-nowrap px-2"><span>1個：</span><input type="text" inputmode="none" class="fill-blank" value="1K"></td><td><input type="text" inputmode="none" class="table-input"></td><td><input type="text" inputmode="none" class="table-input input-v"></td><td><input type="text" inputmode="none" class="table-input input-i"></td><td class="result-r font-bold text-blue-600">-</td></tr>
+                    <tr><td class="text-left whitespace-nowrap px-2"><span>2個：</span><input type="text" inputmode="none" class="fill-blank" value="1K">${sym}<input type="text" inputmode="none" class="fill-blank" value="1K"></td><td><input type="text" inputmode="none" class="table-input"></td><td><input type="text" inputmode="none" class="table-input input-v"></td><td><input type="text" inputmode="none" class="table-input input-i"></td><td class="result-r font-bold text-blue-600">-</td></tr>
+                    <tr><td class="text-left whitespace-nowrap px-2"><span>3個：</span><input type="text" inputmode="none" class="fill-blank" value="1K">${sym}<input type="text" inputmode="none" class="fill-blank" value="1K">${sym}<input type="text" inputmode="none" class="fill-blank" value="1K"></td><td><input type="text" inputmode="none" class="table-input"></td><td><input type="text" inputmode="none" class="table-input input-v"></td><td><input type="text" inputmode="none" class="table-input input-i"></td><td class="result-r font-bold text-blue-600">-</td></tr>
                 </tbody>
             </table>`; 
         } else { 
@@ -816,9 +811,9 @@
             <table class="theme-green">
                 <thead><tr><th>位置</th><th>電阻(Ω)</th><th>電壓(V)</th><th>電流(mA)</th></tr></thead>
                 <tbody>
-                    <tr><td class="font-bold text-slate-500">迴路 1</td><td><input type="number" class="table-input" step="any"></td><td><input type="number" class="table-input" step="any"></td><td><input type="number" class="table-input" step="any"></td></tr>
-                    <tr><td class="font-bold text-slate-500">迴路 2</td><td><input type="number" class="table-input" step="any"></td><td><input type="number" class="table-input" step="any"></td><td><input type="number" class="table-input" step="any"></td></tr>
-                    <tr><td class="font-bold text-blue-600 italic">總和</td><td><input type="number" class="table-input" step="any"></td><td><input type="number" class="table-input" step="any"></td><td><input type="number" class="table-input" step="any"></td></tr>
+                    <tr><td class="font-bold text-slate-500">迴路 1</td><td><input type="text" inputmode="none" class="table-input"></td><td><input type="text" inputmode="none" class="table-input"></td><td><input type="text" inputmode="none" class="table-input"></td></tr>
+                    <tr><td class="font-bold text-slate-500">迴路 2</td><td><input type="text" inputmode="none" class="table-input"></td><td><input type="text" inputmode="none" class="table-input"></td><td><input type="text" inputmode="none" class="table-input"></td></tr>
+                    <tr><td class="font-bold text-blue-600 italic">總和</td><td><input type="text" inputmode="none" class="table-input"></td><td><input type="text" inputmode="none" class="table-input"></td><td><input type="text" inputmode="none" class="table-input"></td></tr>
                 </tbody>
             </table>`;
         }
@@ -826,9 +821,9 @@
         container.innerHTML = html;
         loadExpData();
 
+        // 綁定輸入框喚出小鍵盤
         setTimeout(() => {
-            document.querySelectorAll('#table-container .table-input').forEach(input => {
-                input.setAttribute('inputmode', 'none'); 
+            document.querySelectorAll('#table-container input').forEach(input => {
                 input.addEventListener('click', (e) => { e.preventDefault(); window.showNumPad(e.target); });
                 input.addEventListener('focus', (e) => { e.preventDefault(); window.showNumPad(e.target); });
             });
@@ -881,13 +876,6 @@
         document.getElementById('classSelect').addEventListener('change', () => { loadClassStudents(); loadExpData(); });
         document.getElementById('expSelect').addEventListener('change', renderTableTemplate);
         
-        document.getElementById('fontSlider').addEventListener('input', (e) => { 
-            document.documentElement.style.setProperty('--font-size', e.target.value + 'px');
-        });
-        document.getElementById('colWidthSlider').addEventListener('input', (e) => { 
-            document.documentElement.style.setProperty('--col1-width', e.target.value + 'px');
-        });
-        
         document.getElementById('swapLayoutBtn').addEventListener('click', () => document.getElementById('videoContainer').classList.toggle('rotate-180'));
         document.getElementById('fullscreenBtn').addEventListener('click', () => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen());
         document.getElementById('studentSearchInput').addEventListener('input', renderFilteredStudentList);
@@ -899,7 +887,7 @@
             const pad = document.getElementById('numPad');
             if (!pad || pad.classList.contains('hidden')) return;
             if (pad.contains(e.target)) return;
-            if (e.target.classList && e.target.classList.contains('table-input')) return;
+            if (e.target.tagName === 'INPUT') return; // 如果點擊的是輸入框，交給專屬事件處理
             window.hideNumPad();
         });
     }
