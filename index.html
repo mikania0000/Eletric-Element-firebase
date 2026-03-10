@@ -197,30 +197,28 @@
             </div>
 
             <!-- 控制區佔位符，用於切換位置 -->
-            <div id="sidebar-controls-placeholder" class="transition-all w-full flex flex-col">
-                <div id="sidebar-controls" class="flex flex-col">
-                    <div class="grid grid-cols-2 gap-4 mb-5 text-xl font-bold" id="class-selectors">
-                        <select id="gradeSelect" class="bg-slate-50 border border-slate-200 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 outline-none"></select>
-                        <select id="classSelect" class="bg-slate-50 border border-slate-200 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 outline-none"></select>
-                    </div>
-                    
-                    <select id="expSelect" class="w-full bg-blue-600 border-none rounded-xl p-4 font-black text-white text-xl mb-6 shadow-xl shadow-blue-200 outline-none cursor-pointer hover:bg-blue-700 transition-colors">
-                        <option value="exp1">1. 固定電阻實驗 (1000Ω)</option>
-                        <option value="exp2">2. 電阻串聯實驗 (固定 3V)</option>
-                        <option value="exp3">3. 電阻並聯實驗 (固定 3V)</option>
-                        <option value="exp4">4. 並聯迴路電流觀察</option>
+            <div id="sidebar-controls-placeholder" class="transition-all w-full flex flex-col mb-2">
+                <!-- 修改為單排緊湊設計 -->
+                <div id="sidebar-controls" class="flex gap-2">
+                    <select id="gradeSelect" class="flex-[1] bg-slate-50 border border-slate-200 rounded-lg py-2 px-2 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none"></select>
+                    <select id="classSelect" class="flex-[1] bg-slate-50 border border-slate-200 rounded-lg py-2 px-2 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none"></select>
+                    <select id="expSelect" class="flex-[3] bg-blue-600 border border-transparent rounded-lg py-2 px-2 font-bold text-white text-sm shadow-md shadow-blue-200 outline-none cursor-pointer hover:bg-blue-700 transition-colors">
+                        <option value="exp1">1. 固定電阻 (1000Ω)</option>
+                        <option value="exp2">2. 電阻串聯 (固定 3V)</option>
+                        <option value="exp3">3. 電阻並聯 (固定 3V)</option>
+                        <option value="exp4">4. 並聯迴路電流</option>
                     </select>
                 </div>
             </div>
 
-            <div class="bg-slate-50 p-5 rounded-2xl flex gap-8 items-center border border-slate-100 shadow-inner">
-                <div class="flex-1 space-y-2">
-                    <div class="flex justify-between text-sm font-black text-slate-500 uppercase tracking-widest"><span>文字大小</span><span id="fontVal">20px</span></div>
-                    <input type="range" id="fontSlider" min="14" max="36" value="20" class="w-full h-3 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
+            <div class="bg-slate-50 p-4 rounded-2xl flex gap-6 items-center border border-slate-100 shadow-inner mt-4">
+                <div class="flex-1 space-y-1">
+                    <div class="flex justify-between text-xs font-black text-slate-500 uppercase tracking-widest"><span>文字大小</span><span id="fontVal">20px</span></div>
+                    <input type="range" id="fontSlider" min="14" max="36" value="20" class="w-full h-2.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
                 </div>
-                <div class="flex-1 space-y-2">
-                    <div class="flex justify-between text-sm font-black text-slate-500 uppercase tracking-widest"><span>首欄寬度</span><span id="colVal">140px</span></div>
-                    <input type="range" id="colWidthSlider" min="80" max="300" value="140" class="w-full h-3 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
+                <div class="flex-1 space-y-1">
+                    <div class="flex justify-between text-xs font-black text-slate-500 uppercase tracking-widest"><span>首欄寬度</span><span id="colVal">140px</span></div>
+                    <input type="range" id="colWidthSlider" min="80" max="300" value="140" class="w-full h-2.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600">
                 </div>
             </div>
         </div>
@@ -288,7 +286,7 @@
             </button>
         </div>
         <!-- 班級與實驗選擇區 -->
-        <div class="p-4 bg-slate-100/80 border-b border-slate-200 shrink-0" id="floating-controls-container-table">
+        <div class="p-3 bg-slate-100/80 border-b border-slate-200 shrink-0" id="floating-controls-container-table">
             <!-- Controls will be moved here -->
         </div>
         <!-- 表格放入區 (具備內部滾動保護) -->
@@ -324,7 +322,7 @@
             </button>
         </div>
         <!-- 班級選擇區 -->
-        <div class="p-4 bg-slate-100/80 border-b border-slate-200 shrink-0" id="floating-controls-container-grading">
+        <div class="p-3 bg-slate-100/80 border-b border-slate-200 shrink-0" id="floating-controls-container-grading">
             <!-- Class Selectors will be moved here -->
         </div>
         <!-- 名單放入區 -->
@@ -544,9 +542,9 @@
         const content = document.getElementById('floatingGradingContent');
         const studentListContainer = document.getElementById('studentListContainer');
         const controlsContainer = document.getElementById('floating-controls-container-grading');
-        const classSelectors = document.getElementById('class-selectors');
+        const controls = document.getElementById('sidebar-controls'); // Move the whole single line control
 
-        if (modal && content && studentListContainer && controlsContainer && classSelectors) {
+        if (modal && content && studentListContainer && controlsContainer && controls) {
             if (!modal.dataset.positioned) {
                 modal.style.left = Math.max(20, window.innerWidth - 500) + 'px'; 
                 modal.style.top = '10vh';
@@ -558,8 +556,8 @@
                 list.classList.add('max-h-[65vh]');
             }
             
-            // Move class selectors and student list
-            controlsContainer.appendChild(classSelectors);
+            // Move controls and student list
+            controlsContainer.appendChild(controls);
             content.appendChild(studentListContainer); 
             modal.classList.remove('hidden');
         }
@@ -569,18 +567,18 @@
         const modal = document.getElementById('floatingGradingModal');
         const placeholder = document.getElementById('student-list-placeholder');
         const studentListContainer = document.getElementById('studentListContainer');
-        const controlsPlaceholder = document.getElementById('sidebar-controls');
-        const classSelectors = document.getElementById('class-selectors');
+        const controlsPlaceholder = document.getElementById('sidebar-controls-placeholder');
+        const controls = document.getElementById('sidebar-controls');
 
-        if (modal && placeholder && studentListContainer && controlsPlaceholder && classSelectors && !modal.classList.contains('hidden')) {
+        if (modal && placeholder && studentListContainer && controlsPlaceholder && controls && !modal.classList.contains('hidden')) {
             const list = document.getElementById('student-list');
             if(list) {
                 list.classList.add('max-h-[450px]');
                 list.classList.remove('max-h-[65vh]');
             }
             
-            // Move back class selectors and student list
-            controlsPlaceholder.insertBefore(classSelectors, controlsPlaceholder.firstChild);
+            // Move back controls and student list
+            controlsPlaceholder.appendChild(controls);
             placeholder.appendChild(studentListContainer); 
             modal.classList.add('hidden');
         }
