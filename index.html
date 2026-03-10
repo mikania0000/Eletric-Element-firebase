@@ -168,7 +168,15 @@
         </div>
 
         <video id="video" class="w-full h-full object-contain rounded-2xl shadow-inner bg-black" autoplay playsinline></video>
-        <div id="noCameraMsg" class="hidden absolute inset-0 flex flex-col items-center justify-center text-slate-400 bg-slate-900/80 rounded-2xl font-bold text-2xl">偵測不到攝影機</div>
+        <div id="noCameraMsg" class="hidden absolute inset-0 flex flex-col items-center justify-center text-slate-400 bg-slate-900/80 rounded-2xl font-bold text-2xl z-40 backdrop-blur-sm">
+            <svg class="w-16 h-16 mb-4 text-slate-500 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3l18 18"></path></svg>
+            <span class="tracking-widest">找不到可用的攝影機</span>
+            <span class="text-base font-normal mt-2 text-slate-500">可能被其他軟體佔用或未授權</span>
+            <button onclick="showCameraTroubleshoot()" class="mt-8 bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-xl text-lg transition-colors font-bold tracking-widest shadow-[0_0_15px_rgba(37,99,235,0.5)] flex items-center gap-2">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                查看疑難排解
+            </button>
+        </div>
     </div>
 
     <!-- 拖曳分隔線 -->
@@ -406,9 +414,9 @@
 </div>
 
 <div id="customModal" class="fixed inset-0 z-[90] flex items-center justify-center bg-slate-900/60 hidden backdrop-blur-md p-4">
-    <div class="bg-white rounded-[40px] shadow-2xl w-full max-w-sm p-10 transform scale-95 transition-all">
+    <div class="bg-white rounded-[40px] shadow-2xl w-full max-w-lg p-10 transform scale-95 transition-all">
         <h3 id="modalTitle" class="text-3xl font-black text-slate-900 tracking-tighter mb-4">提示</h3>
-        <p id="modalMessage" class="text-slate-500 font-bold leading-relaxed mb-10 text-lg whitespace-pre-wrap"></p>
+        <div id="modalMessage" class="text-slate-500 font-bold leading-relaxed mb-10 text-lg whitespace-pre-wrap"></div>
         <button onclick="document.getElementById('customModal').classList.add('hidden')" class="w-full bg-slate-900 text-white font-black py-5 rounded-[24px] shadow-2xl hover:bg-black active:scale-95 transition-all text-lg tracking-widest uppercase">確定</button>
     </div>
 </div>
@@ -431,6 +439,7 @@
     const myDefaultGasUrl = "https://script.google.com/macros/s/AKfycbzGj5KcJxD9iXeR5jiQEe_g9FhK5eYF3UFpyqPaQzxm5Fcns5-KdcOCGUYbbZw6AQ0g/exec";
 
     let app, auth, db, user, isFirebaseReady = false;
+    let currentStream = null; // 新增全域變數，保持串流穩定不斷線
     const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
     
     function getCollectionRef(colName) { return (typeof __app_id !== 'undefined') ? collection(db, 'artifacts', appId, 'public', 'data', colName) : collection(db, colName); }
@@ -911,20 +920,73 @@
         window.addEventListener('resize', window.updateLayout);
     }
 
+    // --- 核心更新：穩定相機生命週期管理 ---
     async function initCamera() { 
         try { 
-            const stream = await navigator.mediaDevices.getUserMedia({ video: true }); 
-            const devices = await navigator.mediaDevices.enumerateDevices(), videoDevices = devices.filter(d => d.kind === 'videoinput'); 
-            if (document.getElementById('cameraSelect')) document.getElementById('cameraSelect').innerHTML = videoDevices.map((d, i) => `<option value="${d.deviceId}">${d.label || '鏡頭'+(i+1)}</option>`).join(''); 
-            startStream(); 
-        } catch (e) { if (document.getElementById('noCameraMsg')) document.getElementById('noCameraMsg').classList.remove('hidden'); } 
+            // 如果已經有全域串流，先徹底關閉舊有的連線
+            if (currentStream) {
+                currentStream.getTracks().forEach(t => t.stop());
+            }
+            const videoEl = document.getElementById('video');
+            if (videoEl && videoEl.srcObject) {
+                videoEl.srcObject.getTracks().forEach(t => t.stop());
+            }
+
+            // 1. 溫和地請求相機權限（保持串流開啟，不要馬上關掉，以免硬體假死）
+            try {
+                currentStream = await navigator.mediaDevices.getUserMedia({ video: true });
+            } catch (permissionError) {
+                console.warn('初次請求相機權限時遭到拒絕或找不到預設硬體:', permissionError);
+            }
+
+            // 2. 取得設備清單
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const videoDevices = devices.filter(d => d.kind === 'videoinput'); 
+            
+            const select = document.getElementById('cameraSelect');
+            if (select) {
+                select.innerHTML = videoDevices.map((d, i) => `<option value="${d.deviceId}">${d.label || '鏡頭'+(i+1)}</option>`).join(''); 
+                
+                // 自動將選單切換到目前成功啟動的那個鏡頭
+                if (currentStream && currentStream.getVideoTracks().length > 0) {
+                    const activeTrack = currentStream.getVideoTracks()[0];
+                    const activeDev = videoDevices.find(d => d.label === activeTrack.label);
+                    if (activeDev) select.value = activeDev.deviceId;
+                }
+            }
+            
+            if (videoDevices.length > 0) {
+                if (document.getElementById('noCameraMsg')) document.getElementById('noCameraMsg').classList.add('hidden');
+                // 開始串流至畫面
+                await startStream(); 
+            } else {
+                throw new Error('您的電腦並未連接任何視訊硬體');
+            }
+        } catch (e) { 
+            console.error('鏡頭初始化失敗:', e);
+            if (document.getElementById('noCameraMsg')) {
+                document.getElementById('noCameraMsg').classList.remove('hidden'); 
+            }
+        } 
     }
     
     async function startStream() { 
         const video = document.getElementById('video'), select = document.getElementById('cameraSelect'); 
         if (!video || !select || !select.value) return; 
+        
+        // 確保釋放舊串流，把通道清空給 IPEVO
+        if (currentStream) {
+            currentStream.getTracks().forEach(t => t.stop());
+            currentStream = null;
+        }
+        if (video.srcObject) {
+            video.srcObject.getTracks().forEach(t => t.stop());
+            video.srcObject = null;
+        }
+
         try { 
-            video.srcObject = await navigator.mediaDevices.getUserMedia({ 
+            // 嘗試以 4K/60fps 重新連線選定的鏡頭
+            currentStream = await navigator.mediaDevices.getUserMedia({ 
                 video: { 
                     deviceId: { exact: select.value }, 
                     width: { ideal: 3840 }, 
@@ -932,9 +994,22 @@
                     frameRate: { ideal: 60 }
                 } 
             }); 
+            video.srcObject = currentStream;
         } 
         catch (e) { 
-            video.srcObject = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: select.value } } }); 
+            console.warn('高畫質模式啟動失敗，嘗試以一般模式連線:', e);
+            try {
+                // 退回基本模式
+                currentStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { deviceId: { exact: select.value } } 
+                }); 
+                video.srcObject = currentStream;
+            } catch(err) {
+                 console.error('連基本模式都無法連線 (硬體可能被其他軟體死鎖):', err);
+                 if (document.getElementById('noCameraMsg')) {
+                     document.getElementById('noCameraMsg').classList.remove('hidden'); 
+                 }
+            }
         } 
     }
     
@@ -946,9 +1021,51 @@
         const ind = document.getElementById('saveStatusIndicator'); 
         if (ind) { ind.classList.remove('hidden'); setTimeout(() => ind.classList.add('hidden'), 3000); } 
     }
-    window.showModal = (t, m) => { 
+    
+    window.showModal = (t, m, isHtml = false) => { 
         const title = document.getElementById('modalTitle'), msg = document.getElementById('modalMessage'), modal = document.getElementById('customModal'); 
-        if (title) title.textContent = t; if (msg) msg.textContent = m; if (modal) modal.classList.remove('hidden'); 
+        if (title) title.textContent = t; 
+        if (msg) {
+            if (isHtml) msg.innerHTML = m;
+            else msg.textContent = m;
+        }
+        if (modal) modal.classList.remove('hidden'); 
+    };
+
+    window.showCameraTroubleshoot = function() {
+        const title = "🎥 鏡頭連線疑難排解";
+        const content = `
+            <div class="text-left space-y-4 text-base mt-2 text-slate-600">
+                <p class="font-bold text-rose-600 text-lg mb-4">無法開啟鏡頭 (例如 IPEVO) 時，請檢查以下三點：</p>
+                
+                <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <h4 class="font-black text-slate-800 text-lg mb-1 flex items-center gap-2">
+                        <span class="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-sm">1</span>
+                        專屬軟體佔用 (最常見)
+                    </h4>
+                    <p class="text-slate-500 mt-1 leading-relaxed">作業系統一次只能讓一個軟體使用鏡頭。請確認已將 <b>IPEVO Visualizer</b> 等視訊軟體<span class="text-rose-600 font-bold">完全關閉</span>。</p>
+                </div>
+                
+                <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <h4 class="font-black text-slate-800 text-lg mb-1 flex items-center gap-2">
+                        <span class="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-sm">2</span>
+                        瀏覽器權限封鎖
+                    </h4>
+                    <p class="text-slate-500 mt-1 leading-relaxed">點擊網址列最左側的「🔒鎖頭」圖示，確認「相機」權限已設定為<span class="text-blue-600 font-bold">允許</span>。</p>
+                </div>
+                
+                <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-sm">
+                    <h4 class="font-bold text-slate-800 text-lg mb-1 flex items-center gap-2">
+                        <span class="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-sm">3</span>
+                        作業系統隱私權限制
+                    </h4>
+                    <p class="text-slate-500 mt-1 leading-relaxed">進入 Windows/Mac 的「設定 > 隱私權與安全性 > 相機」，確認已<span class="text-blue-600 font-bold">開啟</span>允許應用程式存取相機的功能。</p>
+                </div>
+                
+                <p class="text-sm font-bold text-slate-400 mt-6 text-center border-t pt-4">👉 檢查完畢後，請重新整理網頁，或點擊左上角的重新偵測按鈕。</p>
+            </div>
+        `;
+        showModal(title, content, true);
     };
 
     /* --- 評分 Modal --- */
