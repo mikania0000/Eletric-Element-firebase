@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>實驗紀錄系統 v4.19 (含浮動小計算機與安全解鎖)</title>
+    <title>實驗紀錄系統 v4.21 (先乘除後加減防呆版)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         input[type="number"]::-webkit-outer-spin-button,
@@ -332,7 +332,7 @@
         </button>
     </div>
     <div class="mb-2">
-        <div id="calcHistory" class="text-right text-xs text-slate-400 h-4 px-1 overflow-hidden font-bold tracking-wider"></div>
+        <div id="calcHistory" class="text-right text-sm text-slate-400 h-5 px-1 overflow-hidden font-bold tracking-wider mb-1"></div>
         <input type="text" id="calcDisplay" class="w-full bg-slate-50 border-2 border-slate-200 rounded-xl px-2 py-2 text-right text-3xl font-black text-slate-800 outline-none" value="0" readonly>
     </div>
     <div class="grid grid-cols-4 gap-2">
@@ -359,6 +359,19 @@
         <button onclick="calcInput('0')" class="col-span-2 bg-slate-50 text-slate-800 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-orange-50">0</button>
         <button onclick="calcInput('.')" class="bg-slate-50 text-slate-800 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-orange-50">.</button>
         <button onclick="calcInput('=')" class="bg-orange-500 text-white rounded-xl py-2 text-xl font-black shadow-md active:scale-95 transition-all hover:bg-orange-600">=</button>
+    </div>
+</div>
+
+<!-- ================= 計算機順序確認 Modal ================= -->
+<div id="calcChoiceModal" class="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/70 hidden backdrop-blur-md p-4">
+    <div class="bg-white rounded-[32px] shadow-2xl w-full max-w-[360px] p-8 transform scale-95 transition-all">
+        <h3 class="text-2xl font-black text-slate-900 tracking-tighter mb-2 text-center">運算順序確認</h3>
+        <p class="text-slate-500 font-bold mb-6 text-sm text-center">系統偵測到混合運算，請問您要先算哪一部份？</p>
+        <div class="flex flex-col gap-4">
+            <button id="calcBtnOpt1" onclick="executeCalcChoice(this.dataset.expr)" class="w-full bg-orange-50 hover:bg-orange-100 text-orange-700 border-2 border-orange-200 font-black py-4 rounded-[20px] transition-all text-xl tracking-widest active:scale-95"></button>
+            <button id="calcBtnOpt2" onclick="executeCalcChoice(this.dataset.expr)" class="w-full bg-blue-50 hover:bg-blue-100 text-blue-700 border-2 border-blue-200 font-black py-4 rounded-[20px] transition-all text-xl tracking-widest active:scale-95"></button>
+        </div>
+        <button onclick="document.getElementById('calcChoiceModal').classList.add('hidden')" class="w-full mt-6 py-3 text-slate-400 font-bold hover:text-slate-600 transition-colors text-sm tracking-widest uppercase">取消</button>
     </div>
 </div>
 
@@ -654,18 +667,16 @@
         window.calculateRatio();
     };
 
-    // --- 獨立小計算機邏輯 ---
-    let calcValue = '0';
-    let calcFirstOperand = null;
-    let calcOperator = null;
-    let calcWaitingForSecondOperand = false;
+    // --- 獨立小計算機邏輯 (記憶算式版 + 防呆順序確認) ---
+    let calcExpression = '';
+    let calcCurrentInput = '0';
+    let calcLastAction = 'num'; 
 
     window.toggleCalculator = function() {
         const modal = document.getElementById('calculatorModal');
         if (modal.classList.contains('hidden')) {
             modal.classList.remove('hidden');
             if(!modal.dataset.positioned) {
-                // 預設位置：右上方主按鈕的左側一點點
                 modal.style.top = '80px';
                 modal.style.left = Math.max(20, window.innerWidth - 480) + 'px';
                 modal.dataset.positioned = 'true';
@@ -679,73 +690,137 @@
         const display = document.getElementById('calcDisplay');
         const history = document.getElementById('calcHistory');
 
+        if (calcLastAction === 'err') {
+            calcExpression = '';
+            calcCurrentInput = '0';
+            calcLastAction = 'num';
+            history.innerText = '';
+        }
+
         if (key >= '0' && key <= '9') {
-            if (calcWaitingForSecondOperand) {
-                calcValue = key;
-                calcWaitingForSecondOperand = false;
+            if (calcLastAction === 'eq' || calcCurrentInput === '0' || calcLastAction === 'op') {
+                calcCurrentInput = key;
+                if (calcLastAction === 'eq') {
+                    calcExpression = '';
+                    history.innerText = '';
+                }
             } else {
-                calcValue = calcValue === '0' ? key : calcValue + key;
+                calcCurrentInput += key;
             }
+            calcLastAction = 'num';
         } else if (key === '.') {
-            if (!calcValue.includes('.')) calcValue += '.';
+            if (calcLastAction === 'eq' || calcLastAction === 'op') {
+                calcCurrentInput = '0.';
+                if (calcLastAction === 'eq') {
+                    calcExpression = '';
+                    history.innerText = '';
+                }
+            } else if (!calcCurrentInput.includes('.')) {
+                calcCurrentInput += '.';
+            }
+            calcLastAction = 'num';
         } else if (key === 'C') {
-            calcValue = '0';
-            calcFirstOperand = null;
-            calcOperator = null;
-            calcWaitingForSecondOperand = false;
+            calcExpression = '';
+            calcCurrentInput = '0';
+            calcLastAction = 'num';
             history.innerText = '';
         } else if (key === '⌫') {
-            calcValue = calcValue.length > 1 ? calcValue.slice(0, -1) : '0';
-            if (calcValue === '-' || calcValue === 'Erro') calcValue = '0';
+            if (calcLastAction === 'num' || calcLastAction === 'eq') {
+                calcCurrentInput = calcCurrentInput.length > 1 ? calcCurrentInput.slice(0, -1) : '0';
+                if (calcCurrentInput === '-' || calcCurrentInput === '') calcCurrentInput = '0';
+                if (calcLastAction === 'eq') {
+                    calcExpression = '';
+                    history.innerText = '';
+                    calcLastAction = 'num';
+                }
+            }
         } else if (key === '√') {
-            const val = parseFloat(calcValue);
+            const val = parseFloat(calcCurrentInput);
             if (val >= 0) {
-                history.innerText = '√(' + val + ')';
-                calcValue = String(Math.sqrt(val));
-                if(calcValue.includes('.')) calcValue = parseFloat(calcValue).toFixed(4).replace(/\.?0+$/, '');
+                if (calcLastAction === 'eq') {
+                    calcExpression = '';
+                    history.innerText = '√(' + val + ') =';
+                }
+                calcCurrentInput = String(parseFloat(Math.sqrt(val).toFixed(6)));
+                calcLastAction = 'num';
             } else {
-                calcValue = 'Error';
+                calcCurrentInput = 'Error';
+                calcLastAction = 'err';
             }
-            calcWaitingForSecondOperand = true;
         } else if (['+', '-', '*', '/'].includes(key)) {
-            const inputValue = parseFloat(calcValue);
-            if (calcFirstOperand === null) {
-                calcFirstOperand = inputValue;
-            } else if (calcOperator) {
-                const result = performCalculation(calcFirstOperand, inputValue, calcOperator);
-                calcValue = String(result);
-                calcFirstOperand = result;
+            const displayOp = key === '*' ? '×' : key === '/' ? '÷' : key;
+            
+            if (calcLastAction === 'op') {
+                calcExpression = calcExpression.replace(/[\+\-\×\÷]\s*$/, displayOp + ' ');
+            } else {
+                calcExpression += calcCurrentInput + ' ' + displayOp + ' ';
             }
-            calcWaitingForSecondOperand = true;
-            calcOperator = key;
-            history.innerText = calcFirstOperand + ' ' + (key === '*' ? '×' : key === '/' ? '÷' : key);
+            calcLastAction = 'op';
+            history.innerText = calcExpression;
         } else if (key === '=') {
-            const inputValue = parseFloat(calcValue);
-            if (calcOperator && calcFirstOperand !== null) {
-                history.innerText = calcFirstOperand + ' ' + (calcOperator === '*' ? '×' : calcOperator === '/' ? '÷' : calcOperator) + ' ' + inputValue + ' =';
-                calcValue = String(performCalculation(calcFirstOperand, inputValue, calcOperator));
-                calcFirstOperand = null;
-                calcOperator = null;
-                calcWaitingForSecondOperand = true;
+            if (calcLastAction !== 'eq' && calcExpression !== '') {
+                // 組合出完整算式 (例如 "5 + 8 ÷ 15")
+                let fullExprVisual = calcExpression + calcCurrentInput;
+                let tokens = fullExprVisual.split(' ').filter(t => t);
+
+                const isAddSub = (op) => op === '+' || op === '-';
+                const isMulDiv = (op) => op === '×' || op === '÷';
+
+                // ================= 防呆機制：偵測到混用加減乘除時，彈出詢問視窗 =================
+                // 條件：剛好有5個元素 (例如: 數字 符號 數字 符號 數字)，且符號為 [加減, 乘除] 或 [乘除, 加減]
+                if (tokens.length === 5 &&
+                    ((isAddSub(tokens[1]) && isMulDiv(tokens[3])) || (isMulDiv(tokens[1]) && isAddSub(tokens[3])))
+                ) {
+                    let opt1 = `(${tokens[0]} ${tokens[1]} ${tokens[2]}) ${tokens[3]} ${tokens[4]}`;
+                    let opt2 = `${tokens[0]} ${tokens[1]} (${tokens[2]} ${tokens[3]} ${tokens[4]})`;
+                    
+                    // 叫出確認視窗，中斷本次運算
+                    window.showCalcChoiceModal(opt1, opt2);
+                    return; 
+                }
+
+                // 若無混淆，正常執行計算
+                executeCalculation(fullExprVisual, fullExprVisual);
             }
         }
         
-        display.value = calcValue;
+        display.value = calcCurrentInput;
     };
 
-    function performCalculation(first, second, operator) {
-        let result = 0;
-        if (operator === '+') result = first + second;
-        else if (operator === '-') result = first - second;
-        else if (operator === '*') result = first * second;
-        else if (operator === '/') result = second === 0 ? 'Error' : first / second;
-        
-        if (result !== 'Error') {
-            // 處理浮點數誤差
-            result = parseFloat(result.toFixed(6));
+    // 負責真正執行計算的函數
+    window.executeCalculation = function(evalVisualStr, historyStr) {
+        let evalExpr = evalVisualStr.replace(/×/g, '*').replace(/÷/g, '/');
+        try {
+            let result = new Function('return ' + evalExpr)();
+            if (!isFinite(result)) throw new Error('Math Error');
+            
+            calcCurrentInput = String(parseFloat(result.toFixed(6)));
+            document.getElementById('calcHistory').innerText = historyStr + ' =';
+            calcExpression = ''; 
+            calcLastAction = 'eq';
+        } catch(e) {
+            calcCurrentInput = 'Error';
+            calcLastAction = 'err';
         }
-        return result;
-    }
+        document.getElementById('calcDisplay').value = calcCurrentInput;
+    };
+
+    // 顯示選項的 Modal
+    window.showCalcChoiceModal = function(opt1, opt2) {
+        const btn1 = document.getElementById('calcBtnOpt1');
+        const btn2 = document.getElementById('calcBtnOpt2');
+        btn1.textContent = opt1;
+        btn1.dataset.expr = opt1;
+        btn2.textContent = opt2;
+        btn2.dataset.expr = opt2;
+        document.getElementById('calcChoiceModal').classList.remove('hidden');
+    };
+
+    // 學生點擊選擇後的回呼處理
+    window.executeCalcChoice = function(chosenVisualExpr) {
+        document.getElementById('calcChoiceModal').classList.add('hidden');
+        executeCalculation(chosenVisualExpr, chosenVisualExpr);
+    };
 
 
     // --- 視窗拖曳與縮放邏輯 ---
@@ -836,16 +911,14 @@
         document.getElementById('lockScreenUI').classList.remove('hidden');
         
         let baseHref = window.location.href;
-        // 如果是在開發/單機預覽環境 (blob:, about:, file:)，顯示警告文字，並替換為假網址以免掃描器報錯
         const isLocalOrPreview = baseHref.startsWith('blob:') || baseHref.startsWith('about:') || baseHref.startsWith('file:');
         
         if (isLocalOrPreview) {
             const warnEl = document.getElementById('qrWarning');
             if(warnEl) warnEl.classList.remove('hidden');
-            baseHref = 'https://example.com/'; // 給一個安全的假網址，讓手機相機不會說格式錯誤
+            baseHref = 'https://example.com/'; 
         }
 
-        // 生成給手機掃描的 URL
         const currentUrl = new URL(baseHref);
         currentUrl.searchParams.set('mode', 'remote');
         currentUrl.searchParams.set('session', windowSessionId);
@@ -853,11 +926,9 @@
         const qrUrl = "https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=" + encodeURIComponent(currentUrl.toString());
         document.getElementById('qrcodeImg').src = qrUrl;
 
-        // 將鎖定狀態寫入 Firebase
         const sessionDocRef = getDocRef('sessions', windowSessionId);
         await setDoc(sessionDocRef, { status: 'locked', timestamp: new Date().toISOString() });
 
-        // 監聽手機端的解鎖信號
         onSnapshot(sessionDocRef, (docSnap) => {
             if (docSnap.exists() && docSnap.data().status === 'unlocked') {
                 if (!isAppUnlocked) {
@@ -881,7 +952,6 @@
         msg.textContent = "";
 
         try {
-            // 呼叫 GAS 驗證密碼
             const res = await fetch(myDefaultGasUrl, { 
                 method: 'POST', 
                 body: JSON.stringify({ action: 'verifyPassword', password: pwd }) 
@@ -908,7 +978,6 @@
         }
     };
 
-    // 備用：PC直接解鎖
     window.showPCPasswordPrompt = function() {
         const pwd = prompt("請輸入授權密碼：");
         if (pwd) {
@@ -934,7 +1003,7 @@
         initInteractiveModal('floatingTableModal', 'floatingTableHeader');
         initInteractiveModal('floatingGradingModal', 'floatingGradingHeader');
         initInteractiveModal('numPad', 'numPadHeader'); 
-        initInteractiveModal('calculatorModal', 'calculatorHeader'); // 綁定小計算機的拖曳
+        initInteractiveModal('calculatorModal', 'calculatorHeader'); 
         
         initCamera();
         checkSheetsConnection();
@@ -1180,13 +1249,6 @@
 
     async function initCamera() { 
         try { 
-            try {
-                const initialStream = await navigator.mediaDevices.getUserMedia({ video: true });
-                initialStream.getTracks().forEach(track => track.stop());
-            } catch (permissionError) {
-                console.warn("Initial camera permission request failed:", permissionError);
-            }
-
             const devices = await navigator.mediaDevices.enumerateDevices();
             const videoDevices = devices.filter(d => d.kind === 'videoinput'); 
             
@@ -1274,14 +1336,13 @@
     window.updateScore = async (amt) => { if (currentSelectedStudentId === null) return; const list = window.classDataCache[currentGrade][currentClass]; list[currentSelectedStudentId].score += amt; document.getElementById('gradingCurrentScore').textContent = list[currentSelectedStudentId].score; await updateDoc(getDocRef('classes', `${currentGrade}_${currentClass}`), { students: list }); };
     window.updateTAStatus = async (val) => { if (currentSelectedStudentId === null) return; const list = window.classDataCache[currentGrade][currentClass]; list[currentSelectedStudentId].isTA = val; await updateDoc(getDocRef('classes', `${currentGrade}_${currentClass}`), { students: list }); };
 
-    /* --- Firebase 啟動 --- */
+    /* --- Firebase 啟மைப்பு --- */
     try {
         const hasEnv = typeof __firebase_config !== 'undefined' && __firebase_config, config = hasEnv ? JSON.parse(__firebase_config) : myFirebaseConfig;
         app = initializeApp(config); auth = getAuth(app); db = getFirestore(app);
         
         const authenticate = async () => { 
             try { 
-                // 嘗試請求鏡頭權限以防被封鎖
                 try {
                     const initialStream = await navigator.mediaDevices.getUserMedia({ video: true });
                     initialStream.getTracks().forEach(track => track.stop());
@@ -1291,13 +1352,10 @@
                 else await signInAnonymously(auth); 
                 isFirebaseReady = true; 
                 
-                // 根據網址參數決定要顯示哪種畫面
                 const urlParams = new URLSearchParams(window.location.search);
                 if (urlParams.get('mode') === 'remote') {
-                    // 手機端：顯示遠端密碼輸入介面
                     document.getElementById('remoteMobileUI').classList.remove('hidden');
                 } else {
-                    // 電腦端：顯示鎖定畫面與 QR Code
                     window.startPcLockScreen();
                 }
             } catch (err) { console.error(err); } 
