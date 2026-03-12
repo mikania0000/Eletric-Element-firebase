@@ -958,6 +958,9 @@
             }).then(r => r.json());
 
             if (res.status === 'success') {
+                // 解鎖成功：將密碼記憶在手機瀏覽器中
+                localStorage.setItem('exp_sys_saved_pwd', pwd);
+
                 const sessionParam = new URLSearchParams(window.location.search).get('session');
                 if(sessionParam) {
                     await setDoc(getDocRef('sessions', sessionParam), { status: 'unlocked' }, { merge: true });
@@ -967,17 +970,22 @@
                 btn.innerHTML = "已解鎖 ✓";
                 btn.className = "w-full bg-emerald-500 text-white font-black text-2xl py-5 rounded-2xl shadow-lg shadow-emerald-200 transition-all tracking-widest";
             } else {
+                // 密碼錯誤：清空舊有的記憶密碼
+                localStorage.removeItem('exp_sys_saved_pwd');
+                msg.className = "mt-6 font-bold text-lg h-6 text-rose-500";
                 msg.textContent = "密碼錯誤，請重試";
                 btn.disabled = false;
                 btn.innerHTML = "確認解鎖";
             }
         } catch (err) {
+            msg.className = "mt-6 font-bold text-lg h-6 text-rose-500";
             msg.textContent = "連線失敗，請檢查網路";
             btn.disabled = false;
             btn.innerHTML = "確認解鎖";
         }
     };
 
+    // 備用：PC直接解鎖
     window.showPCPasswordPrompt = function() {
         const pwd = prompt("請輸入授權密碼：");
         if (pwd) {
@@ -1136,6 +1144,7 @@
         const val = document.getElementById('expSelect').value, container = document.getElementById('table-container');
         if (!container) return;
         
+        // 將原本的 type="number" 換成 type="text" inputmode="none" 以完美支援自訂鍵盤與小數點
         let html = '';
         if (val === 'exp1') {
             html = `
@@ -1336,7 +1345,7 @@
     window.updateScore = async (amt) => { if (currentSelectedStudentId === null) return; const list = window.classDataCache[currentGrade][currentClass]; list[currentSelectedStudentId].score += amt; document.getElementById('gradingCurrentScore').textContent = list[currentSelectedStudentId].score; await updateDoc(getDocRef('classes', `${currentGrade}_${currentClass}`), { students: list }); };
     window.updateTAStatus = async (val) => { if (currentSelectedStudentId === null) return; const list = window.classDataCache[currentGrade][currentClass]; list[currentSelectedStudentId].isTA = val; await updateDoc(getDocRef('classes', `${currentGrade}_${currentClass}`), { students: list }); };
 
-    /* --- Firebase 啟மைப்பு --- */
+    /* --- Firebase 啟動 --- */
     try {
         const hasEnv = typeof __firebase_config !== 'undefined' && __firebase_config, config = hasEnv ? JSON.parse(__firebase_config) : myFirebaseConfig;
         app = initializeApp(config); auth = getAuth(app); db = getFirestore(app);
@@ -1354,7 +1363,21 @@
                 
                 const urlParams = new URLSearchParams(window.location.search);
                 if (urlParams.get('mode') === 'remote') {
+                    // 手機端：顯示遠端密碼輸入介面
                     document.getElementById('remoteMobileUI').classList.remove('hidden');
+                    
+                    // 檢查是否有記憶密碼，若有則自動執行解鎖
+                    const savedPwd = localStorage.getItem('exp_sys_saved_pwd');
+                    if (savedPwd) {
+                        document.getElementById('remotePasswordInput').value = savedPwd;
+                        const msg = document.getElementById('remoteMsg');
+                        msg.className = "mt-6 font-bold text-lg h-6 text-blue-500";
+                        msg.textContent = "偵測到記憶密碼，自動解鎖中...";
+                        // 稍微延遲 0.6 秒再送出，讓使用者知道發生了什麼事
+                        setTimeout(() => {
+                            window.submitRemotePassword();
+                        }, 600); 
+                    }
                 } else {
                     window.startPcLockScreen();
                 }
