@@ -2,8 +2,8 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>實驗紀錄系統 v4.17 (全螢幕乾淨版)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>實驗紀錄系統 v4.19 (含浮動小計算機與安全解鎖)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         input[type="number"]::-webkit-outer-spin-button,
@@ -125,6 +125,50 @@
 </head>
 <body class="bg-slate-900 font-sans h-screen w-screen overflow-hidden text-slate-800 relative">
 
+<!-- ================= 手機專屬遠端解鎖畫面 (預設隱藏) ================= -->
+<div id="remoteMobileUI" class="fixed inset-0 z-[500] bg-slate-50 flex flex-col items-center justify-center px-6 hidden">
+    <div class="w-full max-w-sm bg-white p-8 rounded-[32px] shadow-2xl border border-slate-100 flex flex-col items-center text-center">
+        <div class="w-20 h-20 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mb-6 shadow-inner border border-blue-100">
+            <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+        </div>
+        <h2 class="text-3xl font-black text-slate-800 tracking-widest mb-2">遠端解鎖</h2>
+        <p class="text-slate-400 font-bold mb-10 text-sm">請輸入 6 位數授權密碼以開啟系統</p>
+        
+        <input type="password" id="remotePasswordInput" class="w-full text-center text-4xl font-black tracking-[0.4em] py-5 px-4 bg-slate-50 border-2 border-slate-200 rounded-2xl focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 outline-none transition-all mb-8" placeholder="••••••" maxlength="6" inputmode="numeric">
+        
+        <button id="remoteUnlockBtn" onclick="submitRemotePassword()" class="w-full bg-blue-600 text-white font-black text-2xl py-5 rounded-2xl shadow-[0_10px_25px_rgba(37,99,235,0.4)] hover:bg-blue-700 active:scale-95 transition-all tracking-widest">
+            確認解鎖
+        </button>
+        <div id="remoteMsg" class="mt-6 font-bold text-lg h-6 text-rose-500"></div>
+    </div>
+</div>
+
+<!-- ================= 大螢幕鎖定畫面 (預設隱藏) ================= -->
+<div id="lockScreenUI" class="fixed inset-0 z-[400] bg-slate-900/95 backdrop-blur-2xl flex flex-col items-center justify-center text-white hidden">
+    <div class="bg-slate-800/80 p-12 rounded-[40px] shadow-[0_30px_60px_rgba(0,0,0,0.6)] flex flex-col items-center border border-slate-700 text-center max-w-lg">
+        <svg class="w-20 h-20 text-blue-500 mb-6 drop-shadow-md" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+        <h1 class="text-4xl font-black tracking-[0.2em] mb-3 text-white">系統已鎖定</h1>
+        <p class="text-slate-400 mb-8 font-bold text-lg">請使用手機掃描下方 QR Code 解鎖</p>
+        
+        <div class="bg-white p-6 rounded-[28px] mb-6 shadow-2xl">
+            <img id="qrcodeImg" src="" alt="QR Code" class="w-56 h-56">
+        </div>
+        
+        <!-- 預覽/本機環境警告 -->
+        <div id="qrWarning" class="hidden mb-6 px-4 py-3 bg-rose-500/20 border border-rose-500/50 rounded-xl text-rose-300 text-sm font-bold text-left leading-relaxed max-w-[260px]">
+            ⚠️ 預覽/單機環境無法產生真實網址，手機將無法連線。<br><span class="text-xs text-rose-400 font-normal">請先使用下方按鈕手動解鎖測試。將網頁上傳至伺服器後即可正常掃描。</span>
+        </div>
+
+        <div class="flex items-center gap-3 text-slate-500">
+            <svg class="animate-spin h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+            <span class="text-sm font-bold tracking-widest">等待手機授權中...</span>
+        </div>
+        
+        <button onclick="showPCPasswordPrompt()" class="mt-8 text-slate-500 hover:text-slate-300 transition-colors font-bold text-sm tracking-wider underline underline-offset-4">直接在螢幕上輸入密碼</button>
+    </div>
+</div>
+
+
 <!-- 視訊全螢幕底層 -->
 <div id="videoContainer" class="absolute inset-0 z-0 flex items-center justify-center bg-black">
     <video id="video" class="w-full h-full object-contain" autoplay playsinline></video>
@@ -168,6 +212,12 @@
         <span id="mainConnStatusDot" class="absolute -top-2 -right-2 w-4 h-4 rounded-full bg-yellow-400 ping-yellow border-2 border-white shadow-sm"></span>
         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
         雲端同步
+    </button>
+
+    <!-- 小計算機 -->
+    <button onclick="toggleCalculator()" class="w-full bg-orange-500 text-white px-5 py-3.5 rounded-2xl shadow-[0_8px_20px_rgba(249,115,22,0.4)] hover:bg-orange-400 active:scale-95 transition-all duration-200 font-black text-xl tracking-widest flex items-center justify-center gap-3 border border-white/10 backdrop-blur-md mt-1">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+        小計算機
     </button>
 </div>
 
@@ -269,34 +319,77 @@
     </div>
 </div>
 
-<!-- ================= 彈出視窗與鍵盤區 ================= -->
-
-<!-- 專屬數字輸入小鍵盤 -->
-<div id="numPad" class="fixed z-[100] hidden bg-white/95 backdrop-blur-2xl rounded-[28px] shadow-[0_30px_60px_-15px_rgba(0,0,0,0.6)] border border-slate-200 p-4 w-[280px] transform transition-all touch-none">
+<!-- ================= 獨立小計算機 Modal ================= -->
+<div id="calculatorModal" class="fixed z-[105] hidden bg-white/95 backdrop-blur-2xl rounded-[20px] shadow-[0_20px_40px_-10px_rgba(0,0,0,0.5)] border border-slate-200 p-3 w-[260px] transition-opacity duration-200 touch-none">
     <!-- 拖曳標題列 -->
-    <div id="numPadHeader" class="flex justify-between items-center mb-4 px-2 py-2 cursor-move bg-slate-100 rounded-xl" title="按住拖曳">
-        <div class="flex items-center gap-2 pointer-events-none">
-            <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"></path></svg>
-            <span class="text-sm font-black tracking-widest text-blue-600 uppercase">數值輸入</span>
+    <div id="calculatorHeader" class="flex justify-between items-center mb-3 px-2 cursor-move bg-slate-100 rounded-lg p-1" title="按住拖曳">
+        <div class="flex items-center gap-1 text-slate-400 pointer-events-none">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+            <span class="text-sm font-black tracking-widest text-orange-500 uppercase">小計算機</span>
         </div>
-        <button onclick="hideNumPad()" class="text-slate-400 hover:text-rose-500 font-black p-1 transition-colors bg-white rounded-full shadow-sm" title="關閉">
+        <button onclick="toggleCalculator()" class="text-slate-400 hover:text-rose-500 font-black p-1 transition-colors rounded-full" title="關閉">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg>
         </button>
     </div>
-    <div class="grid grid-cols-3 gap-3">
-        <button onclick="handleNumPadClick('7')" class="bg-slate-50 text-slate-800 rounded-2xl py-4 text-3xl font-black shadow-sm active:scale-90 transition-all border border-slate-200 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200">7</button>
-        <button onclick="handleNumPadClick('8')" class="bg-slate-50 text-slate-800 rounded-2xl py-4 text-3xl font-black shadow-sm active:scale-90 transition-all border border-slate-200 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200">8</button>
-        <button onclick="handleNumPadClick('9')" class="bg-slate-50 text-slate-800 rounded-2xl py-4 text-3xl font-black shadow-sm active:scale-90 transition-all border border-slate-200 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200">9</button>
-        <button onclick="handleNumPadClick('4')" class="bg-slate-50 text-slate-800 rounded-2xl py-4 text-3xl font-black shadow-sm active:scale-90 transition-all border border-slate-200 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200">4</button>
-        <button onclick="handleNumPadClick('5')" class="bg-slate-50 text-slate-800 rounded-2xl py-4 text-3xl font-black shadow-sm active:scale-90 transition-all border border-slate-200 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200">5</button>
-        <button onclick="handleNumPadClick('6')" class="bg-slate-50 text-slate-800 rounded-2xl py-4 text-3xl font-black shadow-sm active:scale-90 transition-all border border-slate-200 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200">6</button>
-        <button onclick="handleNumPadClick('1')" class="bg-slate-50 text-slate-800 rounded-2xl py-4 text-3xl font-black shadow-sm active:scale-90 transition-all border border-slate-200 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200">1</button>
-        <button onclick="handleNumPadClick('2')" class="bg-slate-50 text-slate-800 rounded-2xl py-4 text-3xl font-black shadow-sm active:scale-90 transition-all border border-slate-200 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200">2</button>
-        <button onclick="handleNumPadClick('3')" class="bg-slate-50 text-slate-800 rounded-2xl py-4 text-3xl font-black shadow-sm active:scale-90 transition-all border border-slate-200 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200">3</button>
-        <button onclick="handleNumPadClick('.')" class="bg-slate-50 text-slate-800 rounded-2xl py-4 text-4xl font-black shadow-sm active:scale-90 transition-all border border-slate-200 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200">.</button>
-        <button onclick="handleNumPadClick('0')" class="bg-slate-50 text-slate-800 rounded-2xl py-4 text-3xl font-black shadow-sm active:scale-90 transition-all border border-slate-200 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200">0</button>
-        <button onclick="handleNumPadClick('backspace')" class="bg-slate-100 text-slate-600 rounded-2xl py-4 text-2xl font-black shadow-sm active:scale-90 transition-all border border-slate-300 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-300">⌫</button>
-        <button onclick="handleNumPadClick('done')" class="col-span-3 bg-blue-600 text-white rounded-2xl py-4 text-2xl font-black shadow-xl shadow-blue-200 active:scale-95 transition-all mt-2 hover:bg-blue-700 tracking-widest">確認 (完成)</button>
+    <div class="mb-2">
+        <div id="calcHistory" class="text-right text-xs text-slate-400 h-4 px-1 overflow-hidden font-bold tracking-wider"></div>
+        <input type="text" id="calcDisplay" class="w-full bg-slate-50 border-2 border-slate-200 rounded-xl px-2 py-2 text-right text-3xl font-black text-slate-800 outline-none" value="0" readonly>
+    </div>
+    <div class="grid grid-cols-4 gap-2">
+        <button onclick="calcInput('C')" class="bg-rose-50 text-rose-600 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-rose-100">C</button>
+        <button onclick="calcInput('√')" class="bg-slate-100 text-slate-600 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-slate-200">√</button>
+        <button onclick="calcInput('/')" class="bg-orange-50 text-orange-600 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-orange-100">÷</button>
+        <button onclick="calcInput('⌫')" class="bg-slate-100 text-slate-600 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-slate-200">⌫</button>
+
+        <button onclick="calcInput('7')" class="bg-slate-50 text-slate-800 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-orange-50">7</button>
+        <button onclick="calcInput('8')" class="bg-slate-50 text-slate-800 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-orange-50">8</button>
+        <button onclick="calcInput('9')" class="bg-slate-50 text-slate-800 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-orange-50">9</button>
+        <button onclick="calcInput('*')" class="bg-orange-50 text-orange-600 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-orange-100">×</button>
+
+        <button onclick="calcInput('4')" class="bg-slate-50 text-slate-800 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-orange-50">4</button>
+        <button onclick="calcInput('5')" class="bg-slate-50 text-slate-800 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-orange-50">5</button>
+        <button onclick="calcInput('6')" class="bg-slate-50 text-slate-800 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-orange-50">6</button>
+        <button onclick="calcInput('-')" class="bg-orange-50 text-orange-600 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-orange-100">-</button>
+
+        <button onclick="calcInput('1')" class="bg-slate-50 text-slate-800 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-orange-50">1</button>
+        <button onclick="calcInput('2')" class="bg-slate-50 text-slate-800 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-orange-50">2</button>
+        <button onclick="calcInput('3')" class="bg-slate-50 text-slate-800 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-orange-50">3</button>
+        <button onclick="calcInput('+')" class="bg-orange-50 text-orange-600 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-orange-100">+</button>
+
+        <button onclick="calcInput('0')" class="col-span-2 bg-slate-50 text-slate-800 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-orange-50">0</button>
+        <button onclick="calcInput('.')" class="bg-slate-50 text-slate-800 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-orange-50">.</button>
+        <button onclick="calcInput('=')" class="bg-orange-500 text-white rounded-xl py-2 text-xl font-black shadow-md active:scale-95 transition-all hover:bg-orange-600">=</button>
+    </div>
+</div>
+
+<!-- ================= 彈出視窗與鍵盤區 ================= -->
+
+<!-- 專屬數字輸入小鍵盤 -->
+<div id="numPad" class="fixed z-[100] hidden bg-white/95 backdrop-blur-2xl rounded-[20px] shadow-[0_20px_40px_-10px_rgba(0,0,0,0.5)] border border-slate-200 p-3 w-[220px] transition-opacity duration-200 touch-none">
+    <!-- 拖曳標題列 -->
+    <div id="numPadHeader" class="flex justify-between items-center mb-3 px-2 cursor-move bg-slate-100 rounded-lg p-1" title="按住拖曳">
+        <div class="flex items-center gap-1 text-slate-400 pointer-events-none">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"></path></svg>
+            <span class="text-sm font-black tracking-widest text-blue-600 uppercase">數值輸入</span>
+        </div>
+        <button onclick="hideNumPad()" class="text-slate-400 hover:text-rose-500 font-black p-1 transition-colors rounded-full" title="關閉鍵盤">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+    </div>
+    <div class="grid grid-cols-3 gap-2">
+        <button onclick="handleNumPadClick('7')" class="bg-slate-50 text-slate-800 rounded-xl py-3 text-2xl font-black shadow-sm active:scale-90 transition-all border border-slate-200 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200">7</button>
+        <button onclick="handleNumPadClick('8')" class="bg-slate-50 text-slate-800 rounded-xl py-3 text-2xl font-black shadow-sm active:scale-90 transition-all border border-slate-200 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200">8</button>
+        <button onclick="handleNumPadClick('9')" class="bg-slate-50 text-slate-800 rounded-xl py-3 text-2xl font-black shadow-sm active:scale-90 transition-all border border-slate-200 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200">9</button>
+        <button onclick="handleNumPadClick('4')" class="bg-slate-50 text-slate-800 rounded-xl py-3 text-2xl font-black shadow-sm active:scale-90 transition-all border border-slate-200 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200">4</button>
+        <button onclick="handleNumPadClick('5')" class="bg-slate-50 text-slate-800 rounded-xl py-3 text-2xl font-black shadow-sm active:scale-90 transition-all border border-slate-200 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200">5</button>
+        <button onclick="handleNumPadClick('6')" class="bg-slate-50 text-slate-800 rounded-xl py-3 text-2xl font-black shadow-sm active:scale-90 transition-all border border-slate-200 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200">6</button>
+        <button onclick="handleNumPadClick('1')" class="bg-slate-50 text-slate-800 rounded-xl py-3 text-2xl font-black shadow-sm active:scale-90 transition-all border border-slate-200 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200">1</button>
+        <button onclick="handleNumPadClick('2')" class="bg-slate-50 text-slate-800 rounded-xl py-3 text-2xl font-black shadow-sm active:scale-90 transition-all border border-slate-200 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200">2</button>
+        <button onclick="handleNumPadClick('3')" class="bg-slate-50 text-slate-800 rounded-xl py-3 text-2xl font-black shadow-sm active:scale-90 transition-all border border-slate-200 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200">3</button>
+        <button onclick="handleNumPadClick('.')" class="bg-slate-50 text-slate-800 rounded-xl py-3 text-3xl font-black shadow-sm active:scale-90 transition-all border border-slate-200 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200">.</button>
+        <button onclick="handleNumPadClick('0')" class="bg-slate-50 text-slate-800 rounded-xl py-3 text-2xl font-black shadow-sm active:scale-90 transition-all border border-slate-200 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200">0</button>
+        <button onclick="handleNumPadClick('backspace')" class="bg-slate-100 text-slate-600 rounded-xl py-3 text-xl font-black shadow-sm active:scale-90 transition-all border border-slate-300 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-300">⌫</button>
+        <button onclick="handleNumPadClick('done')" class="col-span-3 bg-blue-600 text-white rounded-xl py-3 text-xl font-black shadow-md shadow-blue-200 active:scale-95 transition-all mt-1 hover:bg-blue-700 tracking-widest">確認 (完成)</button>
     </div>
 </div>
 
@@ -413,8 +506,10 @@
 
     let app, auth, db, user, isFirebaseReady = false;
     let currentStream = null; 
+    let isAppUnlocked = false; 
+    let windowSessionId = new URLSearchParams(window.location.search).get('session') || (Date.now().toString(36) + Math.random().toString(36).substr(2, 5));
+
     const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-    
     function getCollectionRef(colName) { return (typeof __app_id !== 'undefined') ? collection(db, 'artifacts', appId, 'public', 'data', colName) : collection(db, colName); }
     function getDocRef(colName, documentId) { return (typeof __app_id !== 'undefined') ? doc(db, 'artifacts', appId, 'public', 'data', colName, documentId) : doc(db, colName, documentId); }
 
@@ -502,7 +597,6 @@
         currentActiveInput = input;
         const pad = document.getElementById('numPad');
         
-        // 核心：如果鍵盤已經顯示，就不自動跳動，保留使用者拖曳好的位置
         if (!pad.classList.contains('hidden')) {
             return;
         }
@@ -510,30 +604,24 @@
         pad.classList.remove('hidden');
         
         const rect = input.getBoundingClientRect();
-        const padWidth = 280;
-        const padHeight = 380; 
+        const padWidth = 220;
+        const padHeight = 310; 
 
-        // 預設將鍵盤對齊輸入框置中
-        let left = rect.left + (rect.width / 2) - (padWidth / 2);
-        // 預設顯示在輸入框下方
-        let top = rect.bottom + 10;
+        let left = rect.right + 15;
+        let top = rect.top - 10;
         
-        // 邊界防護：避免超出畫面右側
         if (left + padWidth > window.innerWidth - 20) {
-            left = window.innerWidth - padWidth - 20;
+            left = rect.left - padWidth - 15;
         }
-        // 邊界防護：避免超出畫面左側
-        if (left < 20) left = 20;
+        if (left < 20) {
+            left = rect.left + (rect.width / 2) - (padWidth / 2);
+            top = rect.bottom + 15;
+        }
         
-        // 邊界防護：避免下方超出畫面 (被擋住)
         if (top + padHeight > window.innerHeight - 20) {
-            // 如果下方空間不夠，改顯示在輸入框的上方
-            top = rect.top - padHeight - 10;
-            // 如果連上方也超出畫面，強制貼齊底部
-            if (top < 20) {
-                top = window.innerHeight - padHeight - 20;
-            }
+            top = window.innerHeight - padHeight - 20;
         }
+        if (top < 20) top = 20;
         
         pad.style.top = top + 'px';
         pad.style.left = left + 'px';
@@ -565,6 +653,100 @@
         }
         window.calculateRatio();
     };
+
+    // --- 獨立小計算機邏輯 ---
+    let calcValue = '0';
+    let calcFirstOperand = null;
+    let calcOperator = null;
+    let calcWaitingForSecondOperand = false;
+
+    window.toggleCalculator = function() {
+        const modal = document.getElementById('calculatorModal');
+        if (modal.classList.contains('hidden')) {
+            modal.classList.remove('hidden');
+            if(!modal.dataset.positioned) {
+                // 預設位置：右上方主按鈕的左側一點點
+                modal.style.top = '80px';
+                modal.style.left = Math.max(20, window.innerWidth - 480) + 'px';
+                modal.dataset.positioned = 'true';
+            }
+        } else {
+            modal.classList.add('hidden');
+        }
+    };
+
+    window.calcInput = function(key) {
+        const display = document.getElementById('calcDisplay');
+        const history = document.getElementById('calcHistory');
+
+        if (key >= '0' && key <= '9') {
+            if (calcWaitingForSecondOperand) {
+                calcValue = key;
+                calcWaitingForSecondOperand = false;
+            } else {
+                calcValue = calcValue === '0' ? key : calcValue + key;
+            }
+        } else if (key === '.') {
+            if (!calcValue.includes('.')) calcValue += '.';
+        } else if (key === 'C') {
+            calcValue = '0';
+            calcFirstOperand = null;
+            calcOperator = null;
+            calcWaitingForSecondOperand = false;
+            history.innerText = '';
+        } else if (key === '⌫') {
+            calcValue = calcValue.length > 1 ? calcValue.slice(0, -1) : '0';
+            if (calcValue === '-' || calcValue === 'Erro') calcValue = '0';
+        } else if (key === '√') {
+            const val = parseFloat(calcValue);
+            if (val >= 0) {
+                history.innerText = '√(' + val + ')';
+                calcValue = String(Math.sqrt(val));
+                if(calcValue.includes('.')) calcValue = parseFloat(calcValue).toFixed(4).replace(/\.?0+$/, '');
+            } else {
+                calcValue = 'Error';
+            }
+            calcWaitingForSecondOperand = true;
+        } else if (['+', '-', '*', '/'].includes(key)) {
+            const inputValue = parseFloat(calcValue);
+            if (calcFirstOperand === null) {
+                calcFirstOperand = inputValue;
+            } else if (calcOperator) {
+                const result = performCalculation(calcFirstOperand, inputValue, calcOperator);
+                calcValue = String(result);
+                calcFirstOperand = result;
+            }
+            calcWaitingForSecondOperand = true;
+            calcOperator = key;
+            history.innerText = calcFirstOperand + ' ' + (key === '*' ? '×' : key === '/' ? '÷' : key);
+        } else if (key === '=') {
+            const inputValue = parseFloat(calcValue);
+            if (calcOperator && calcFirstOperand !== null) {
+                history.innerText = calcFirstOperand + ' ' + (calcOperator === '*' ? '×' : calcOperator === '/' ? '÷' : calcOperator) + ' ' + inputValue + ' =';
+                calcValue = String(performCalculation(calcFirstOperand, inputValue, calcOperator));
+                calcFirstOperand = null;
+                calcOperator = null;
+                calcWaitingForSecondOperand = true;
+            }
+        }
+        
+        display.value = calcValue;
+    };
+
+    function performCalculation(first, second, operator) {
+        let result = 0;
+        if (operator === '+') result = first + second;
+        else if (operator === '-') result = first - second;
+        else if (operator === '*') result = first * second;
+        else if (operator === '/') result = second === 0 ? 'Error' : first / second;
+        
+        if (result !== 'Error') {
+            // 處理浮點數誤差
+            result = parseFloat(result.toFixed(6));
+        }
+        return result;
+    }
+
 
     // --- 視窗拖曳與縮放邏輯 ---
     function initInteractiveModal(modalId, headerId) {
@@ -636,20 +818,114 @@
     async function checkSheetsConnection() {
         const dot = document.getElementById('mainConnStatusDot'), badge = document.getElementById('syncStatusBadge');
         if (!dot) return;
-        dot.className = "absolute -top-2 -right-2 w-4 h-4 rounded-full bg-yellow-400 ping-yellow border-2 border-white shadow-sm";
+        dot.className = "absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-yellow-400 ping-yellow border-2 border-white shadow-sm";
         try {
             const res = await fetch(myDefaultGasUrl, { method: 'POST', body: JSON.stringify({ action: 'check' }) }).then(r => r.json());
             if (res.status === 'success') {
-                dot.className = "absolute -top-2 -right-2 w-4 h-4 rounded-full bg-green-500 ping-green border-2 border-white shadow-sm";
+                dot.className = "absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-green-500 ping-green border-2 border-white shadow-sm";
                 if (badge) { badge.textContent = "已連線至 Google Sheets"; badge.className = "text-sm font-black text-emerald-500 tracking-widest mt-1"; }
             }
         } catch (e) {
-            dot.className = "absolute -top-2 -right-2 w-4 h-4 rounded-full bg-rose-500 ping-red border-2 border-white shadow-sm";
+            dot.className = "absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-rose-500 ping-red border-2 border-white shadow-sm";
             if (badge) { badge.textContent = "連線失敗，請檢查網址或權限"; badge.className = "text-sm font-black text-rose-500 tracking-widest mt-1"; }
         }
     }
 
-    // --- 初始化 ---
+    // --- 系統解鎖與初始化 ---
+    window.startPcLockScreen = async function() {
+        document.getElementById('lockScreenUI').classList.remove('hidden');
+        
+        let baseHref = window.location.href;
+        // 如果是在開發/單機預覽環境 (blob:, about:, file:)，顯示警告文字，並替換為假網址以免掃描器報錯
+        const isLocalOrPreview = baseHref.startsWith('blob:') || baseHref.startsWith('about:') || baseHref.startsWith('file:');
+        
+        if (isLocalOrPreview) {
+            const warnEl = document.getElementById('qrWarning');
+            if(warnEl) warnEl.classList.remove('hidden');
+            baseHref = 'https://example.com/'; // 給一個安全的假網址，讓手機相機不會說格式錯誤
+        }
+
+        // 生成給手機掃描的 URL
+        const currentUrl = new URL(baseHref);
+        currentUrl.searchParams.set('mode', 'remote');
+        currentUrl.searchParams.set('session', windowSessionId);
+        
+        const qrUrl = "https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=" + encodeURIComponent(currentUrl.toString());
+        document.getElementById('qrcodeImg').src = qrUrl;
+
+        // 將鎖定狀態寫入 Firebase
+        const sessionDocRef = getDocRef('sessions', windowSessionId);
+        await setDoc(sessionDocRef, { status: 'locked', timestamp: new Date().toISOString() });
+
+        // 監聽手機端的解鎖信號
+        onSnapshot(sessionDocRef, (docSnap) => {
+            if (docSnap.exists() && docSnap.data().status === 'unlocked') {
+                if (!isAppUnlocked) {
+                    isAppUnlocked = true;
+                    document.getElementById('lockScreenUI').classList.add('hidden');
+                    window.initApp(); 
+                }
+            }
+        });
+    };
+
+    window.submitRemotePassword = async function() {
+        const pwd = document.getElementById('remotePasswordInput').value;
+        const btn = document.getElementById('remoteUnlockBtn');
+        const msg = document.getElementById('remoteMsg');
+        
+        if(!pwd) { msg.textContent = "請輸入密碼"; return; }
+        
+        btn.disabled = true;
+        btn.innerHTML = `<svg class="animate-spin h-6 w-6 text-white mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
+        msg.textContent = "";
+
+        try {
+            // 呼叫 GAS 驗證密碼
+            const res = await fetch(myDefaultGasUrl, { 
+                method: 'POST', 
+                body: JSON.stringify({ action: 'verifyPassword', password: pwd }) 
+            }).then(r => r.json());
+
+            if (res.status === 'success') {
+                const sessionParam = new URLSearchParams(window.location.search).get('session');
+                if(sessionParam) {
+                    await setDoc(getDocRef('sessions', sessionParam), { status: 'unlocked' }, { merge: true });
+                }
+                msg.className = "mt-6 text-emerald-500 font-black text-xl";
+                msg.textContent = "解鎖成功！請看大螢幕";
+                btn.innerHTML = "已解鎖 ✓";
+                btn.className = "w-full bg-emerald-500 text-white font-black text-2xl py-5 rounded-2xl shadow-lg shadow-emerald-200 transition-all tracking-widest";
+            } else {
+                msg.textContent = "密碼錯誤，請重試";
+                btn.disabled = false;
+                btn.innerHTML = "確認解鎖";
+            }
+        } catch (err) {
+            msg.textContent = "連線失敗，請檢查網路";
+            btn.disabled = false;
+            btn.innerHTML = "確認解鎖";
+        }
+    };
+
+    // 備用：PC直接解鎖
+    window.showPCPasswordPrompt = function() {
+        const pwd = prompt("請輸入授權密碼：");
+        if (pwd) {
+            fetch(myDefaultGasUrl, { 
+                method: 'POST', 
+                body: JSON.stringify({ action: 'verifyPassword', password: pwd }) 
+            }).then(r => r.json()).then(res => {
+                if (res.status === 'success') {
+                    setDoc(getDocRef('sessions', windowSessionId), { status: 'unlocked' }, { merge: true });
+                } else {
+                    alert("密碼錯誤！");
+                }
+            }).catch(e => alert("驗證連線失敗"));
+        }
+    };
+
+    // 正式初始化
     window.initApp = async function() {
         await fetchClassList();
         renderTableTemplate();
@@ -657,7 +933,8 @@
         
         initInteractiveModal('floatingTableModal', 'floatingTableHeader');
         initInteractiveModal('floatingGradingModal', 'floatingGradingHeader');
-        initInteractiveModal('numPad', 'numPadHeader'); // 加入數字鍵盤的拖曳功能
+        initInteractiveModal('numPad', 'numPadHeader'); 
+        initInteractiveModal('calculatorModal', 'calculatorHeader'); // 綁定小計算機的拖曳
         
         initCamera();
         checkSheetsConnection();
@@ -790,7 +1067,6 @@
         const val = document.getElementById('expSelect').value, container = document.getElementById('table-container');
         if (!container) return;
         
-        // 將原本的 type="number" 換成 type="text" inputmode="none" 以完美支援自訂鍵盤與小數點
         let html = '';
         if (val === 'exp1') {
             html = `
@@ -832,9 +1108,9 @@
         container.innerHTML = html;
         loadExpData();
 
-        // 綁定輸入框喚出小鍵盤
         setTimeout(() => {
             document.querySelectorAll('#table-container input').forEach(input => {
+                input.setAttribute('inputmode', 'none'); 
                 input.addEventListener('click', (e) => { e.preventDefault(); window.showNumPad(e.target); });
                 input.addEventListener('focus', (e) => { e.preventDefault(); window.showNumPad(e.target); });
             });
@@ -891,14 +1167,13 @@
         document.getElementById('fullscreenBtn').addEventListener('click', () => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen());
         document.getElementById('studentSearchInput').addEventListener('input', renderFilteredStudentList);
 
-        // 點擊面板內滾動時，若遇到數字鍵盤擋住，就把它關掉
         document.getElementById('floatingTableContent').addEventListener('scroll', window.hideNumPad, {passive: true});
 
         document.addEventListener('click', (e) => {
             const pad = document.getElementById('numPad');
             if (!pad || pad.classList.contains('hidden')) return;
             if (pad.contains(e.target)) return;
-            if (e.target.tagName === 'INPUT') return; // 如果點擊的是輸入框，交給專屬事件處理
+            if (e.target.tagName === 'INPUT') return; 
             window.hideNumPad();
         });
     }
@@ -1003,12 +1278,29 @@
     try {
         const hasEnv = typeof __firebase_config !== 'undefined' && __firebase_config, config = hasEnv ? JSON.parse(__firebase_config) : myFirebaseConfig;
         app = initializeApp(config); auth = getAuth(app); db = getFirestore(app);
+        
         const authenticate = async () => { 
             try { 
+                // 嘗試請求鏡頭權限以防被封鎖
+                try {
+                    const initialStream = await navigator.mediaDevices.getUserMedia({ video: true });
+                    initialStream.getTracks().forEach(track => track.stop());
+                } catch (permissionError) { }
+
                 if (hasEnv && typeof __initial_auth_token !== 'undefined' && __initial_auth_token) await signInWithCustomToken(auth, __initial_auth_token); 
                 else await signInAnonymously(auth); 
-                isFirebaseReady = true; window.initApp(); 
-            } catch (err) { await signInAnonymously(auth); isFirebaseReady = true; window.initApp(); } 
+                isFirebaseReady = true; 
+                
+                // 根據網址參數決定要顯示哪種畫面
+                const urlParams = new URLSearchParams(window.location.search);
+                if (urlParams.get('mode') === 'remote') {
+                    // 手機端：顯示遠端密碼輸入介面
+                    document.getElementById('remoteMobileUI').classList.remove('hidden');
+                } else {
+                    // 電腦端：顯示鎖定畫面與 QR Code
+                    window.startPcLockScreen();
+                }
+            } catch (err) { console.error(err); } 
         };
         authenticate();
     } catch (e) { console.error(e); }
