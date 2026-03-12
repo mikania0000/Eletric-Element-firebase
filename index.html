@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>實驗紀錄系統 v4.21 (先乘除後加減防呆版)</title>
+    <title>實驗紀錄系統 v4.22 (計算機即時顯示版)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         input[type="number"]::-webkit-outer-spin-button,
@@ -667,7 +667,7 @@
         window.calculateRatio();
     };
 
-    // --- 獨立小計算機邏輯 (記憶算式版 + 防呆順序確認) ---
+    // --- 獨立小計算機邏輯 (記憶算式版 + 防呆順序確認 + 即時動態顯示) ---
     let calcExpression = '';
     let calcCurrentInput = '0';
     let calcLastAction = 'num'; 
@@ -702,38 +702,45 @@
                 calcCurrentInput = key;
                 if (calcLastAction === 'eq') {
                     calcExpression = '';
-                    history.innerText = '';
                 }
             } else {
                 calcCurrentInput += key;
             }
             calcLastAction = 'num';
+            // ★即時顯示算式與輸入數字
+            history.innerText = calcExpression + calcCurrentInput;
+            
         } else if (key === '.') {
             if (calcLastAction === 'eq' || calcLastAction === 'op') {
                 calcCurrentInput = '0.';
                 if (calcLastAction === 'eq') {
                     calcExpression = '';
-                    history.innerText = '';
                 }
             } else if (!calcCurrentInput.includes('.')) {
                 calcCurrentInput += '.';
             }
             calcLastAction = 'num';
+            // ★即時顯示算式與輸入數字
+            history.innerText = calcExpression + calcCurrentInput;
+            
         } else if (key === 'C') {
             calcExpression = '';
             calcCurrentInput = '0';
             calcLastAction = 'num';
             history.innerText = '';
+            
         } else if (key === '⌫') {
             if (calcLastAction === 'num' || calcLastAction === 'eq') {
                 calcCurrentInput = calcCurrentInput.length > 1 ? calcCurrentInput.slice(0, -1) : '0';
                 if (calcCurrentInput === '-' || calcCurrentInput === '') calcCurrentInput = '0';
                 if (calcLastAction === 'eq') {
                     calcExpression = '';
-                    history.innerText = '';
                     calcLastAction = 'num';
                 }
+                // ★即時顯示算式與輸入數字
+                history.innerText = calcExpression + (calcCurrentInput === '0' && calcExpression === '' ? '' : calcCurrentInput);
             }
+            
         } else if (key === '√') {
             const val = parseFloat(calcCurrentInput);
             if (val >= 0) {
@@ -747,6 +754,7 @@
                 calcCurrentInput = 'Error';
                 calcLastAction = 'err';
             }
+            
         } else if (['+', '-', '*', '/'].includes(key)) {
             const displayOp = key === '*' ? '×' : key === '/' ? '÷' : key;
             
@@ -757,6 +765,7 @@
             }
             calcLastAction = 'op';
             history.innerText = calcExpression;
+            
         } else if (key === '=') {
             if (calcLastAction !== 'eq' && calcExpression !== '') {
                 // 組合出完整算式 (例如 "5 + 8 ÷ 15")
