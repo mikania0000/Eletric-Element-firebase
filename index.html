@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>實驗紀錄系統 v4.30 (Google認證版)</title>
+    <title>實驗紀錄系統 v4.31 (修復同步卡死)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- 引入 Google Identity Services -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -171,7 +171,6 @@
     </div>
 </div>
 
-
 <!-- 視訊全螢幕底層 -->
 <div id="videoContainer" class="absolute inset-0 z-0 flex items-center justify-center bg-black">
     <video id="video" class="w-full h-full object-contain" autoplay playsinline></video>
@@ -251,7 +250,6 @@
 </div>
 
 <!-- ================= 各類 Modals (實驗/評分/計算機/數字鍵盤/同步/通知) ================= -->
-<!-- (保留您原有的彈窗 UI 結構，以節省版面，邏輯不變) -->
 <div id="floatingTableModal" class="fixed z-[60] hidden flex-col modal-enter" style="width: 850px; height: auto; min-height: 500px; top: 12vh; left: 5vw; touch-action: none;">
     <div class="bg-white/95 backdrop-blur-2xl rounded-[28px] shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] border border-white/60 flex flex-col w-full h-full relative overflow-hidden">
         <div id="floatingTableHeader" class="bg-blue-600/95 cursor-move p-4 flex justify-between items-center shrink-0 shadow-sm z-10" title="按住此處可拖曳視窗">
@@ -485,7 +483,7 @@
         measurementId: "G-S6BVBCQ6RS"
     };
 
-    // ★ 記得將這裡更換為您部署的最新 Google Apps Script Web App 網址
+    // ★ 已經替換為您的最新的 Google Apps Script Web App 網址
     const myDefaultGasUrl = "https://script.google.com/macros/s/AKfycbzGj5KcJxD9iXeR5jiQEe_g9FhK5eYF3UFpyqPaQzxm5Fcns5-KdcOCGUYbbZw6AQ0g/exec";
     
     // Google Client ID
@@ -503,7 +501,7 @@
     window.classDataCache = {};
     let unsubscribeStudents = null, currentGrade = '', currentClass = '', currentSelectedStudentId = null;
 
-    /* ================= 浮動面板、計算機、鍵盤 等 UI 邏輯 (保留不變) ================= */
+    /* ================= 浮動面板、計算機、鍵盤 等 UI 邏輯 ================= */
     window.openFloatingTable = function() { window.closeFloatingGrading(); const m=document.getElementById('floatingTableModal'),c=document.getElementById('floatingTableContent'),t=document.getElementById('table-container'),cc=document.getElementById('floating-controls-container-table'),cr=document.getElementById('shared-controls-row'); if(m&&c&&t&&cc&&cr){if(!m.dataset.positioned){m.style.left=Math.max(20,window.innerWidth-850)+'px';m.style.top='12vh';m.dataset.positioned='true';} cc.appendChild(cr);document.getElementById('expSelectContainer').style.display='block';c.appendChild(t); m.classList.remove('hidden');} };
     window.closeFloatingTable = function() { const m=document.getElementById('floatingTableModal'),h=document.getElementById('hidden-stash'),t=document.getElementById('table-container'),cr=document.getElementById('shared-controls-row'); if(m&&h&&t&&cr&&!m.classList.contains('hidden')){window.hideNumPad();h.appendChild(cr);h.appendChild(t);m.classList.add('hidden');} };
     window.openFloatingGrading = function() { window.closeFloatingTable(); const m=document.getElementById('floatingGradingModal'),c=document.getElementById('floatingGradingContent'),sc=document.getElementById('studentListContainer'),cc=document.getElementById('floating-controls-container-grading'),cr=document.getElementById('shared-controls-row'); if(m&&c&&sc&&cc&&cr){if(!m.dataset.positioned){m.style.left=Math.max(20,window.innerWidth-500)+'px';m.style.top='12vh';m.dataset.positioned='true';} cc.appendChild(cr);document.getElementById('expSelectContainer').style.display='none';c.appendChild(sc); m.classList.remove('hidden');} };
@@ -551,6 +549,10 @@
             if (res.status === 'success') {
                 dot.className = "absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-green-500 ping-green border-2 border-white shadow-sm";
                 if (badge) { badge.textContent = "已連線至 Google Sheets"; badge.className = "text-sm font-black text-emerald-500 tracking-widest mt-1"; }
+            } else {
+                // ADDED: Catch error if check fails gracefully from GAS
+                dot.className = "absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-rose-500 ping-red border-2 border-white shadow-sm";
+                if (badge) { badge.textContent = "連線失敗，請檢查網址或權限"; badge.className = "text-sm font-black text-rose-500 tracking-widest mt-1"; }
             }
         } catch (e) {
             dot.className = "absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-rose-500 ping-red border-2 border-white shadow-sm";
@@ -560,7 +562,6 @@
 
     /* ================= 系統鎖定與 Google 登入驗證 ================= */
     
-    // 解析 Google 回傳的 JWT Token 以獲取 email
     function decodeJwtResponse(token) {
         let base64Url = token.split('.')[1];
         let base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
@@ -570,14 +571,12 @@
         return JSON.parse(jsonPayload);
     }
 
-    // Google 登入成功後的回呼
     window.handleGoogleCredentialResponse = function(response) {
         const payload = decodeJwtResponse(response.credential);
         const email = payload.email;
         verifyEmailAuth(email);
     };
 
-    // 初始化 Google Sign-In 按鈕
     function renderGoogleSignInBtn() {
         const btnContainer = document.getElementById("googleSignInContainer");
         if(btnContainer) {
@@ -592,7 +591,6 @@
         }
     }
 
-    // 呼叫 GAS 進行白名單驗證
     async function verifyEmailAuth(email) {
         const msg = document.getElementById('remoteMsg');
         msg.className = "mt-4 font-bold text-lg h-6 text-blue-500";
@@ -605,8 +603,7 @@
             }).then(r => r.json());
 
             if (res.status === 'success') {
-                // 驗證成功
-                localStorage.setItem('exp_sys_saved_email', email); // 記憶信箱
+                localStorage.setItem('exp_sys_saved_email', email); 
                 
                 const sessionParam = new URLSearchParams(window.location.search).get('session');
                 if(sessionParam) {
@@ -620,12 +617,11 @@
                 msg.textContent = "解鎖成功！請看大螢幕 ✓";
                 
             } else {
-                // 不在白名單
                 localStorage.removeItem('exp_sys_saved_email');
                 msg.className = "mt-4 font-bold text-lg h-6 text-rose-500";
                 msg.textContent = "抱歉，您的帳號不在白名單中";
                 document.getElementById('googleSignInContainer').classList.remove('hidden');
-                renderGoogleSignInBtn(); // 重新渲染以防失效
+                renderGoogleSignInBtn(); 
             }
         } catch (err) {
             msg.className = "mt-4 font-bold text-lg h-6 text-rose-500";
@@ -634,7 +630,6 @@
         }
     }
 
-    // 清除記憶並重新顯示 Google 登入
     window.clearSavedLogin = function() {
         localStorage.removeItem('exp_sys_saved_email');
         document.getElementById('switchAccountBtn').classList.add('hidden');
@@ -674,7 +669,6 @@
         });
     };
 
-    // 測試用：直接在 PC 解鎖
     window.bypassUnlockForTesting = function() {
         if(confirm("即將略過認證直接解鎖 (僅供單機測試用)。確定嗎？")) {
             setDoc(getDocRef('sessions', windowSessionId), { status: 'unlocked' }, { merge: true });
@@ -761,21 +755,39 @@
 
     window.openSyncModal = () => document.getElementById('syncModal').classList.remove('hidden');
     window.closeSyncModal = () => document.getElementById('syncModal').classList.add('hidden');
+    
+    // ==========================================
+    // ★ 修復 pull / push 的「錯誤處理」與轉圈圈卡死
+    // ==========================================
     window.pullFromSheets = async function() {
-        if (!isFirebaseReady) return; showLoadingModal('正在下載名單與歷史紀錄...');
+        if (!isFirebaseReady) return; 
+        showLoadingModal('正在下載名單與歷史紀錄...');
         try {
             const res = await fetch(myDefaultGasUrl, { method: 'POST', body: JSON.stringify({ action: 'pull' }) }).then(r => r.json());
+            
             if (res.status === 'success') {
                 for (let k in res.classes) await setDoc(getDocRef('classes', k), res.classes[k]);
                 if (document.getElementById('syncExpsToggle').checked && res.experiments) {
                     for (let id in res.experiments) await setDoc(getDocRef('experiments', id), res.experiments[id]);
                 }
-                hideLoadingModal(); showModal('同步完成', '紀錄已由雲端更新！'); await fetchClassList(); closeSyncModal();
+                hideLoadingModal(); 
+                showModal('同步完成', '紀錄已由雲端更新！'); 
+                await fetchClassList(); 
+                closeSyncModal();
+            } else {
+                // 若 GAS 回傳 status !== 'success' (例如發生錯誤)
+                hideLoadingModal(); 
+                showModal('同步失敗', res.message || '未知錯誤，請檢查 GAS 權限');
             }
-        } catch (e) { hideLoadingModal(); showModal('同步失敗', e.toString()); }
+        } catch (e) { 
+            hideLoadingModal(); 
+            showModal('連線失敗', e.toString()); 
+        }
     };
+    
     window.pushToSheets = async function() {
-        if (!isFirebaseReady) return; showLoadingModal('正在備份數據...');
+        if (!isFirebaseReady) return; 
+        showLoadingModal('正在備份數據...');
         try {
             let exps = {};
             if (document.getElementById('syncExpsToggle').checked) {
@@ -783,8 +795,20 @@
                 qSnap.forEach(d => { exps[d.id] = d.data(); });
             }
             const res = await fetch(myDefaultGasUrl, { method: 'POST', body: JSON.stringify({ action: 'push', classes: window.classDataCache, experiments: exps }) }).then(r => r.json());
-            if (res.status === 'success') { hideLoadingModal(); showModal('備份成功', '數據已成功上傳！'); closeSyncModal(); }
-        } catch (e) { hideLoadingModal(); showModal('備份失敗', e.toString()); }
+            
+            if (res.status === 'success') { 
+                hideLoadingModal(); 
+                showModal('備份成功', '數據已成功上傳！'); 
+                closeSyncModal(); 
+            } else {
+                // 若 GAS 回傳 status !== 'success'
+                hideLoadingModal(); 
+                showModal('備份失敗', res.message || '未知錯誤，請檢查 GAS 權限');
+            }
+        } catch (e) { 
+            hideLoadingModal(); 
+            showModal('連線失敗', e.toString()); 
+        }
     };
 
     function showLoadingModal(m) { document.getElementById('loadingMsg').textContent = m; document.getElementById('loadingModal').classList.remove('hidden'); }
@@ -877,11 +901,9 @@
                     const savedEmail = localStorage.getItem('exp_sys_saved_email');
                     
                     if (savedEmail) {
-                        // 有記憶紀錄，直接在背景驗證
                         document.getElementById('googleSignInContainer').classList.add('hidden');
                         verifyEmailAuth(savedEmail);
                     } else {
-                        // 沒記憶紀錄，渲染 Google 按鈕
                         renderGoogleSignInBtn();
                     }
                 } else {
