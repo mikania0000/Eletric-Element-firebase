@@ -3,8 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>實驗紀錄系統 v4.22 (計算機即時顯示版)</title>
+    <title>實驗紀錄系統 v4.30 (Google認證版)</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 Google Identity Services -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
         input[type="number"]::-webkit-outer-spin-button,
         input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
@@ -125,21 +127,23 @@
 </head>
 <body class="bg-slate-900 font-sans h-screen w-screen overflow-hidden text-slate-800 relative">
 
-<!-- ================= 手機專屬遠端解鎖畫面 (預設隱藏) ================= -->
+<!-- ================= 手機專屬遠端解鎖畫面 (Google 登入) ================= -->
 <div id="remoteMobileUI" class="fixed inset-0 z-[500] bg-slate-50 flex flex-col items-center justify-center px-6 hidden">
     <div class="w-full max-w-sm bg-white p-8 rounded-[32px] shadow-2xl border border-slate-100 flex flex-col items-center text-center">
         <div class="w-20 h-20 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mb-6 shadow-inner border border-blue-100">
             <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
         </div>
         <h2 class="text-3xl font-black text-slate-800 tracking-widest mb-2">遠端解鎖</h2>
-        <p class="text-slate-400 font-bold mb-10 text-sm">請輸入 6 位數授權密碼以開啟系統</p>
+        <p class="text-slate-400 font-bold mb-8 text-sm">請使用具備白名單權限的 Google 帳號登入</p>
         
-        <input type="password" id="remotePasswordInput" class="w-full text-center text-4xl font-black tracking-[0.4em] py-5 px-4 bg-slate-50 border-2 border-slate-200 rounded-2xl focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 outline-none transition-all mb-8" placeholder="••••••" maxlength="6" inputmode="numeric">
+        <!-- Google 登入按鈕容器 -->
+        <div id="googleSignInContainer" class="w-full flex justify-center mb-4 min-h-[44px]"></div>
         
-        <button id="remoteUnlockBtn" onclick="submitRemotePassword()" class="w-full bg-blue-600 text-white font-black text-2xl py-5 rounded-2xl shadow-[0_10px_25px_rgba(37,99,235,0.4)] hover:bg-blue-700 active:scale-95 transition-all tracking-widest">
-            確認解鎖
-        </button>
-        <div id="remoteMsg" class="mt-6 font-bold text-lg h-6 text-rose-500"></div>
+        <!-- 登入中/狀態訊息 -->
+        <div id="remoteMsg" class="mt-4 font-bold text-lg h-6 text-slate-500">等待登入...</div>
+
+        <!-- 登出/切換帳號按鈕 (預設隱藏) -->
+        <button id="switchAccountBtn" onclick="clearSavedLogin()" class="hidden mt-6 text-slate-400 text-sm font-bold underline hover:text-slate-600">切換 Google 帳號</button>
     </div>
 </div>
 
@@ -148,13 +152,12 @@
     <div class="bg-slate-800/80 p-12 rounded-[40px] shadow-[0_30px_60px_rgba(0,0,0,0.6)] flex flex-col items-center border border-slate-700 text-center max-w-lg">
         <svg class="w-20 h-20 text-blue-500 mb-6 drop-shadow-md" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
         <h1 class="text-4xl font-black tracking-[0.2em] mb-3 text-white">系統已鎖定</h1>
-        <p class="text-slate-400 mb-8 font-bold text-lg">請使用手機掃描下方 QR Code 解鎖</p>
+        <p class="text-slate-400 mb-8 font-bold text-lg">請使用手機掃描下方 QR Code 進行認證</p>
         
         <div class="bg-white p-6 rounded-[28px] mb-6 shadow-2xl">
             <img id="qrcodeImg" src="" alt="QR Code" class="w-56 h-56">
         </div>
         
-        <!-- 預覽/本機環境警告 -->
         <div id="qrWarning" class="hidden mb-6 px-4 py-3 bg-rose-500/20 border border-rose-500/50 rounded-xl text-rose-300 text-sm font-bold text-left leading-relaxed max-w-[260px]">
             ⚠️ 預覽/單機環境無法產生真實網址，手機將無法連線。<br><span class="text-xs text-rose-400 font-normal">請先使用下方按鈕手動解鎖測試。將網頁上傳至伺服器後即可正常掃描。</span>
         </div>
@@ -164,7 +167,7 @@
             <span class="text-sm font-bold tracking-widest">等待手機授權中...</span>
         </div>
         
-        <button onclick="showPCPasswordPrompt()" class="mt-8 text-slate-500 hover:text-slate-300 transition-colors font-bold text-sm tracking-wider underline underline-offset-4">直接在螢幕上輸入密碼</button>
+        <button onclick="bypassUnlockForTesting()" class="mt-8 text-slate-500 hover:text-slate-300 transition-colors font-bold text-sm tracking-wider underline underline-offset-4">測試用：直接在螢幕上模擬解鎖</button>
     </div>
 </div>
 
@@ -184,8 +187,6 @@
 </div>
 
 <!-- ================= 頂部控制列 ================= -->
-
-<!-- 左上方：相機控制區 -->
 <div class="absolute top-5 left-5 z-40 bg-white/90 p-2.5 rounded-2xl shadow-xl flex items-center gap-3 backdrop-blur-md border border-white/50">
     <select id="cameraSelect" class="border-none bg-slate-100 rounded-xl p-2.5 text-base outline-none font-black text-slate-700 cursor-pointer focus:ring-2 focus:ring-blue-500"></select>
     <button id="refreshCamBtn" class="bg-blue-100 hover:bg-blue-200 p-2.5 rounded-xl text-blue-700 transition-colors" title="重新偵測鏡頭"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke-width="2.5" stroke-linecap="round"/></svg></button>
@@ -193,37 +194,29 @@
     <button id="fullscreenBtn" class="bg-slate-200 hover:bg-slate-300 p-2.5 rounded-xl text-slate-800 transition-colors" title="全螢幕模式"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg></button>
 </div>
 
-<!-- 右上方：主功能按鈕群 (垂直排列) -->
+<!-- 右上方：主功能按鈕群 -->
 <div class="absolute top-5 right-5 z-40 flex flex-col items-end gap-4 w-44">
-    <!-- 實驗記錄 -->
     <button onclick="openFloatingTable()" class="w-full bg-blue-600 text-white px-5 py-3.5 rounded-2xl shadow-[0_8px_20px_rgba(37,99,235,0.4)] hover:bg-blue-500 active:scale-95 transition-all duration-200 font-black text-xl tracking-widest flex items-center justify-center gap-3 border border-white/10 backdrop-blur-md">
         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
         實驗記錄
     </button>
-
-    <!-- 加扣紀錄 -->
     <button onclick="openFloatingGrading()" class="w-full bg-emerald-600 text-white px-5 py-3.5 rounded-2xl shadow-[0_8px_20px_rgba(5,150,105,0.4)] hover:bg-emerald-500 active:scale-95 transition-all duration-200 font-black text-xl tracking-widest flex items-center justify-center gap-3 border border-white/10 backdrop-blur-md">
         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
         加扣紀錄
     </button>
-
-    <!-- 雲端同步 -->
     <button onclick="openSyncModal()" class="w-full bg-indigo-600 text-white px-5 py-3.5 rounded-2xl shadow-[0_8px_20px_rgba(79,70,229,0.4)] hover:bg-indigo-500 active:scale-95 transition-all duration-200 font-black text-xl tracking-widest flex items-center justify-center gap-3 border border-white/10 backdrop-blur-md relative mt-1">
         <span id="mainConnStatusDot" class="absolute -top-2 -right-2 w-4 h-4 rounded-full bg-yellow-400 ping-yellow border-2 border-white shadow-sm"></span>
         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
         雲端同步
     </button>
-
-    <!-- 小計算機 -->
     <button onclick="toggleCalculator()" class="w-full bg-orange-500 text-white px-5 py-3.5 rounded-2xl shadow-[0_8px_20px_rgba(249,115,22,0.4)] hover:bg-orange-400 active:scale-95 transition-all duration-200 font-black text-xl tracking-widest flex items-center justify-center gap-3 border border-white/10 backdrop-blur-md mt-1">
         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
         小計算機
     </button>
 </div>
 
-<!-- ================= 隱藏儲存區 (存放共用的控制項與內容) ================= -->
+<!-- ================= 隱藏儲存區 ================= -->
 <div id="hidden-stash" class="hidden">
-    <!-- 單排緊湊的控制列 -->
     <div id="shared-controls-row" class="flex gap-3 w-full bg-white p-3 rounded-2xl shadow-sm border border-slate-200">
         <select id="gradeSelect" class="flex-[1] bg-slate-50 border border-slate-200 rounded-xl py-2 px-3 text-lg font-black focus:ring-2 focus:ring-blue-500 outline-none text-slate-700"></select>
         <select id="classSelect" class="flex-[1] bg-slate-50 border border-slate-200 rounded-xl py-2 px-3 text-lg font-black focus:ring-2 focus:ring-blue-500 outline-none text-slate-700"></select>
@@ -236,11 +229,7 @@
             </select>
         </div>
     </div>
-
-    <!-- 實驗表格容器 -->
     <div id="table-container" class="w-full relative pb-4"></div>
-
-    <!-- 名單容器 -->
     <div id="studentListContainer" class="w-full flex flex-col h-full">
         <div class="bg-slate-50/50 px-5 py-4 border-b flex justify-between items-center shrink-0 rounded-t-2xl">
             <h3 class="font-black text-slate-700 flex items-center gap-2 text-lg tracking-wider">
@@ -261,11 +250,10 @@
     </div>
 </div>
 
-
-<!-- ================= 拖曳縮放式：實驗記錄 Modal ================= -->
+<!-- ================= 各類 Modals (實驗/評分/計算機/數字鍵盤/同步/通知) ================= -->
+<!-- (保留您原有的彈窗 UI 結構，以節省版面，邏輯不變) -->
 <div id="floatingTableModal" class="fixed z-[60] hidden flex-col modal-enter" style="width: 850px; height: auto; min-height: 500px; top: 12vh; left: 5vw; touch-action: none;">
     <div class="bg-white/95 backdrop-blur-2xl rounded-[28px] shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] border border-white/60 flex flex-col w-full h-full relative overflow-hidden">
-        <!-- Header -->
         <div id="floatingTableHeader" class="bg-blue-600/95 cursor-move p-4 flex justify-between items-center shrink-0 shadow-sm z-10" title="按住此處可拖曳視窗">
             <div class="flex items-center gap-3 pointer-events-none">
                 <svg class="w-7 h-7 text-blue-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
@@ -276,12 +264,8 @@
                 <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"></path></svg>
             </button>
         </div>
-        <!-- Controls injected here -->
         <div class="p-4 bg-slate-100/60 border-b border-slate-200 shrink-0 flex flex-col gap-2" id="floating-controls-container-table"></div>
-        <!-- Table injected here -->
         <div class="p-6 overflow-auto flex-1 bg-slate-50/80 flex flex-col relative" id="floatingTableContent"></div>
-        
-        <!-- Bottom Actions -->
         <div class="p-4 bg-white/95 border-t border-slate-200 shrink-0 flex gap-4 w-full shadow-[0_-10px_15px_-3px_rgba(0,0,0,0.05)] z-10 relative">
             <button onclick="window.clearExpData()" class="flex-[1] bg-slate-100 text-slate-700 font-black py-4 rounded-2xl hover:bg-slate-200 active:scale-95 transition-all text-xl tracking-wider border border-slate-200">清空數據</button>
             <button onclick="window.calculateRatio()" class="flex-[1] bg-blue-100 text-blue-700 font-black py-4 rounded-2xl hover:bg-blue-200 active:scale-95 transition-all text-xl tracking-widest">自動計算</button>
@@ -296,7 +280,6 @@
     </div>
 </div>
 
-<!-- ================= 拖曳縮放式：加扣紀錄 Modal ================= -->
 <div id="floatingGradingModal" class="fixed z-[60] hidden flex-col modal-enter" style="width: 480px; height: 70vh; top: 12vh; right: 5vw; touch-action: none;">
     <div class="bg-white/95 backdrop-blur-2xl rounded-[28px] shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] border border-white/60 flex flex-col w-full h-full relative overflow-hidden">
         <div id="floatingGradingHeader" class="bg-emerald-600/95 cursor-move p-4 flex justify-between items-center shrink-0 shadow-sm z-10" title="按住此處可拖曳視窗">
@@ -308,20 +291,15 @@
                 <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"></path></svg>
             </button>
         </div>
-        <!-- Controls injected here -->
         <div class="p-4 bg-slate-100/60 border-b border-slate-200 shrink-0" id="floating-controls-container-grading"></div>
-        <!-- List injected here -->
         <div class="overflow-hidden flex-1 bg-slate-50/80 flex flex-col relative rounded-b-[28px]" id="floatingGradingContent"></div>
-        
         <div class="resize-handle absolute bottom-0 right-0 w-12 h-12 cursor-nwse-resize z-50 flex items-end justify-end p-2 opacity-50 hover:opacity-100 bg-emerald-100/80 rounded-tl-3xl touch-none">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" class="w-6 h-6 text-emerald-800"><path stroke-linecap="round" stroke-linejoin="round" d="M16 20L20 16M10 20L20 10" /></svg>
         </div>
     </div>
 </div>
 
-<!-- ================= 獨立小計算機 Modal ================= -->
 <div id="calculatorModal" class="fixed z-[105] hidden bg-white/95 backdrop-blur-2xl rounded-[20px] shadow-[0_20px_40px_-10px_rgba(0,0,0,0.5)] border border-slate-200 p-3 w-[260px] transition-opacity duration-200 touch-none">
-    <!-- 拖曳標題列 -->
     <div id="calculatorHeader" class="flex justify-between items-center mb-3 px-2 cursor-move bg-slate-100 rounded-lg p-1" title="按住拖曳">
         <div class="flex items-center gap-1 text-slate-400 pointer-events-none">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
@@ -362,7 +340,6 @@
     </div>
 </div>
 
-<!-- ================= 計算機順序確認 Modal ================= -->
 <div id="calcChoiceModal" class="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/70 hidden backdrop-blur-md p-4">
     <div class="bg-white rounded-[32px] shadow-2xl w-full max-w-[360px] p-8 transform scale-95 transition-all">
         <h3 class="text-2xl font-black text-slate-900 tracking-tighter mb-2 text-center">運算順序確認</h3>
@@ -375,11 +352,7 @@
     </div>
 </div>
 
-<!-- ================= 彈出視窗與鍵盤區 ================= -->
-
-<!-- 專屬數字輸入小鍵盤 -->
 <div id="numPad" class="fixed z-[100] hidden bg-white/95 backdrop-blur-2xl rounded-[20px] shadow-[0_20px_40px_-10px_rgba(0,0,0,0.5)] border border-slate-200 p-3 w-[220px] transition-opacity duration-200 touch-none">
-    <!-- 拖曳標題列 -->
     <div id="numPadHeader" class="flex justify-between items-center mb-3 px-2 cursor-move bg-slate-100 rounded-lg p-1" title="按住拖曳">
         <div class="flex items-center gap-1 text-slate-400 pointer-events-none">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"></path></svg>
@@ -406,7 +379,6 @@
     </div>
 </div>
 
-<!-- 評分 Modal -->
 <div id="gradingModal" class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 hidden backdrop-blur-md p-4">
     <div class="bg-white rounded-3xl shadow-2xl w-full max-w-[340px] overflow-hidden transform scale-95 transition-transform modal-enter">
         <div class="bg-emerald-600 p-4 text-white flex justify-between items-center">
@@ -446,7 +418,6 @@
     </div>
 </div>
 
-<!-- 同步中心 Modal -->
 <div id="syncModal" class="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 hidden backdrop-blur-md p-4">
     <div class="bg-white rounded-[32px] shadow-2xl w-full max-w-lg p-8 modal-enter border border-white">
         <div class="flex items-center gap-4 mb-8">
@@ -481,14 +452,13 @@
     </div>
 </div>
 
-<!-- 載入與提示 UI -->
 <div id="loadingModal" class="fixed inset-0 z-[110] flex items-center justify-center bg-slate-900/90 hidden backdrop-blur-xl">
     <div class="flex flex-col items-center">
         <div class="relative w-32 h-32 mb-6">
             <div class="absolute inset-0 rounded-full border-[10px] border-slate-800"></div>
             <div class="absolute inset-0 rounded-full border-[10px] border-blue-500 border-t-transparent animate-spin"></div>
         </div>
-        <p id="loadingMsg" class="font-black text-white tracking-[0.3em] text-xl uppercase">正在同步雲端數據</p>
+        <p id="loadingMsg" class="font-black text-white tracking-[0.3em] text-xl uppercase">請稍候...</p>
     </div>
 </div>
 
@@ -515,7 +485,11 @@
         measurementId: "G-S6BVBCQ6RS"
     };
 
+    // ★ 記得將這裡更換為您部署的最新 Google Apps Script Web App 網址
     const myDefaultGasUrl = "https://script.google.com/macros/s/AKfycbzGj5KcJxD9iXeR5jiQEe_g9FhK5eYF3UFpyqPaQzxm5Fcns5-KdcOCGUYbbZw6AQ0g/exec";
+    
+    // Google Client ID
+    const GOOGLE_CLIENT_ID = "553016940521-araovlp30ctbqn6um5rr49q3es5jm4jg.apps.googleusercontent.com";
 
     let app, auth, db, user, isFirebaseReady = false;
     let currentStream = null; 
@@ -529,376 +503,45 @@
     window.classDataCache = {};
     let unsubscribeStudents = null, currentGrade = '', currentClass = '', currentSelectedStudentId = null;
 
-    // --- 浮動面板開關與元素轉移邏輯 ---
-    window.openFloatingTable = function() {
-        window.closeFloatingGrading(); 
-        const modal = document.getElementById('floatingTableModal');
-        const content = document.getElementById('floatingTableContent');
-        const table = document.getElementById('table-container');
-        const controlsContainer = document.getElementById('floating-controls-container-table');
-        const controlsRow = document.getElementById('shared-controls-row');
-
-        if (modal && content && table && controlsContainer && controlsRow) {
-            if (!modal.dataset.positioned) {
-                modal.style.left = Math.max(20, window.innerWidth - 850) + 'px';
-                modal.style.top = '12vh';
-                modal.dataset.positioned = 'true';
-            }
-            
-            controlsContainer.appendChild(controlsRow);
-            document.getElementById('expSelectContainer').style.display = 'block';
-            content.appendChild(table); 
-            
-            modal.classList.remove('hidden');
-        }
-    };
-
-    window.closeFloatingTable = function() {
-        const modal = document.getElementById('floatingTableModal');
-        const hiddenStash = document.getElementById('hidden-stash');
-        const table = document.getElementById('table-container');
-        const controlsRow = document.getElementById('shared-controls-row');
-
-        if (modal && hiddenStash && table && controlsRow && !modal.classList.contains('hidden')) {
-            window.hideNumPad(); 
-            hiddenStash.appendChild(controlsRow);
-            hiddenStash.appendChild(table); 
-            modal.classList.add('hidden');
-        }
-    };
-
-    window.openFloatingGrading = function() {
-        window.closeFloatingTable(); 
-        const modal = document.getElementById('floatingGradingModal');
-        const content = document.getElementById('floatingGradingContent');
-        const studentListContainer = document.getElementById('studentListContainer');
-        const controlsContainer = document.getElementById('floating-controls-container-grading');
-        const controlsRow = document.getElementById('shared-controls-row'); 
-
-        if (modal && content && studentListContainer && controlsContainer && controlsRow) {
-            if (!modal.dataset.positioned) {
-                modal.style.left = Math.max(20, window.innerWidth - 500) + 'px'; 
-                modal.style.top = '12vh';
-                modal.dataset.positioned = 'true';
-            }
-            
-            controlsContainer.appendChild(controlsRow);
-            document.getElementById('expSelectContainer').style.display = 'none';
-            content.appendChild(studentListContainer); 
-            
-            modal.classList.remove('hidden');
-        }
-    };
-
-    window.closeFloatingGrading = function() {
-        const modal = document.getElementById('floatingGradingModal');
-        const hiddenStash = document.getElementById('hidden-stash');
-        const studentListContainer = document.getElementById('studentListContainer');
-        const controlsRow = document.getElementById('shared-controls-row');
-
-        if (modal && hiddenStash && studentListContainer && controlsRow && !modal.classList.contains('hidden')) {
-            hiddenStash.appendChild(controlsRow);
-            hiddenStash.appendChild(studentListContainer); 
-            modal.classList.add('hidden');
-        }
-    };
-
-    // --- 數字鍵盤 (NumPad) 邏輯 ---
+    /* ================= 浮動面板、計算機、鍵盤 等 UI 邏輯 (保留不變) ================= */
+    window.openFloatingTable = function() { window.closeFloatingGrading(); const m=document.getElementById('floatingTableModal'),c=document.getElementById('floatingTableContent'),t=document.getElementById('table-container'),cc=document.getElementById('floating-controls-container-table'),cr=document.getElementById('shared-controls-row'); if(m&&c&&t&&cc&&cr){if(!m.dataset.positioned){m.style.left=Math.max(20,window.innerWidth-850)+'px';m.style.top='12vh';m.dataset.positioned='true';} cc.appendChild(cr);document.getElementById('expSelectContainer').style.display='block';c.appendChild(t); m.classList.remove('hidden');} };
+    window.closeFloatingTable = function() { const m=document.getElementById('floatingTableModal'),h=document.getElementById('hidden-stash'),t=document.getElementById('table-container'),cr=document.getElementById('shared-controls-row'); if(m&&h&&t&&cr&&!m.classList.contains('hidden')){window.hideNumPad();h.appendChild(cr);h.appendChild(t);m.classList.add('hidden');} };
+    window.openFloatingGrading = function() { window.closeFloatingTable(); const m=document.getElementById('floatingGradingModal'),c=document.getElementById('floatingGradingContent'),sc=document.getElementById('studentListContainer'),cc=document.getElementById('floating-controls-container-grading'),cr=document.getElementById('shared-controls-row'); if(m&&c&&sc&&cc&&cr){if(!m.dataset.positioned){m.style.left=Math.max(20,window.innerWidth-500)+'px';m.style.top='12vh';m.dataset.positioned='true';} cc.appendChild(cr);document.getElementById('expSelectContainer').style.display='none';c.appendChild(sc); m.classList.remove('hidden');} };
+    window.closeFloatingGrading = function() { const m=document.getElementById('floatingGradingModal'),h=document.getElementById('hidden-stash'),sc=document.getElementById('studentListContainer'),cr=document.getElementById('shared-controls-row'); if(m&&h&&sc&&cr&&!m.classList.contains('hidden')){h.appendChild(cr);h.appendChild(sc);m.classList.add('hidden');} };
+    
     let currentActiveInput = null;
+    window.showNumPad = function(input) { currentActiveInput=input; const p=document.getElementById('numPad'); if(!p.classList.contains('hidden'))return; p.classList.remove('hidden'); const r=input.getBoundingClientRect(); let l=r.right+15,t=r.top-10; if(l+220>window.innerWidth-20)l=r.left-235; if(l<20){l=r.left+(r.width/2)-110;t=r.bottom+15;} if(t+310>window.innerHeight-20)t=window.innerHeight-330; if(t<20)t=20; p.style.top=t+'px';p.style.left=l+'px'; };
+    window.hideNumPad = function() { const p=document.getElementById('numPad'); if(p)p.classList.add('hidden'); currentActiveInput=null; };
+    window.handleNumPadClick = function(val) { if(!currentActiveInput)return; if(val==='done'){window.hideNumPad();window.calculateRatio();return;} if(val==='backspace')currentActiveInput.value=currentActiveInput.value.slice(0,-1); else if(val==='.'){if(!currentActiveInput.value.includes('.'))currentActiveInput.value+=currentActiveInput.value===''?'0.':'.';} else currentActiveInput.value+=val; window.calculateRatio(); };
 
-    window.showNumPad = function(input) {
-        currentActiveInput = input;
-        const pad = document.getElementById('numPad');
-        
-        if (!pad.classList.contains('hidden')) {
-            return;
-        }
+    let calcExpression='',calcCurrentInput='0',calcLastAction='num';
+    window.toggleCalculator = function() { const m=document.getElementById('calculatorModal'); if(m.classList.contains('hidden')){m.classList.remove('hidden');if(!m.dataset.positioned){m.style.top='80px';m.style.left=Math.max(20,window.innerWidth-480)+'px';m.dataset.positioned='true';}}else m.classList.add('hidden'); };
+    window.calcInput = function(key) { const d=document.getElementById('calcDisplay'),h=document.getElementById('calcHistory'); if(calcLastAction==='err'){calcExpression='';calcCurrentInput='0';calcLastAction='num';h.innerText='';} if(key>='0'&&key<='9'){if(calcLastAction==='eq'||calcCurrentInput==='0'||calcLastAction==='op'){calcCurrentInput=key;if(calcLastAction==='eq')calcExpression='';}else calcCurrentInput+=key;calcLastAction='num';h.innerText=calcExpression+calcCurrentInput;}else if(key==='.'){if(calcLastAction==='eq'||calcLastAction==='op'){calcCurrentInput='0.';if(calcLastAction==='eq')calcExpression='';}else if(!calcCurrentInput.includes('.'))calcCurrentInput+='.';calcLastAction='num';h.innerText=calcExpression+calcCurrentInput;}else if(key==='C'){calcExpression='';calcCurrentInput='0';calcLastAction='num';h.innerText='';}else if(key==='⌫'){if(calcLastAction==='num'||calcLastAction==='eq'){calcCurrentInput=calcCurrentInput.length>1?calcCurrentInput.slice(0,-1):'0';if(calcCurrentInput==='-'||calcCurrentInput==='')calcCurrentInput='0';if(calcLastAction==='eq'){calcExpression='';calcLastAction='num';}h.innerText=calcExpression+(calcCurrentInput==='0'&&calcExpression===''? '':calcCurrentInput);}}else if(key==='√'){const v=parseFloat(calcCurrentInput);if(v>=0){if(calcLastAction==='eq'){calcExpression='';h.innerText='√('+v+') =';}calcCurrentInput=String(parseFloat(Math.sqrt(v).toFixed(6)));calcLastAction='num';}else{calcCurrentInput='Error';calcLastAction='err';}}else if(['+','-','*','/'].includes(key)){const op=key==='*'?'×':key==='/'?'÷':key;if(calcLastAction==='op')calcExpression=calcExpression.replace(/[\+\-\×\÷]\s*$/,op+' ');else calcExpression+=calcCurrentInput+' '+op+' ';calcLastAction='op';h.innerText=calcExpression;}else if(key==='='){if(calcLastAction!=='eq'&&calcExpression!==''){let f=calcExpression+calcCurrentInput;let t=f.split(' ').filter(x=>x);const isAS=o=>o==='+'||o==='-';const isMD=o=>o==='×'||o==='÷';if(t.length===5&&((isAS(t[1])&&isMD(t[3]))||(isMD(t[1])&&isAS(t[3])))){window.showCalcChoiceModal(`(${t[0]} ${t[1]} ${t[2]}) ${t[3]} ${t[4]}`,`${t[0]} ${t[1]} (${t[2]} ${t[3]} ${t[4]})`);return;}window.executeCalculation(f,f);}} d.value=calcCurrentInput; };
+    window.executeCalculation = function(ev,hs) { let e=ev.replace(/×/g,'*').replace(/÷/g,'/'); try{let r=new Function('return '+e)();if(!isFinite(r))throw new Error();calcCurrentInput=String(parseFloat(r.toFixed(6)));document.getElementById('calcHistory').innerText=hs+' =';calcExpression='';calcLastAction='eq';}catch(err){calcCurrentInput='Error';calcLastAction='err';} document.getElementById('calcDisplay').value=calcCurrentInput; };
+    window.showCalcChoiceModal = function(o1,o2) { const b1=document.getElementById('calcBtnOpt1'),b2=document.getElementById('calcBtnOpt2');b1.textContent=b1.dataset.expr=o1;b2.textContent=b2.dataset.expr=o2;document.getElementById('calcChoiceModal').classList.remove('hidden'); };
+    window.executeCalcChoice = function(expr) { document.getElementById('calcChoiceModal').classList.add('hidden'); window.executeCalculation(expr,expr); };
 
-        pad.classList.remove('hidden');
-        
-        const rect = input.getBoundingClientRect();
-        const padWidth = 220;
-        const padHeight = 310; 
-
-        let left = rect.right + 15;
-        let top = rect.top - 10;
-        
-        if (left + padWidth > window.innerWidth - 20) {
-            left = rect.left - padWidth - 15;
-        }
-        if (left < 20) {
-            left = rect.left + (rect.width / 2) - (padWidth / 2);
-            top = rect.bottom + 15;
-        }
-        
-        if (top + padHeight > window.innerHeight - 20) {
-            top = window.innerHeight - padHeight - 20;
-        }
-        if (top < 20) top = 20;
-        
-        pad.style.top = top + 'px';
-        pad.style.left = left + 'px';
-    };
-
-    window.hideNumPad = function() {
-        const pad = document.getElementById('numPad');
-        if (pad) pad.classList.add('hidden');
-        currentActiveInput = null;
-    };
-
-    window.handleNumPadClick = function(val) {
-        if (!currentActiveInput) return;
-        
-        if (val === 'done') {
-            window.hideNumPad();
-            window.calculateRatio();
-            return;
-        }
-        
-        if (val === 'backspace') {
-            currentActiveInput.value = currentActiveInput.value.slice(0, -1);
-        } else if (val === '.') {
-            if (!currentActiveInput.value.includes('.')) {
-                currentActiveInput.value += currentActiveInput.value === '' ? '0.' : '.';
-            }
-        } else {
-            currentActiveInput.value += val;
-        }
-        window.calculateRatio();
-    };
-
-    // --- 獨立小計算機邏輯 (記憶算式版 + 防呆順序確認 + 即時動態顯示) ---
-    let calcExpression = '';
-    let calcCurrentInput = '0';
-    let calcLastAction = 'num'; 
-
-    window.toggleCalculator = function() {
-        const modal = document.getElementById('calculatorModal');
-        if (modal.classList.contains('hidden')) {
-            modal.classList.remove('hidden');
-            if(!modal.dataset.positioned) {
-                modal.style.top = '80px';
-                modal.style.left = Math.max(20, window.innerWidth - 480) + 'px';
-                modal.dataset.positioned = 'true';
-            }
-        } else {
-            modal.classList.add('hidden');
-        }
-    };
-
-    window.calcInput = function(key) {
-        const display = document.getElementById('calcDisplay');
-        const history = document.getElementById('calcHistory');
-
-        if (calcLastAction === 'err') {
-            calcExpression = '';
-            calcCurrentInput = '0';
-            calcLastAction = 'num';
-            history.innerText = '';
-        }
-
-        if (key >= '0' && key <= '9') {
-            if (calcLastAction === 'eq' || calcCurrentInput === '0' || calcLastAction === 'op') {
-                calcCurrentInput = key;
-                if (calcLastAction === 'eq') {
-                    calcExpression = '';
-                }
-            } else {
-                calcCurrentInput += key;
-            }
-            calcLastAction = 'num';
-            // ★即時顯示算式與輸入數字
-            history.innerText = calcExpression + calcCurrentInput;
-            
-        } else if (key === '.') {
-            if (calcLastAction === 'eq' || calcLastAction === 'op') {
-                calcCurrentInput = '0.';
-                if (calcLastAction === 'eq') {
-                    calcExpression = '';
-                }
-            } else if (!calcCurrentInput.includes('.')) {
-                calcCurrentInput += '.';
-            }
-            calcLastAction = 'num';
-            // ★即時顯示算式與輸入數字
-            history.innerText = calcExpression + calcCurrentInput;
-            
-        } else if (key === 'C') {
-            calcExpression = '';
-            calcCurrentInput = '0';
-            calcLastAction = 'num';
-            history.innerText = '';
-            
-        } else if (key === '⌫') {
-            if (calcLastAction === 'num' || calcLastAction === 'eq') {
-                calcCurrentInput = calcCurrentInput.length > 1 ? calcCurrentInput.slice(0, -1) : '0';
-                if (calcCurrentInput === '-' || calcCurrentInput === '') calcCurrentInput = '0';
-                if (calcLastAction === 'eq') {
-                    calcExpression = '';
-                    calcLastAction = 'num';
-                }
-                // ★即時顯示算式與輸入數字
-                history.innerText = calcExpression + (calcCurrentInput === '0' && calcExpression === '' ? '' : calcCurrentInput);
-            }
-            
-        } else if (key === '√') {
-            const val = parseFloat(calcCurrentInput);
-            if (val >= 0) {
-                if (calcLastAction === 'eq') {
-                    calcExpression = '';
-                    history.innerText = '√(' + val + ') =';
-                }
-                calcCurrentInput = String(parseFloat(Math.sqrt(val).toFixed(6)));
-                calcLastAction = 'num';
-            } else {
-                calcCurrentInput = 'Error';
-                calcLastAction = 'err';
-            }
-            
-        } else if (['+', '-', '*', '/'].includes(key)) {
-            const displayOp = key === '*' ? '×' : key === '/' ? '÷' : key;
-            
-            if (calcLastAction === 'op') {
-                calcExpression = calcExpression.replace(/[\+\-\×\÷]\s*$/, displayOp + ' ');
-            } else {
-                calcExpression += calcCurrentInput + ' ' + displayOp + ' ';
-            }
-            calcLastAction = 'op';
-            history.innerText = calcExpression;
-            
-        } else if (key === '=') {
-            if (calcLastAction !== 'eq' && calcExpression !== '') {
-                // 組合出完整算式 (例如 "5 + 8 ÷ 15")
-                let fullExprVisual = calcExpression + calcCurrentInput;
-                let tokens = fullExprVisual.split(' ').filter(t => t);
-
-                const isAddSub = (op) => op === '+' || op === '-';
-                const isMulDiv = (op) => op === '×' || op === '÷';
-
-                // ================= 防呆機制：偵測到混用加減乘除時，彈出詢問視窗 =================
-                // 條件：剛好有5個元素 (例如: 數字 符號 數字 符號 數字)，且符號為 [加減, 乘除] 或 [乘除, 加減]
-                if (tokens.length === 5 &&
-                    ((isAddSub(tokens[1]) && isMulDiv(tokens[3])) || (isMulDiv(tokens[1]) && isAddSub(tokens[3])))
-                ) {
-                    let opt1 = `(${tokens[0]} ${tokens[1]} ${tokens[2]}) ${tokens[3]} ${tokens[4]}`;
-                    let opt2 = `${tokens[0]} ${tokens[1]} (${tokens[2]} ${tokens[3]} ${tokens[4]})`;
-                    
-                    // 叫出確認視窗，中斷本次運算
-                    window.showCalcChoiceModal(opt1, opt2);
-                    return; 
-                }
-
-                // 若無混淆，正常執行計算
-                executeCalculation(fullExprVisual, fullExprVisual);
-            }
-        }
-        
-        display.value = calcCurrentInput;
-    };
-
-    // 負責真正執行計算的函數
-    window.executeCalculation = function(evalVisualStr, historyStr) {
-        let evalExpr = evalVisualStr.replace(/×/g, '*').replace(/÷/g, '/');
-        try {
-            let result = new Function('return ' + evalExpr)();
-            if (!isFinite(result)) throw new Error('Math Error');
-            
-            calcCurrentInput = String(parseFloat(result.toFixed(6)));
-            document.getElementById('calcHistory').innerText = historyStr + ' =';
-            calcExpression = ''; 
-            calcLastAction = 'eq';
-        } catch(e) {
-            calcCurrentInput = 'Error';
-            calcLastAction = 'err';
-        }
-        document.getElementById('calcDisplay').value = calcCurrentInput;
-    };
-
-    // 顯示選項的 Modal
-    window.showCalcChoiceModal = function(opt1, opt2) {
-        const btn1 = document.getElementById('calcBtnOpt1');
-        const btn2 = document.getElementById('calcBtnOpt2');
-        btn1.textContent = opt1;
-        btn1.dataset.expr = opt1;
-        btn2.textContent = opt2;
-        btn2.dataset.expr = opt2;
-        document.getElementById('calcChoiceModal').classList.remove('hidden');
-    };
-
-    // 學生點擊選擇後的回呼處理
-    window.executeCalcChoice = function(chosenVisualExpr) {
-        document.getElementById('calcChoiceModal').classList.add('hidden');
-        executeCalculation(chosenVisualExpr, chosenVisualExpr);
-    };
-
-
-    // --- 視窗拖曳與縮放邏輯 ---
     function initInteractiveModal(modalId, headerId) {
-        const modal = document.getElementById(modalId);
-        const header = document.getElementById(headerId);
-        const resizeHandles = modal ? modal.querySelectorAll('.resize-handle') : [];
+        const modal = document.getElementById(modalId), header = document.getElementById(headerId), handles = modal ? modal.querySelectorAll('.resize-handle') : [];
         if(!modal || !header) return;
-        
-        let isDragging = false;
-        let dragOffsetX = 0, dragOffsetY = 0;
-
-        const startDrag = (e, clientX, clientY) => {
-            if(e.target.tagName === 'BUTTON' || e.target.closest('button')) return;
-            isDragging = true;
-            const rect = modal.getBoundingClientRect();
-            dragOffsetX = clientX - rect.left;
-            dragOffsetY = clientY - rect.top;
-            document.body.style.userSelect = 'none';
-        };
-
-        const doDrag = (clientX, clientY) => {
-            if (!isDragging) return;
-            let newX = clientX - dragOffsetX;
-            let newY = clientY - dragOffsetY;
-            newX = Math.max(-modal.offsetWidth + 100, Math.min(newX, window.innerWidth - 100));
-            newY = Math.max(0, Math.min(newY, window.innerHeight - 100));
-            modal.style.left = newX + 'px';
-            modal.style.top = newY + 'px';
-        };
-
-        const stopDrag = () => { if (isDragging) { isDragging = false; document.body.style.userSelect = ''; } };
-
-        header.addEventListener('mousedown', e => startDrag(e, e.clientX, e.clientY));
-        header.addEventListener('touchstart', e => startDrag(e, e.touches[0].clientX, e.touches[0].clientY), {passive: true});
-        document.addEventListener('mousemove', e => doDrag(e.clientX, e.clientY));
-        document.addEventListener('touchmove', e => doDrag(e.touches[0].clientX, e.touches[0].clientY), {passive: false});
-        document.addEventListener('mouseup', stopDrag);
-        document.addEventListener('touchend', stopDrag);
-
-        resizeHandles.forEach(handle => {
-            let isResizing = false, startX, startY, startWidth, startHeight;
-            const startResize = (e) => {
-                e.preventDefault(); e.stopPropagation(); isResizing = true;
-                startX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX;
-                startY = e.type.includes('mouse') ? e.clientY : e.touches[0].clientY;
-                const rect = modal.getBoundingClientRect();
-                startWidth = rect.width; startHeight = rect.height;
-                document.body.style.userSelect = 'none'; document.body.style.cursor = 'nwse-resize';
-            };
-            const doResize = (e) => {
-                if (!isResizing) return;
-                const cX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX;
-                const cY = e.type.includes('mouse') ? e.clientY : e.touches[0].clientY;
-                modal.style.width = Math.max(350, startWidth + (cX - startX)) + 'px';
-                modal.style.height = Math.max(300, startHeight + (cY - startY)) + 'px';
-            };
-            const stopResize = () => { if(isResizing) { isResizing = false; document.body.style.userSelect = ''; document.body.style.cursor = ''; } };
-
-            handle.addEventListener('mousedown', startResize);
-            handle.addEventListener('touchstart', startResize, {passive: false});
-            document.addEventListener('mousemove', doResize);
-            document.addEventListener('touchmove', doResize, {passive: false});
-            document.addEventListener('mouseup', stopResize);
-            document.addEventListener('touchend', stopResize);
+        let isDragging = false, dX = 0, dY = 0;
+        const startDrag = (e, cX, cY) => { if(e.target.tagName==='BUTTON'||e.target.closest('button'))return; isDragging=true; const r=modal.getBoundingClientRect(); dX=cX-r.left; dY=cY-r.top; document.body.style.userSelect='none'; };
+        const doDrag = (cX, cY) => { if(!isDragging)return; let nX=cX-dX, nY=cY-dY; nX=Math.max(-modal.offsetWidth+100, Math.min(nX, window.innerWidth-100)); nY=Math.max(0, Math.min(nY, window.innerHeight-100)); modal.style.left=nX+'px'; modal.style.top=nY+'px'; };
+        const stopDrag = () => { if(isDragging){isDragging=false;document.body.style.userSelect='';} };
+        header.addEventListener('mousedown', e => startDrag(e, e.clientX, e.clientY)); header.addEventListener('touchstart', e => startDrag(e, e.touches[0].clientX, e.touches[0].clientY), {passive:true});
+        document.addEventListener('mousemove', e => doDrag(e.clientX, e.clientY)); document.addEventListener('touchmove', e => doDrag(e.touches[0].clientX, e.touches[0].clientY), {passive:false});
+        document.addEventListener('mouseup', stopDrag); document.addEventListener('touchend', stopDrag);
+        handles.forEach(h => {
+            let isR = false, sX, sY, sW, sH;
+            const startR = (e) => { e.preventDefault(); e.stopPropagation(); isR=true; sX=e.type.includes('mouse')?e.clientX:e.touches[0].clientX; sY=e.type.includes('mouse')?e.clientY:e.touches[0].clientY; const r=modal.getBoundingClientRect(); sW=r.width; sH=r.height; document.body.style.userSelect='none'; };
+            const doR = (e) => { if(!isR)return; const cX=e.type.includes('mouse')?e.clientX:e.touches[0].clientX; const cY=e.type.includes('mouse')?e.clientY:e.touches[0].clientY; modal.style.width=Math.max(350, sW+(cX-sX))+'px'; modal.style.height=Math.max(300, sH+(cY-sY))+'px'; };
+            const stopR = () => { if(isR){isR=false;document.body.style.userSelect='';} };
+            h.addEventListener('mousedown', startR); h.addEventListener('touchstart', startR, {passive:false});
+            document.addEventListener('mousemove', doR); document.addEventListener('touchmove', doR, {passive:false});
+            document.addEventListener('mouseup', stopR); document.addEventListener('touchend', stopR);
         });
     }
 
-    // --- 燈號連線 ---
     async function checkSheetsConnection() {
         const dot = document.getElementById('mainConnStatusDot'), badge = document.getElementById('syncStatusBadge');
         if (!dot) return;
@@ -915,14 +558,96 @@
         }
     }
 
-    // --- 系統解鎖與初始化 ---
+    /* ================= 系統鎖定與 Google 登入驗證 ================= */
+    
+    // 解析 Google 回傳的 JWT Token 以獲取 email
+    function decodeJwtResponse(token) {
+        let base64Url = token.split('.')[1];
+        let base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        let jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+        }).join(''));
+        return JSON.parse(jsonPayload);
+    }
+
+    // Google 登入成功後的回呼
+    window.handleGoogleCredentialResponse = function(response) {
+        const payload = decodeJwtResponse(response.credential);
+        const email = payload.email;
+        verifyEmailAuth(email);
+    };
+
+    // 初始化 Google Sign-In 按鈕
+    function renderGoogleSignInBtn() {
+        const btnContainer = document.getElementById("googleSignInContainer");
+        if(btnContainer) {
+            google.accounts.id.initialize({
+                client_id: GOOGLE_CLIENT_ID,
+                callback: handleGoogleCredentialResponse
+            });
+            google.accounts.id.renderButton(
+                btnContainer,
+                { theme: "outline", size: "large", width: 280, shape: "pill" }
+            );
+        }
+    }
+
+    // 呼叫 GAS 進行白名單驗證
+    async function verifyEmailAuth(email) {
+        const msg = document.getElementById('remoteMsg');
+        msg.className = "mt-4 font-bold text-lg h-6 text-blue-500";
+        msg.textContent = "正在驗證白名單權限...";
+
+        try {
+            const res = await fetch(myDefaultGasUrl, { 
+                method: 'POST', 
+                body: JSON.stringify({ action: 'verifyEmail', email: email }) 
+            }).then(r => r.json());
+
+            if (res.status === 'success') {
+                // 驗證成功
+                localStorage.setItem('exp_sys_saved_email', email); // 記憶信箱
+                
+                const sessionParam = new URLSearchParams(window.location.search).get('session');
+                if(sessionParam) {
+                    await setDoc(getDocRef('sessions', sessionParam), { status: 'unlocked' }, { merge: true });
+                }
+                
+                document.getElementById('googleSignInContainer').classList.add('hidden');
+                document.getElementById('switchAccountBtn').classList.remove('hidden');
+
+                msg.className = "mt-4 text-emerald-500 font-black text-xl";
+                msg.textContent = "解鎖成功！請看大螢幕 ✓";
+                
+            } else {
+                // 不在白名單
+                localStorage.removeItem('exp_sys_saved_email');
+                msg.className = "mt-4 font-bold text-lg h-6 text-rose-500";
+                msg.textContent = "抱歉，您的帳號不在白名單中";
+                document.getElementById('googleSignInContainer').classList.remove('hidden');
+                renderGoogleSignInBtn(); // 重新渲染以防失效
+            }
+        } catch (err) {
+            msg.className = "mt-4 font-bold text-lg h-6 text-rose-500";
+            msg.textContent = "連線失敗，請檢查網路";
+            document.getElementById('googleSignInContainer').classList.remove('hidden');
+        }
+    }
+
+    // 清除記憶並重新顯示 Google 登入
+    window.clearSavedLogin = function() {
+        localStorage.removeItem('exp_sys_saved_email');
+        document.getElementById('switchAccountBtn').classList.add('hidden');
+        document.getElementById('googleSignInContainer').classList.remove('hidden');
+        document.getElementById('remoteMsg').className = "mt-4 font-bold text-lg h-6 text-slate-500";
+        document.getElementById('remoteMsg').textContent = "請重新登入";
+        renderGoogleSignInBtn();
+    };
+
     window.startPcLockScreen = async function() {
         document.getElementById('lockScreenUI').classList.remove('hidden');
-        
         let baseHref = window.location.href;
-        const isLocalOrPreview = baseHref.startsWith('blob:') || baseHref.startsWith('about:') || baseHref.startsWith('file:');
-        
-        if (isLocalOrPreview) {
+        if (baseHref.startsWith('blob:') || baseHref.startsWith('about:') || baseHref.startsWith('file:')) {
             const warnEl = document.getElementById('qrWarning');
             if(warnEl) warnEl.classList.remove('hidden');
             baseHref = 'https://example.com/'; 
@@ -949,83 +674,26 @@
         });
     };
 
-    window.submitRemotePassword = async function() {
-        const pwd = document.getElementById('remotePasswordInput').value;
-        const btn = document.getElementById('remoteUnlockBtn');
-        const msg = document.getElementById('remoteMsg');
-        
-        if(!pwd) { msg.textContent = "請輸入密碼"; return; }
-        
-        btn.disabled = true;
-        btn.innerHTML = `<svg class="animate-spin h-6 w-6 text-white mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
-        msg.textContent = "";
-
-        try {
-            const res = await fetch(myDefaultGasUrl, { 
-                method: 'POST', 
-                body: JSON.stringify({ action: 'verifyPassword', password: pwd }) 
-            }).then(r => r.json());
-
-            if (res.status === 'success') {
-                // 解鎖成功：將密碼記憶在手機瀏覽器中
-                localStorage.setItem('exp_sys_saved_pwd', pwd);
-
-                const sessionParam = new URLSearchParams(window.location.search).get('session');
-                if(sessionParam) {
-                    await setDoc(getDocRef('sessions', sessionParam), { status: 'unlocked' }, { merge: true });
-                }
-                msg.className = "mt-6 text-emerald-500 font-black text-xl";
-                msg.textContent = "解鎖成功！請看大螢幕";
-                btn.innerHTML = "已解鎖 ✓";
-                btn.className = "w-full bg-emerald-500 text-white font-black text-2xl py-5 rounded-2xl shadow-lg shadow-emerald-200 transition-all tracking-widest";
-            } else {
-                // 密碼錯誤：清空舊有的記憶密碼
-                localStorage.removeItem('exp_sys_saved_pwd');
-                msg.className = "mt-6 font-bold text-lg h-6 text-rose-500";
-                msg.textContent = "密碼錯誤，請重試";
-                btn.disabled = false;
-                btn.innerHTML = "確認解鎖";
-            }
-        } catch (err) {
-            msg.className = "mt-6 font-bold text-lg h-6 text-rose-500";
-            msg.textContent = "連線失敗，請檢查網路";
-            btn.disabled = false;
-            btn.innerHTML = "確認解鎖";
+    // 測試用：直接在 PC 解鎖
+    window.bypassUnlockForTesting = function() {
+        if(confirm("即將略過認證直接解鎖 (僅供單機測試用)。確定嗎？")) {
+            setDoc(getDocRef('sessions', windowSessionId), { status: 'unlocked' }, { merge: true });
         }
     };
 
-    // 備用：PC直接解鎖
-    window.showPCPasswordPrompt = function() {
-        const pwd = prompt("請輸入授權密碼：");
-        if (pwd) {
-            fetch(myDefaultGasUrl, { 
-                method: 'POST', 
-                body: JSON.stringify({ action: 'verifyPassword', password: pwd }) 
-            }).then(r => r.json()).then(res => {
-                if (res.status === 'success') {
-                    setDoc(getDocRef('sessions', windowSessionId), { status: 'unlocked' }, { merge: true });
-                } else {
-                    alert("密碼錯誤！");
-                }
-            }).catch(e => alert("驗證連線失敗"));
-        }
-    };
-
-    // 正式初始化
     window.initApp = async function() {
         await fetchClassList();
         renderTableTemplate();
         setupEventListeners();
-        
         initInteractiveModal('floatingTableModal', 'floatingTableHeader');
         initInteractiveModal('floatingGradingModal', 'floatingGradingHeader');
         initInteractiveModal('numPad', 'numPadHeader'); 
         initInteractiveModal('calculatorModal', 'calculatorHeader'); 
-        
         initCamera();
         checkSheetsConnection();
     };
 
+    /* ================= 系統資料存取 ================= */
     async function fetchClassList() {
         if (!isFirebaseReady) return;
         try {
@@ -1040,10 +708,7 @@
             });
             const grades = Array.from(gradesSet).sort();
             if (grades.length > 0) updateDropdowns(grades);
-            else {
-                document.getElementById('gradeSelect').innerHTML = '<option value="">請同步雲端</option>';
-                document.getElementById('classSelect').innerHTML = '<option value="">(無資料)</option>';
-            }
+            else { document.getElementById('gradeSelect').innerHTML='<option value="">請同步</option>'; document.getElementById('classSelect').innerHTML='<option value="">(無)</option>'; }
         } catch (e) { console.error(e); }
     }
 
@@ -1071,8 +736,7 @@
         if (unsubscribeStudents) unsubscribeStudents();
         unsubscribeStudents = onSnapshot(getDocRef('classes', `${currentGrade}_${currentClass}`), (docSnap) => {
             if (docSnap.exists()) {
-                const data = docSnap.data();
-                window.classDataCache[currentGrade][currentClass] = data.students || [];
+                window.classDataCache[currentGrade][currentClass] = docSnap.data().students || [];
                 renderFilteredStudentList();
             }
         });
@@ -1082,31 +746,23 @@
         const students = window.classDataCache[currentGrade][currentClass] || [];
         const keyword = document.getElementById('studentSearchInput').value.trim().toLowerCase();
         const filtered = students.filter(s => s.name.toLowerCase().includes(keyword) || s.no.toString().includes(keyword));
-        const listContainer = document.getElementById('student-list');
         document.getElementById('studentCount').textContent = students.length + ' 人';
-        listContainer.innerHTML = filtered.map((s) => {
-            const originalIndex = students.findIndex(orig => orig.no === s.no);
-            return `
-            <div class="student-item bg-white flex items-center justify-between px-6 py-4 border-b border-slate-50" onclick="openGradingModal(${originalIndex}, ${JSON.stringify(s).replace(/"/g, '&quot;')})">
+        document.getElementById('student-list').innerHTML = filtered.map((s) => {
+            const idx = students.findIndex(orig => orig.no === s.no);
+            return `<div class="student-item bg-white flex items-center justify-between px-6 py-4 border-b border-slate-50" onclick="openGradingModal(${idx}, ${JSON.stringify(s).replace(/"/g, '&quot;')})">
                 <div class="flex items-center gap-5 text-sm">
                     <span class="w-12 h-12 rounded-2xl ${s.isTA ? 'bg-emerald-600 text-white shadow-emerald-200' : 'bg-slate-100 text-slate-500'} flex items-center justify-center font-black text-xl shrink-0 shadow-sm">${s.no}</span>
-                    <div>
-                        <p class="font-black ${s.isTA ? 'text-emerald-700' : 'text-slate-800'} text-xl">${s.name}</p>
-                        ${s.isTA ? '<span class="text-xs font-black text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-100 uppercase tracking-tighter mt-1 inline-block">小老師</span>' : ''}
-                    </div>
+                    <div><p class="font-black ${s.isTA ? 'text-emerald-700' : 'text-slate-800'} text-xl">${s.name}</p>${s.isTA ? '<span class="text-xs font-black text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-100 uppercase tracking-tighter mt-1 inline-block">小老師</span>' : ''}</div>
                 </div>
                 <span class="text-3xl font-black ${s.score > 0 ? 'text-emerald-500' : (s.score < 0 ? 'text-rose-500' : 'text-slate-300')} w-16 text-right">${s.score}</span>
             </div>`;
         }).join('');
     }
 
-    /* --- 同步功能 --- */
     window.openSyncModal = () => document.getElementById('syncModal').classList.remove('hidden');
     window.closeSyncModal = () => document.getElementById('syncModal').classList.add('hidden');
-
     window.pullFromSheets = async function() {
-        if (!isFirebaseReady) return;
-        showLoadingModal('正在從試算表下載全校名單與歷史紀錄...');
+        if (!isFirebaseReady) return; showLoadingModal('正在下載名單與歷史紀錄...');
         try {
             const res = await fetch(myDefaultGasUrl, { method: 'POST', body: JSON.stringify({ action: 'pull' }) }).then(r => r.json());
             if (res.status === 'success') {
@@ -1114,16 +770,12 @@
                 if (document.getElementById('syncExpsToggle').checked && res.experiments) {
                     for (let id in res.experiments) await setDoc(getDocRef('experiments', id), res.experiments[id]);
                 }
-                hideLoadingModal(); showModal('同步完成', '所有班級名單與紀錄已由雲端更新！');
-                await fetchClassList();
-                document.getElementById('syncModal').classList.add('hidden');
+                hideLoadingModal(); showModal('同步完成', '紀錄已由雲端更新！'); await fetchClassList(); closeSyncModal();
             }
         } catch (e) { hideLoadingModal(); showModal('同步失敗', e.toString()); }
     };
-
     window.pushToSheets = async function() {
-        if (!isFirebaseReady) return;
-        showLoadingModal('正在備份全校數據至 Google 試算表...');
+        if (!isFirebaseReady) return; showLoadingModal('正在備份數據...');
         try {
             let exps = {};
             if (document.getElementById('syncExpsToggle').checked) {
@@ -1131,261 +783,106 @@
                 qSnap.forEach(d => { exps[d.id] = d.data(); });
             }
             const res = await fetch(myDefaultGasUrl, { method: 'POST', body: JSON.stringify({ action: 'push', classes: window.classDataCache, experiments: exps }) }).then(r => r.json());
-            if (res.status === 'success') {
-                hideLoadingModal(); showModal('備份成功', '數據已成功上傳！請至 Google Sheets 確認。');
-                document.getElementById('syncModal').classList.add('hidden');
-            }
+            if (res.status === 'success') { hideLoadingModal(); showModal('備份成功', '數據已成功上傳！'); closeSyncModal(); }
         } catch (e) { hideLoadingModal(); showModal('備份失敗', e.toString()); }
     };
 
     function showLoadingModal(m) { document.getElementById('loadingMsg').textContent = m; document.getElementById('loadingModal').classList.remove('hidden'); }
     function hideLoadingModal() { document.getElementById('loadingModal').classList.add('hidden'); }
 
-    /* --- 實驗表格渲染 --- */
-    window.clearExpData = () => {
-        document.querySelectorAll('#table-container input').forEach(i => {
-            i.value = i.classList.contains('fill-blank') ? "1K" : "";
-        });
-        window.calculateRatio();
-    };
-
+    window.clearExpData = () => { document.querySelectorAll('#table-container input').forEach(i => i.value = i.classList.contains('fill-blank') ? "1K" : ""); window.calculateRatio(); };
     window.renderTableTemplate = () => {
-        const val = document.getElementById('expSelect').value, container = document.getElementById('table-container');
-        if (!container) return;
-        
-        // 將原本的 type="number" 換成 type="text" inputmode="none" 以完美支援自訂鍵盤與小數點
+        const val = document.getElementById('expSelect').value, container = document.getElementById('table-container'); if (!container) return;
         let html = '';
         if (val === 'exp1') {
-            html = `
-            <h3 class="font-bold text-center text-blue-800 mb-4 text-2xl">1. 固定電阻 (1000Ω)</h3>
-            <table>
-                <thead><tr><th>輸入電壓</th><th>實際電壓(V)</th><th>電流(mA)</th><th>電阻=電壓/電流</th></tr></thead>
-                <tbody>
+            html = `<h3 class="font-bold text-center text-blue-800 mb-4 text-2xl">1. 固定電阻 (1000Ω)</h3><table><thead><tr><th>輸入電壓</th><th>實際電壓(V)</th><th>電流(mA)</th><th>電阻=電壓/電流</th></tr></thead><tbody>
                     <tr><td class="font-bold text-slate-500">1.5V</td><td><input type="text" inputmode="none" class="table-input input-v"></td><td><input type="text" inputmode="none" class="table-input input-i"></td><td class="result-r font-bold text-blue-600">-</td></tr>
                     <tr><td class="font-bold text-slate-500">3V</td><td><input type="text" inputmode="none" class="table-input input-v"></td><td><input type="text" inputmode="none" class="table-input input-i"></td><td class="result-r font-bold text-blue-600">-</td></tr>
-                    <tr><td class="font-bold text-slate-500">4.5V</td><td><input type="text" inputmode="none" class="table-input input-v"></td><td><input type="text" inputmode="none" class="table-input input-i"></td><td class="result-r font-bold text-blue-600">-</td></tr>
-                </tbody>
-            </table>`;
+                    <tr><td class="font-bold text-slate-500">4.5V</td><td><input type="text" inputmode="none" class="table-input input-v"></td><td><input type="text" inputmode="none" class="table-input input-i"></td><td class="result-r font-bold text-blue-600">-</td></tr></tbody></table>`;
         } else if (val === 'exp2' || val === 'exp3') { 
-            const sym = val === 'exp2' ? '+' : '//'; 
-            const title = val === 'exp2' ? '串聯' : '並聯';
-            html = `
-            <h3 class="font-bold text-center text-blue-800 mb-4 text-2xl">${title}實驗</h3>
-            <table>
-                <thead><tr><th>組合</th><th>三用電表(Ω)</th><th>電壓(V)</th><th>電流(mA)</th><th>電阻=電壓/電流</th></tr></thead>
-                <tbody>
+            const sym = val === 'exp2' ? '+' : '//', title = val === 'exp2' ? '串聯' : '並聯';
+            html = `<h3 class="font-bold text-center text-blue-800 mb-4 text-2xl">${title}實驗</h3><table><thead><tr><th>組合</th><th>三用電表(Ω)</th><th>電壓(V)</th><th>電流(mA)</th><th>電阻=電壓/電流</th></tr></thead><tbody>
                     <tr><td class="text-left whitespace-nowrap px-2"><span>1個：</span><input type="text" inputmode="none" class="fill-blank" value="1K"></td><td><input type="text" inputmode="none" class="table-input"></td><td><input type="text" inputmode="none" class="table-input input-v"></td><td><input type="text" inputmode="none" class="table-input input-i"></td><td class="result-r font-bold text-blue-600">-</td></tr>
                     <tr><td class="text-left whitespace-nowrap px-2"><span>2個：</span><input type="text" inputmode="none" class="fill-blank" value="1K">${sym}<input type="text" inputmode="none" class="fill-blank" value="1K"></td><td><input type="text" inputmode="none" class="table-input"></td><td><input type="text" inputmode="none" class="table-input input-v"></td><td><input type="text" inputmode="none" class="table-input input-i"></td><td class="result-r font-bold text-blue-600">-</td></tr>
-                    <tr><td class="text-left whitespace-nowrap px-2"><span>3個：</span><input type="text" inputmode="none" class="fill-blank" value="1K">${sym}<input type="text" inputmode="none" class="fill-blank" value="1K">${sym}<input type="text" inputmode="none" class="fill-blank" value="1K"></td><td><input type="text" inputmode="none" class="table-input"></td><td><input type="text" inputmode="none" class="table-input input-v"></td><td><input type="text" inputmode="none" class="table-input input-i"></td><td class="result-r font-bold text-blue-600">-</td></tr>
-                </tbody>
-            </table>`; 
+                    <tr><td class="text-left whitespace-nowrap px-2"><span>3個：</span><input type="text" inputmode="none" class="fill-blank" value="1K">${sym}<input type="text" inputmode="none" class="fill-blank" value="1K">${sym}<input type="text" inputmode="none" class="fill-blank" value="1K"></td><td><input type="text" inputmode="none" class="table-input"></td><td><input type="text" inputmode="none" class="table-input input-v"></td><td><input type="text" inputmode="none" class="table-input input-i"></td><td class="result-r font-bold text-blue-600">-</td></tr></tbody></table>`; 
         } else { 
-            html = `
-            <h3 class="font-bold text-center text-green-700 mb-4 text-2xl">4. 並聯迴路觀察</h3>
-            <table class="theme-green">
-                <thead><tr><th>位置</th><th>電阻(Ω)</th><th>電壓(V)</th><th>電流(mA)</th></tr></thead>
-                <tbody>
+            html = `<h3 class="font-bold text-center text-green-700 mb-4 text-2xl">4. 並聯迴路觀察</h3><table class="theme-green"><thead><tr><th>位置</th><th>電阻(Ω)</th><th>電壓(V)</th><th>電流(mA)</th></tr></thead><tbody>
                     <tr><td class="font-bold text-slate-500">迴路 1</td><td><input type="text" inputmode="none" class="table-input"></td><td><input type="text" inputmode="none" class="table-input"></td><td><input type="text" inputmode="none" class="table-input"></td></tr>
                     <tr><td class="font-bold text-slate-500">迴路 2</td><td><input type="text" inputmode="none" class="table-input"></td><td><input type="text" inputmode="none" class="table-input"></td><td><input type="text" inputmode="none" class="table-input"></td></tr>
-                    <tr><td class="font-bold text-blue-600 italic">總和</td><td><input type="text" inputmode="none" class="table-input"></td><td><input type="text" inputmode="none" class="table-input"></td><td><input type="text" inputmode="none" class="table-input"></td></tr>
-                </tbody>
-            </table>`;
+                    <tr><td class="font-bold text-blue-600 italic">總和</td><td><input type="text" inputmode="none" class="table-input"></td><td><input type="text" inputmode="none" class="table-input"></td><td><input type="text" inputmode="none" class="table-input"></td></tr></tbody></table>`;
         }
-        
-        container.innerHTML = html;
-        loadExpData();
-
-        setTimeout(() => {
-            document.querySelectorAll('#table-container input').forEach(input => {
-                input.setAttribute('inputmode', 'none'); 
-                input.addEventListener('click', (e) => { e.preventDefault(); window.showNumPad(e.target); });
-                input.addEventListener('focus', (e) => { e.preventDefault(); window.showNumPad(e.target); });
-            });
-        }, 50);
+        container.innerHTML = html; loadExpData();
+        setTimeout(() => { document.querySelectorAll('#table-container input').forEach(input => { input.setAttribute('inputmode', 'none'); input.addEventListener('click', e => { e.preventDefault(); window.showNumPad(e.target); }); input.addEventListener('focus', e => { e.preventDefault(); window.showNumPad(e.target); }); }); }, 50);
     };
 
-    window.calculateRatio = () => { 
-        document.querySelectorAll('#table-container tr').forEach(row => { 
-            const vIn = row.querySelector('.input-v'), iIn = row.querySelector('.input-i'), res = row.querySelector('.result-r'); 
-            if (res) { 
-                let v = vIn ? parseFloat(vIn.value) : (row.cells[0]?.innerText.includes('V') ? parseFloat(row.cells[0].innerText) : NaN); 
-                const i = iIn ? parseFloat(iIn.value) : NaN; 
-                res.textContent = (!isNaN(v) && !isNaN(i) && i !== 0) ? ((v / i) * 1000).toFixed(2) : '-'; 
-            } 
-        }); 
-    };
-    
-    window.saveExpData = async function() { 
-        if (!currentGrade || !currentClass || !isFirebaseReady) return showModal('系統提示', '請先選擇班級'); 
-        const expType = document.getElementById('expSelect').value, data = Array.from(document.querySelectorAll('#table-container input')).map(i => i.value); 
-        try {
-            await setDoc(getDocRef('experiments', `${currentGrade}_${currentClass}_${expType}`), { grade: currentGrade, className: currentClass, expType, data, updatedAt: new Date().toLocaleString() }); 
-            const ind = document.getElementById('saveStatusIndicator'); 
-            if (ind) { ind.classList.remove('hidden'); setTimeout(() => ind.classList.add('hidden'), 3000); } 
-        } catch (e) { showModal('儲存失敗', e.message); }
-    };
-
-    window.loadExpData = async () => { 
-        if (!currentGrade || !currentClass || !isFirebaseReady) return; 
-        try { 
-            const snap = await getDoc(getDocRef('experiments', `${currentGrade}_${currentClass}_${document.getElementById('expSelect').value}`)); 
-            if (snap.exists()) { 
-                const ins = document.querySelectorAll('#table-container input'); 
-                const data = snap.data().data;
-                ins.forEach((input, i) => { 
-                    let val = data[i];
-                    if (input.classList.contains('fill-blank') && (!val || val.trim() === "")) val = "1K";
-                    else if (val === undefined) val = "";
-                    input.value = val;
-                }); 
-                calculateRatio(); 
-            } else { 
-                window.clearExpData();
-            } 
-        } catch (e) {} 
-    };
+    window.calculateRatio = () => { document.querySelectorAll('#table-container tr').forEach(row => { const vIn = row.querySelector('.input-v'), iIn = row.querySelector('.input-i'), res = row.querySelector('.result-r'); if (res) { let v = vIn ? parseFloat(vIn.value) : (row.cells[0]?.innerText.includes('V') ? parseFloat(row.cells[0].innerText) : NaN); const i = iIn ? parseFloat(iIn.value) : NaN; res.textContent = (!isNaN(v) && !isNaN(i) && i !== 0) ? ((v / i) * 1000).toFixed(2) : '-'; } }); };
+    window.saveExpData = async function() { if (!currentGrade || !currentClass || !isFirebaseReady) return showModal('系統提示', '請先選擇班級'); const expType = document.getElementById('expSelect').value, data = Array.from(document.querySelectorAll('#table-container input')).map(i => i.value); try { await setDoc(getDocRef('experiments', `${currentGrade}_${currentClass}_${expType}`), { grade: currentGrade, className: currentClass, expType, data, updatedAt: new Date().toLocaleString() }); const ind = document.getElementById('saveStatusIndicator'); if (ind) { ind.classList.remove('hidden'); setTimeout(() => ind.classList.add('hidden'), 3000); } } catch (e) { showModal('儲存失敗', e.message); } };
+    window.loadExpData = async () => { if (!currentGrade || !currentClass || !isFirebaseReady) return; try { const snap = await getDoc(getDocRef('experiments', `${currentGrade}_${currentClass}_${document.getElementById('expSelect').value}`)); if (snap.exists()) { const ins = document.querySelectorAll('#table-container input'); const data = snap.data().data; ins.forEach((input, i) => { let val = data[i]; if (input.classList.contains('fill-blank') && (!val || val.trim() === "")) val = "1K"; else if (val === undefined) val = ""; input.value = val; }); calculateRatio(); } else { window.clearExpData(); } } catch (e) {} };
 
     function setupEventListeners() {
         document.getElementById('gradeSelect').addEventListener('change', updateClassDropdown);
         document.getElementById('classSelect').addEventListener('change', () => { loadClassStudents(); loadExpData(); });
         document.getElementById('expSelect').addEventListener('change', renderTableTemplate);
-        
         document.getElementById('swapLayoutBtn').addEventListener('click', () => document.getElementById('videoContainer').classList.toggle('rotate-180'));
         document.getElementById('fullscreenBtn').addEventListener('click', () => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen());
         document.getElementById('studentSearchInput').addEventListener('input', renderFilteredStudentList);
-
         document.getElementById('floatingTableContent').addEventListener('scroll', window.hideNumPad, {passive: true});
-
-        document.addEventListener('click', (e) => {
-            const pad = document.getElementById('numPad');
-            if (!pad || pad.classList.contains('hidden')) return;
-            if (pad.contains(e.target)) return;
-            if (e.target.tagName === 'INPUT') return; 
-            window.hideNumPad();
-        });
+        document.addEventListener('click', (e) => { const pad = document.getElementById('numPad'); if (!pad || pad.classList.contains('hidden') || pad.contains(e.target) || e.target.tagName === 'INPUT') return; window.hideNumPad(); });
     }
 
     async function initCamera() { 
         try { 
-            const devices = await navigator.mediaDevices.enumerateDevices();
-            const videoDevices = devices.filter(d => d.kind === 'videoinput'); 
-            
+            const devices = await navigator.mediaDevices.enumerateDevices(), videoDevices = devices.filter(d => d.kind === 'videoinput'); 
             const select = document.getElementById('cameraSelect');
-            if (select) {
-                select.innerHTML = videoDevices.map((d, i) => `<option value="${d.deviceId}">${d.label || '鏡頭'+(i+1)}</option>`).join(''); 
-                if (currentStream && currentStream.getVideoTracks().length > 0) {
-                    const activeTrack = currentStream.getVideoTracks()[0];
-                    const activeDev = videoDevices.find(d => d.label === activeTrack.label);
-                    if (activeDev) select.value = activeDev.deviceId;
-                }
-            }
-            
-            if (videoDevices.length > 0) {
-                if (document.getElementById('noCameraMsg')) document.getElementById('noCameraMsg').classList.add('hidden');
-                await startStream(); 
-            } else {
-                throw new Error('未連接視訊硬體');
-            }
-        } catch (e) { 
-            console.error('鏡頭初始化失敗:', e);
-            if (document.getElementById('noCameraMsg')) document.getElementById('noCameraMsg').classList.remove('hidden'); 
-        } 
+            if (select) { select.innerHTML = videoDevices.map((d, i) => `<option value="${d.deviceId}">${d.label || '鏡頭'+(i+1)}</option>`).join(''); if (currentStream && currentStream.getVideoTracks().length > 0) { const activeDev = videoDevices.find(d => d.label === currentStream.getVideoTracks()[0].label); if (activeDev) select.value = activeDev.deviceId; } }
+            if (videoDevices.length > 0) { if (document.getElementById('noCameraMsg')) document.getElementById('noCameraMsg').classList.add('hidden'); await startStream(); } else throw new Error();
+        } catch (e) { if (document.getElementById('noCameraMsg')) document.getElementById('noCameraMsg').classList.remove('hidden'); } 
     }
     
     async function startStream() { 
-        const video = document.getElementById('video'), select = document.getElementById('cameraSelect'); 
-        if (!video || !select || !select.value) return; 
-        
+        const video = document.getElementById('video'), select = document.getElementById('cameraSelect'); if (!video || !select || !select.value) return; 
         if (currentStream) { currentStream.getTracks().forEach(t => t.stop()); currentStream = null; }
         if (video.srcObject) { video.srcObject.getTracks().forEach(t => t.stop()); video.srcObject = null; }
-
-        try { 
-            currentStream = await navigator.mediaDevices.getUserMedia({ video: { deviceId: select.value ? { exact: select.value } : undefined, width: { ideal: 3840 }, height: { ideal: 2160 }, frameRate: { ideal: 60 } } }); 
-            video.srcObject = currentStream;
-        } catch (e) { 
-            try {
-                currentStream = await navigator.mediaDevices.getUserMedia({ video: true }); 
-                video.srcObject = currentStream;
-            } catch(err) {
-                 if (document.getElementById('noCameraMsg')) document.getElementById('noCameraMsg').classList.remove('hidden'); 
-            }
-        } 
+        try { currentStream = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: select.value }, width: { ideal: 3840 }, height: { ideal: 2160 } } }); video.srcObject = currentStream; } 
+        catch (e) { try { currentStream = await navigator.mediaDevices.getUserMedia({ video: true }); video.srcObject = currentStream; } catch(err) { if (document.getElementById('noCameraMsg')) document.getElementById('noCameraMsg').classList.remove('hidden'); } } 
     }
     
     const camSelect = document.getElementById('cameraSelect'), refreshBtn = document.getElementById('refreshCamBtn');
     if (camSelect) camSelect.addEventListener('change', startStream);
     if (refreshBtn) refreshBtn.addEventListener('click', initCamera);
     
-    window.showModal = (t, m, isHtml = false) => { 
-        const title = document.getElementById('modalTitle'), msg = document.getElementById('modalMessage'), modal = document.getElementById('customModal'); 
-        if (title) title.textContent = t; 
-        if (msg) { if (isHtml) msg.innerHTML = m; else msg.textContent = m; }
-        if (modal) modal.classList.remove('hidden'); 
-    };
+    window.showModal = (t, m, isHtml = false) => { const title = document.getElementById('modalTitle'), msg = document.getElementById('modalMessage'), modal = document.getElementById('customModal'); if (title) title.textContent = t; if (msg) { if (isHtml) msg.innerHTML = m; else msg.textContent = m; } if (modal) modal.classList.remove('hidden'); };
+    window.showCameraTroubleshoot = function() { showModal("🎥 鏡頭疑難排解", `<div class="text-left space-y-4 text-base mt-2 text-slate-600"><p class="font-bold text-rose-600 text-lg mb-4">無法開啟鏡頭時，請檢查：</p><div class="bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-sm"><h4 class="font-black text-slate-800 text-lg mb-1 flex items-center gap-2">1. 軟體佔用</h4><p class="text-slate-500 mt-1 leading-relaxed">請確認已將 IPEVO 等視訊軟體<span class="text-rose-600 font-bold">完全關閉</span>。</p></div><div class="bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-sm"><h4 class="font-black text-slate-800 text-lg mb-1 flex items-center gap-2">2. 權限封鎖</h4><p class="text-slate-500 mt-1 leading-relaxed">點擊網址列左側的鎖頭，確認相機已允許。</p></div></div>`, true); };
 
-    window.showCameraTroubleshoot = function() {
-        const title = "🎥 鏡頭連線疑難排解";
-        const content = `
-            <div class="text-left space-y-4 text-base mt-2 text-slate-600">
-                <p class="font-bold text-rose-600 text-lg mb-4">無法開啟鏡頭 (例如 IPEVO) 時，請檢查以下三點：</p>
-                <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-sm">
-                    <h4 class="font-black text-slate-800 text-lg mb-1 flex items-center gap-2"><span class="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-sm">1</span>專屬軟體佔用 (最常見)</h4>
-                    <p class="text-slate-500 mt-1 leading-relaxed">請確認已將 <b>IPEVO Visualizer</b> 等視訊軟體<span class="text-rose-600 font-bold">完全關閉</span>。</p>
-                </div>
-                <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-sm">
-                    <h4 class="font-black text-slate-800 text-lg mb-1 flex items-center gap-2"><span class="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-sm">2</span>瀏覽器權限封鎖</h4>
-                    <p class="text-slate-500 mt-1 leading-relaxed">點擊網址列最左側的「🔒鎖頭」，確認「相機」已設定為<span class="text-blue-600 font-bold">允許</span>。</p>
-                </div>
-            </div>
-        `;
-        showModal(title, content, true);
-    };
-
-    /* --- 評分 Modal --- */
-    window.openGradingModal = (idx, s) => { 
-        currentSelectedStudentId = idx; 
-        document.getElementById('gradingGradeClass').textContent = `${currentGrade}年${currentClass}班 - ${s.no}號`; 
-        document.getElementById('gradingName').textContent = s.name; 
-        document.getElementById('gradingCurrentScore').textContent = s.score; 
-        document.getElementById('gradingTAToggle').checked = s.isTA; 
-        document.getElementById('gradingModal').classList.remove('hidden'); 
-    };
+    window.openGradingModal = (idx, s) => { currentSelectedStudentId = idx; document.getElementById('gradingGradeClass').textContent = `${currentGrade}年${currentClass}班 - ${s.no}號`; document.getElementById('gradingName').textContent = s.name; document.getElementById('gradingCurrentScore').textContent = s.score; document.getElementById('gradingTAToggle').checked = s.isTA; document.getElementById('gradingModal').classList.remove('hidden'); };
     window.closeGradingModal = () => document.getElementById('gradingModal').classList.add('hidden');
     window.updateScore = async (amt) => { if (currentSelectedStudentId === null) return; const list = window.classDataCache[currentGrade][currentClass]; list[currentSelectedStudentId].score += amt; document.getElementById('gradingCurrentScore').textContent = list[currentSelectedStudentId].score; await updateDoc(getDocRef('classes', `${currentGrade}_${currentClass}`), { students: list }); };
     window.updateTAStatus = async (val) => { if (currentSelectedStudentId === null) return; const list = window.classDataCache[currentGrade][currentClass]; list[currentSelectedStudentId].isTA = val; await updateDoc(getDocRef('classes', `${currentGrade}_${currentClass}`), { students: list }); };
 
-    /* --- Firebase 啟動 --- */
+    /* --- Firebase 啟動與判定登入狀態 --- */
     try {
         const hasEnv = typeof __firebase_config !== 'undefined' && __firebase_config, config = hasEnv ? JSON.parse(__firebase_config) : myFirebaseConfig;
         app = initializeApp(config); auth = getAuth(app); db = getFirestore(app);
         
         const authenticate = async () => { 
             try { 
-                try {
-                    const initialStream = await navigator.mediaDevices.getUserMedia({ video: true });
-                    initialStream.getTracks().forEach(track => track.stop());
-                } catch (permissionError) { }
-
-                if (hasEnv && typeof __initial_auth_token !== 'undefined' && __initial_auth_token) await signInWithCustomToken(auth, __initial_auth_token); 
-                else await signInAnonymously(auth); 
+                try { const initialStream = await navigator.mediaDevices.getUserMedia({ video: true }); initialStream.getTracks().forEach(track => track.stop()); } catch (permissionError) { }
+                if (hasEnv && typeof __initial_auth_token !== 'undefined' && __initial_auth_token) await signInWithCustomToken(auth, __initial_auth_token); else await signInAnonymously(auth); 
                 isFirebaseReady = true; 
                 
                 const urlParams = new URLSearchParams(window.location.search);
                 if (urlParams.get('mode') === 'remote') {
-                    // 手機端：顯示遠端密碼輸入介面
+                    // 顯示手機端介面
                     document.getElementById('remoteMobileUI').classList.remove('hidden');
+                    const savedEmail = localStorage.getItem('exp_sys_saved_email');
                     
-                    // 檢查是否有記憶密碼，若有則自動執行解鎖
-                    const savedPwd = localStorage.getItem('exp_sys_saved_pwd');
-                    if (savedPwd) {
-                        document.getElementById('remotePasswordInput').value = savedPwd;
-                        const msg = document.getElementById('remoteMsg');
-                        msg.className = "mt-6 font-bold text-lg h-6 text-blue-500";
-                        msg.textContent = "偵測到記憶密碼，自動解鎖中...";
-                        // 稍微延遲 0.6 秒再送出，讓使用者知道發生了什麼事
-                        setTimeout(() => {
-                            window.submitRemotePassword();
-                        }, 600); 
+                    if (savedEmail) {
+                        // 有記憶紀錄，直接在背景驗證
+                        document.getElementById('googleSignInContainer').classList.add('hidden');
+                        verifyEmailAuth(savedEmail);
+                    } else {
+                        // 沒記憶紀錄，渲染 Google 按鈕
+                        renderGoogleSignInBtn();
                     }
                 } else {
                     window.startPcLockScreen();
