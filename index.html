@@ -3,9 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>實驗紀錄系統 v4.31 (修復同步卡死)</title>
+    <title>實驗紀錄系統 v4.32 (雙重認證版)</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- 引入 Google Identity Services -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
         input[type="number"]::-webkit-outer-spin-button,
@@ -74,7 +73,6 @@
         }
         #table-container table.theme-green td:first-child { background-color: #f0fdf4; }
         
-        /* 輸入框精緻化 */
         .table-input { 
             width: 100%; 
             max-width: 12ch;
@@ -95,7 +93,6 @@
         .table-input:focus { background: white; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15); }
         #table-container table.theme-green .table-input:focus { border-color: #22c55e; box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.15); }
         
-        /* 底線填空框 */
         .fill-blank { 
             border-bottom: 2px solid #94a3b8; 
             text-align: center; 
@@ -127,27 +124,51 @@
 </head>
 <body class="bg-slate-900 font-sans h-screen w-screen overflow-hidden text-slate-800 relative">
 
-<!-- ================= 手機專屬遠端解鎖畫面 (Google 登入) ================= -->
+<!-- ================= 手機專屬遠端解鎖畫面 (雙重認證版) ================= -->
 <div id="remoteMobileUI" class="fixed inset-0 z-[500] bg-slate-50 flex flex-col items-center justify-center px-6 hidden">
-    <div class="w-full max-w-sm bg-white p-8 rounded-[32px] shadow-2xl border border-slate-100 flex flex-col items-center text-center">
+    <div class="w-full max-w-sm bg-white p-8 rounded-[32px] shadow-2xl border border-slate-100 flex flex-col items-center text-center transition-all">
         <div class="w-20 h-20 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mb-6 shadow-inner border border-blue-100">
             <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
         </div>
         <h2 class="text-3xl font-black text-slate-800 tracking-widest mb-2">遠端解鎖</h2>
-        <p class="text-slate-400 font-bold mb-8 text-sm">請使用具備白名單權限的 Google 帳號登入</p>
         
-        <!-- Google 登入按鈕容器 -->
-        <div id="googleSignInContainer" class="w-full flex justify-center mb-4 min-h-[44px]"></div>
-        
-        <!-- 登入中/狀態訊息 -->
-        <div id="remoteMsg" class="mt-4 font-bold text-lg h-6 text-slate-500">等待登入...</div>
+        <!-- Google 登入驗證區塊 -->
+        <div id="googleAuthSection" class="w-full flex flex-col items-center">
+            <p class="text-slate-400 font-bold mb-8 text-sm">請使用具備白名單權限的 Google 帳號登入</p>
+            <div id="googleSignInContainer" class="w-full flex justify-center mb-4 min-h-[44px]"></div>
+            <div id="remoteMsg" class="mt-4 font-bold text-lg h-6 text-slate-500">等待登入...</div>
+        </div>
 
-        <!-- 登出/切換帳號按鈕 (預設隱藏) -->
-        <button id="switchAccountBtn" onclick="clearSavedLogin()" class="hidden mt-6 text-slate-400 text-sm font-bold underline hover:text-slate-600">切換 Google 帳號</button>
+        <!-- 專屬密碼輸入區塊 (預設隱藏，Google 登入後顯示) -->
+        <div id="mobilePwdSection" class="w-full flex flex-col items-center hidden">
+            <p id="verifiedEmailText" class="text-emerald-600 font-black mb-6 text-sm bg-emerald-50 px-4 py-2 rounded-xl w-full break-all border border-emerald-100"></p>
+            <p class="text-slate-500 font-bold mb-3 text-sm">請輸入雙重認證專屬密碼</p>
+            <input type="password" id="mobilePwdInput" class="w-full bg-slate-50 border-2 border-slate-200 rounded-xl px-4 py-3 text-center text-xl font-black text-slate-800 outline-none focus:border-blue-500 transition-colors mb-4" placeholder="••••••••">
+            <div id="mobilePwdError" class="text-rose-500 text-sm font-bold mb-4 hidden">密碼錯誤，請重試</div>
+            <button onclick="submitMobileAuth(this)" class="w-full bg-blue-600 text-white font-black py-4 rounded-2xl shadow-xl shadow-blue-200 hover:bg-blue-700 active:scale-95 transition-all text-lg tracking-widest">驗證並解鎖系統</button>
+            <button onclick="clearSavedLogin()" class="mt-6 text-slate-400 text-sm font-bold underline hover:text-slate-600">切換 Google 帳號</button>
+        </div>
     </div>
 </div>
 
-<!-- ================= 大螢幕鎖定畫面 (預設隱藏) ================= -->
+<!-- ================= 大螢幕 PC 密碼解鎖 Modal ================= -->
+<div id="pcPasswordModal" class="fixed inset-0 z-[500] flex items-center justify-center bg-slate-900/80 hidden backdrop-blur-md p-4">
+    <div class="bg-white rounded-[32px] shadow-2xl w-full max-w-sm p-8 transform transition-all modal-enter">
+        <div class="flex justify-center mb-4">
+            <div class="w-16 h-16 bg-slate-100 text-slate-600 rounded-full flex items-center justify-center shadow-inner">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path></svg>
+            </div>
+        </div>
+        <h3 class="text-2xl font-black text-slate-900 tracking-tighter mb-2 text-center">手動解鎖系統</h3>
+        <p class="text-slate-500 font-bold mb-6 text-sm text-center">請輸入系統解鎖密碼</p>
+        <input type="password" id="pcPwdInput" class="w-full bg-slate-50 border-2 border-slate-200 rounded-xl px-4 py-4 text-center text-xl font-black text-slate-800 outline-none focus:border-blue-500 transition-colors mb-4" placeholder="輸入解鎖密碼">
+        <div id="pcPwdErrorMsg" class="text-rose-500 text-sm font-bold text-center mb-4 hidden">密碼錯誤，請重試</div>
+        <button onclick="submitPcPassword(this)" class="w-full bg-blue-600 text-white font-black py-4 rounded-2xl shadow-xl shadow-blue-200 hover:bg-blue-700 active:scale-95 transition-all text-xl tracking-widest">確認解鎖</button>
+        <button onclick="closePcPasswordModal()" class="w-full mt-4 py-3 text-slate-400 font-bold hover:text-slate-600 transition-colors text-sm tracking-widest uppercase">取消</button>
+    </div>
+</div>
+
+<!-- ================= 大螢幕鎖定畫面 ================= -->
 <div id="lockScreenUI" class="fixed inset-0 z-[400] bg-slate-900/95 backdrop-blur-2xl flex flex-col items-center justify-center text-white hidden">
     <div class="bg-slate-800/80 p-12 rounded-[40px] shadow-[0_30px_60px_rgba(0,0,0,0.6)] flex flex-col items-center border border-slate-700 text-center max-w-lg">
         <svg class="w-20 h-20 text-blue-500 mb-6 drop-shadow-md" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
@@ -158,16 +179,15 @@
             <img id="qrcodeImg" src="" alt="QR Code" class="w-56 h-56">
         </div>
         
-        <div id="qrWarning" class="hidden mb-6 px-4 py-3 bg-rose-500/20 border border-rose-500/50 rounded-xl text-rose-300 text-sm font-bold text-left leading-relaxed max-w-[260px]">
-            ⚠️ 預覽/單機環境無法產生真實網址，手機將無法連線。<br><span class="text-xs text-rose-400 font-normal">請先使用下方按鈕手動解鎖測試。將網頁上傳至伺服器後即可正常掃描。</span>
-        </div>
-
-        <div class="flex items-center gap-3 text-slate-500">
+        <div class="flex items-center gap-3 text-slate-500 mb-8">
             <svg class="animate-spin h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
             <span class="text-sm font-bold tracking-widest">等待手機授權中...</span>
         </div>
         
-        <button onclick="bypassUnlockForTesting()" class="mt-8 text-slate-500 hover:text-slate-300 transition-colors font-bold text-sm tracking-wider underline underline-offset-4">測試用：直接在螢幕上模擬解鎖</button>
+        <button onclick="promptPcUnlock()" class="px-6 py-3 bg-slate-700/50 hover:bg-slate-700 rounded-xl text-slate-300 transition-colors font-bold text-sm tracking-wider flex items-center gap-2 border border-slate-600/50">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path></svg>
+            忘記帶手機？使用密碼手動解鎖
+        </button>
     </div>
 </div>
 
@@ -249,7 +269,7 @@
     </div>
 </div>
 
-<!-- ================= 各類 Modals (實驗/評分/計算機/數字鍵盤/同步/通知) ================= -->
+<!-- ================= 各類 Modals ================= -->
 <div id="floatingTableModal" class="fixed z-[60] hidden flex-col modal-enter" style="width: 850px; height: auto; min-height: 500px; top: 12vh; left: 5vw; touch-action: none;">
     <div class="bg-white/95 backdrop-blur-2xl rounded-[28px] shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] border border-white/60 flex flex-col w-full h-full relative overflow-hidden">
         <div id="floatingTableHeader" class="bg-blue-600/95 cursor-move p-4 flex justify-between items-center shrink-0 shadow-sm z-10" title="按住此處可拖曳視窗">
@@ -291,9 +311,6 @@
         </div>
         <div class="p-4 bg-slate-100/60 border-b border-slate-200 shrink-0" id="floating-controls-container-grading"></div>
         <div class="overflow-hidden flex-1 bg-slate-50/80 flex flex-col relative rounded-b-[28px]" id="floatingGradingContent"></div>
-        <div class="resize-handle absolute bottom-0 right-0 w-12 h-12 cursor-nwse-resize z-50 flex items-end justify-end p-2 opacity-50 hover:opacity-100 bg-emerald-100/80 rounded-tl-3xl touch-none">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" class="w-6 h-6 text-emerald-800"><path stroke-linecap="round" stroke-linejoin="round" d="M16 20L20 16M10 20L20 10" /></svg>
-        </div>
     </div>
 </div>
 
@@ -338,18 +355,6 @@
     </div>
 </div>
 
-<div id="calcChoiceModal" class="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/70 hidden backdrop-blur-md p-4">
-    <div class="bg-white rounded-[32px] shadow-2xl w-full max-w-[360px] p-8 transform scale-95 transition-all">
-        <h3 class="text-2xl font-black text-slate-900 tracking-tighter mb-2 text-center">運算順序確認</h3>
-        <p class="text-slate-500 font-bold mb-6 text-sm text-center">系統偵測到混合運算，請問您要先算哪一部份？</p>
-        <div class="flex flex-col gap-4">
-            <button id="calcBtnOpt1" onclick="executeCalcChoice(this.dataset.expr)" class="w-full bg-orange-50 hover:bg-orange-100 text-orange-700 border-2 border-orange-200 font-black py-4 rounded-[20px] transition-all text-xl tracking-widest active:scale-95"></button>
-            <button id="calcBtnOpt2" onclick="executeCalcChoice(this.dataset.expr)" class="w-full bg-blue-50 hover:bg-blue-100 text-blue-700 border-2 border-blue-200 font-black py-4 rounded-[20px] transition-all text-xl tracking-widest active:scale-95"></button>
-        </div>
-        <button onclick="document.getElementById('calcChoiceModal').classList.add('hidden')" class="w-full mt-6 py-3 text-slate-400 font-bold hover:text-slate-600 transition-colors text-sm tracking-widest uppercase">取消</button>
-    </div>
-</div>
-
 <div id="numPad" class="fixed z-[100] hidden bg-white/95 backdrop-blur-2xl rounded-[20px] shadow-[0_20px_40px_-10px_rgba(0,0,0,0.5)] border border-slate-200 p-3 w-[220px] transition-opacity duration-200 touch-none">
     <div id="numPadHeader" class="flex justify-between items-center mb-3 px-2 cursor-move bg-slate-100 rounded-lg p-1" title="按住拖曳">
         <div class="flex items-center gap-1 text-slate-400 pointer-events-none">
@@ -361,18 +366,18 @@
         </button>
     </div>
     <div class="grid grid-cols-3 gap-2">
-        <button onclick="handleNumPadClick('7')" class="bg-slate-50 text-slate-800 rounded-xl py-3 text-2xl font-black shadow-sm active:scale-90 transition-all border border-slate-200 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200">7</button>
-        <button onclick="handleNumPadClick('8')" class="bg-slate-50 text-slate-800 rounded-xl py-3 text-2xl font-black shadow-sm active:scale-90 transition-all border border-slate-200 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200">8</button>
-        <button onclick="handleNumPadClick('9')" class="bg-slate-50 text-slate-800 rounded-xl py-3 text-2xl font-black shadow-sm active:scale-90 transition-all border border-slate-200 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200">9</button>
-        <button onclick="handleNumPadClick('4')" class="bg-slate-50 text-slate-800 rounded-xl py-3 text-2xl font-black shadow-sm active:scale-90 transition-all border border-slate-200 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200">4</button>
-        <button onclick="handleNumPadClick('5')" class="bg-slate-50 text-slate-800 rounded-xl py-3 text-2xl font-black shadow-sm active:scale-90 transition-all border border-slate-200 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200">5</button>
-        <button onclick="handleNumPadClick('6')" class="bg-slate-50 text-slate-800 rounded-xl py-3 text-2xl font-black shadow-sm active:scale-90 transition-all border border-slate-200 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200">6</button>
-        <button onclick="handleNumPadClick('1')" class="bg-slate-50 text-slate-800 rounded-xl py-3 text-2xl font-black shadow-sm active:scale-90 transition-all border border-slate-200 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200">1</button>
-        <button onclick="handleNumPadClick('2')" class="bg-slate-50 text-slate-800 rounded-xl py-3 text-2xl font-black shadow-sm active:scale-90 transition-all border border-slate-200 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200">2</button>
-        <button onclick="handleNumPadClick('3')" class="bg-slate-50 text-slate-800 rounded-xl py-3 text-2xl font-black shadow-sm active:scale-90 transition-all border border-slate-200 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200">3</button>
-        <button onclick="handleNumPadClick('.')" class="bg-slate-50 text-slate-800 rounded-xl py-3 text-3xl font-black shadow-sm active:scale-90 transition-all border border-slate-200 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200">.</button>
-        <button onclick="handleNumPadClick('0')" class="bg-slate-50 text-slate-800 rounded-xl py-3 text-2xl font-black shadow-sm active:scale-90 transition-all border border-slate-200 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200">0</button>
-        <button onclick="handleNumPadClick('backspace')" class="bg-slate-100 text-slate-600 rounded-xl py-3 text-xl font-black shadow-sm active:scale-90 transition-all border border-slate-300 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-300">⌫</button>
+        <button onclick="handleNumPadClick('7')" class="bg-slate-50 text-slate-800 rounded-xl py-3 text-2xl font-black shadow-sm active:scale-90 transition-all border border-slate-200 hover:bg-blue-50 hover:text-blue-600">7</button>
+        <button onclick="handleNumPadClick('8')" class="bg-slate-50 text-slate-800 rounded-xl py-3 text-2xl font-black shadow-sm active:scale-90 transition-all border border-slate-200 hover:bg-blue-50 hover:text-blue-600">8</button>
+        <button onclick="handleNumPadClick('9')" class="bg-slate-50 text-slate-800 rounded-xl py-3 text-2xl font-black shadow-sm active:scale-90 transition-all border border-slate-200 hover:bg-blue-50 hover:text-blue-600">9</button>
+        <button onclick="handleNumPadClick('4')" class="bg-slate-50 text-slate-800 rounded-xl py-3 text-2xl font-black shadow-sm active:scale-90 transition-all border border-slate-200 hover:bg-blue-50 hover:text-blue-600">4</button>
+        <button onclick="handleNumPadClick('5')" class="bg-slate-50 text-slate-800 rounded-xl py-3 text-2xl font-black shadow-sm active:scale-90 transition-all border border-slate-200 hover:bg-blue-50 hover:text-blue-600">5</button>
+        <button onclick="handleNumPadClick('6')" class="bg-slate-50 text-slate-800 rounded-xl py-3 text-2xl font-black shadow-sm active:scale-90 transition-all border border-slate-200 hover:bg-blue-50 hover:text-blue-600">6</button>
+        <button onclick="handleNumPadClick('1')" class="bg-slate-50 text-slate-800 rounded-xl py-3 text-2xl font-black shadow-sm active:scale-90 transition-all border border-slate-200 hover:bg-blue-50 hover:text-blue-600">1</button>
+        <button onclick="handleNumPadClick('2')" class="bg-slate-50 text-slate-800 rounded-xl py-3 text-2xl font-black shadow-sm active:scale-90 transition-all border border-slate-200 hover:bg-blue-50 hover:text-blue-600">2</button>
+        <button onclick="handleNumPadClick('3')" class="bg-slate-50 text-slate-800 rounded-xl py-3 text-2xl font-black shadow-sm active:scale-90 transition-all border border-slate-200 hover:bg-blue-50 hover:text-blue-600">3</button>
+        <button onclick="handleNumPadClick('.')" class="bg-slate-50 text-slate-800 rounded-xl py-3 text-3xl font-black shadow-sm active:scale-90 transition-all border border-slate-200 hover:bg-blue-50 hover:text-blue-600">.</button>
+        <button onclick="handleNumPadClick('0')" class="bg-slate-50 text-slate-800 rounded-xl py-3 text-2xl font-black shadow-sm active:scale-90 transition-all border border-slate-200 hover:bg-blue-50 hover:text-blue-600">0</button>
+        <button onclick="handleNumPadClick('backspace')" class="bg-slate-100 text-slate-600 rounded-xl py-3 text-xl font-black shadow-sm active:scale-90 transition-all border border-slate-300 hover:bg-rose-50 hover:text-rose-600">⌫</button>
         <button onclick="handleNumPadClick('done')" class="col-span-3 bg-blue-600 text-white rounded-xl py-3 text-xl font-black shadow-md shadow-blue-200 active:scale-95 transition-all mt-1 hover:bg-blue-700 tracking-widest">確認 (完成)</button>
     </div>
 </div>
@@ -483,7 +488,7 @@
         measurementId: "G-S6BVBCQ6RS"
     };
 
-    // ★ 已經替換為您的最新的 Google Apps Script Web App 網址
+    // ★ 請替換為重新部署後的最新 Web App 網址
     const myDefaultGasUrl = "https://script.google.com/macros/s/AKfycbzGj5KcJxD9iXeR5jiQEe_g9FhK5eYF3UFpyqPaQzxm5Fcns5-KdcOCGUYbbZw6AQ0g/exec";
     
     // Google Client ID
@@ -493,6 +498,7 @@
     let currentStream = null; 
     let isAppUnlocked = false; 
     let windowSessionId = new URLSearchParams(window.location.search).get('session') || (Date.now().toString(36) + Math.random().toString(36).substr(2, 5));
+    let currentValidatedEmail = '';
 
     const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
     function getCollectionRef(colName) { return (typeof __app_id !== 'undefined') ? collection(db, 'artifacts', appId, 'public', 'data', colName) : collection(db, colName); }
@@ -516,9 +522,7 @@
     window.toggleCalculator = function() { const m=document.getElementById('calculatorModal'); if(m.classList.contains('hidden')){m.classList.remove('hidden');if(!m.dataset.positioned){m.style.top='80px';m.style.left=Math.max(20,window.innerWidth-480)+'px';m.dataset.positioned='true';}}else m.classList.add('hidden'); };
     window.calcInput = function(key) { const d=document.getElementById('calcDisplay'),h=document.getElementById('calcHistory'); if(calcLastAction==='err'){calcExpression='';calcCurrentInput='0';calcLastAction='num';h.innerText='';} if(key>='0'&&key<='9'){if(calcLastAction==='eq'||calcCurrentInput==='0'||calcLastAction==='op'){calcCurrentInput=key;if(calcLastAction==='eq')calcExpression='';}else calcCurrentInput+=key;calcLastAction='num';h.innerText=calcExpression+calcCurrentInput;}else if(key==='.'){if(calcLastAction==='eq'||calcLastAction==='op'){calcCurrentInput='0.';if(calcLastAction==='eq')calcExpression='';}else if(!calcCurrentInput.includes('.'))calcCurrentInput+='.';calcLastAction='num';h.innerText=calcExpression+calcCurrentInput;}else if(key==='C'){calcExpression='';calcCurrentInput='0';calcLastAction='num';h.innerText='';}else if(key==='⌫'){if(calcLastAction==='num'||calcLastAction==='eq'){calcCurrentInput=calcCurrentInput.length>1?calcCurrentInput.slice(0,-1):'0';if(calcCurrentInput==='-'||calcCurrentInput==='')calcCurrentInput='0';if(calcLastAction==='eq'){calcExpression='';calcLastAction='num';}h.innerText=calcExpression+(calcCurrentInput==='0'&&calcExpression===''? '':calcCurrentInput);}}else if(key==='√'){const v=parseFloat(calcCurrentInput);if(v>=0){if(calcLastAction==='eq'){calcExpression='';h.innerText='√('+v+') =';}calcCurrentInput=String(parseFloat(Math.sqrt(v).toFixed(6)));calcLastAction='num';}else{calcCurrentInput='Error';calcLastAction='err';}}else if(['+','-','*','/'].includes(key)){const op=key==='*'?'×':key==='/'?'÷':key;if(calcLastAction==='op')calcExpression=calcExpression.replace(/[\+\-\×\÷]\s*$/,op+' ');else calcExpression+=calcCurrentInput+' '+op+' ';calcLastAction='op';h.innerText=calcExpression;}else if(key==='='){if(calcLastAction!=='eq'&&calcExpression!==''){let f=calcExpression+calcCurrentInput;let t=f.split(' ').filter(x=>x);const isAS=o=>o==='+'||o==='-';const isMD=o=>o==='×'||o==='÷';if(t.length===5&&((isAS(t[1])&&isMD(t[3]))||(isMD(t[1])&&isAS(t[3])))){window.showCalcChoiceModal(`(${t[0]} ${t[1]} ${t[2]}) ${t[3]} ${t[4]}`,`${t[0]} ${t[1]} (${t[2]} ${t[3]} ${t[4]})`);return;}window.executeCalculation(f,f);}} d.value=calcCurrentInput; };
     window.executeCalculation = function(ev,hs) { let e=ev.replace(/×/g,'*').replace(/÷/g,'/'); try{let r=new Function('return '+e)();if(!isFinite(r))throw new Error();calcCurrentInput=String(parseFloat(r.toFixed(6)));document.getElementById('calcHistory').innerText=hs+' =';calcExpression='';calcLastAction='eq';}catch(err){calcCurrentInput='Error';calcLastAction='err';} document.getElementById('calcDisplay').value=calcCurrentInput; };
-    window.showCalcChoiceModal = function(o1,o2) { const b1=document.getElementById('calcBtnOpt1'),b2=document.getElementById('calcBtnOpt2');b1.textContent=b1.dataset.expr=o1;b2.textContent=b2.dataset.expr=o2;document.getElementById('calcChoiceModal').classList.remove('hidden'); };
-    window.executeCalcChoice = function(expr) { document.getElementById('calcChoiceModal').classList.add('hidden'); window.executeCalculation(expr,expr); };
-
+    
     function initInteractiveModal(modalId, headerId) {
         const modal = document.getElementById(modalId), header = document.getElementById(headerId), handles = modal ? modal.querySelectorAll('.resize-handle') : [];
         if(!modal || !header) return;
@@ -550,17 +554,16 @@
                 dot.className = "absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-green-500 ping-green border-2 border-white shadow-sm";
                 if (badge) { badge.textContent = "已連線至 Google Sheets"; badge.className = "text-sm font-black text-emerald-500 tracking-widest mt-1"; }
             } else {
-                // ADDED: Catch error if check fails gracefully from GAS
                 dot.className = "absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-rose-500 ping-red border-2 border-white shadow-sm";
-                if (badge) { badge.textContent = "連線失敗，請檢查網址或權限"; badge.className = "text-sm font-black text-rose-500 tracking-widest mt-1"; }
+                if (badge) { badge.textContent = "連線失敗，請檢查權限"; badge.className = "text-sm font-black text-rose-500 tracking-widest mt-1"; }
             }
         } catch (e) {
             dot.className = "absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-rose-500 ping-red border-2 border-white shadow-sm";
-            if (badge) { badge.textContent = "連線失敗，請檢查網址或權限"; badge.className = "text-sm font-black text-rose-500 tracking-widest mt-1"; }
+            if (badge) { badge.textContent = "連線失敗，請檢查權限"; badge.className = "text-sm font-black text-rose-500 tracking-widest mt-1"; }
         }
     }
 
-    /* ================= 系統鎖定與 Google 登入驗證 ================= */
+    /* ================= 系統鎖定與登入驗證 (PC 與手機端) ================= */
     
     function decodeJwtResponse(token) {
         let base64Url = token.split('.')[1];
@@ -571,11 +574,22 @@
         return JSON.parse(jsonPayload);
     }
 
+    // Google 驗證成功後，只儲存信箱，並顯示密碼輸入框
     window.handleGoogleCredentialResponse = function(response) {
         const payload = decodeJwtResponse(response.credential);
         const email = payload.email;
-        verifyEmailAuth(email);
+        currentValidatedEmail = email;
+        localStorage.setItem('exp_sys_saved_email', email);
+        showMobilePasswordInput(email);
     };
+
+    function showMobilePasswordInput(email) {
+        document.getElementById('googleAuthSection').classList.add('hidden');
+        document.getElementById('mobilePwdSection').classList.remove('hidden');
+        document.getElementById('verifiedEmailText').textContent = `已驗證 Google 帳號：\n${email}`;
+        document.getElementById('mobilePwdInput').value = '';
+        document.getElementById('mobilePwdInput').focus();
+    }
 
     function renderGoogleSignInBtn() {
         const btnContainer = document.getElementById("googleSignInContainer");
@@ -591,60 +605,168 @@
         }
     }
 
-    async function verifyEmailAuth(email) {
-        const msg = document.getElementById('remoteMsg');
-        msg.className = "mt-4 font-bold text-lg h-6 text-blue-500";
-        msg.textContent = "正在驗證白名單權限...";
+    // 送出手機端的 Google 信箱 + 密碼給 GS 驗證
+    window.submitMobileAuth = async function(btn) {
+        const pwd = document.getElementById('mobilePwdInput').value;
+        const errorEl = document.getElementById('mobilePwdError');
+        
+        if (!pwd) return;
+        
+        const originalText = btn.textContent;
+        btn.textContent = "驗證中...";
+        btn.disabled = true;
+        errorEl.classList.add('hidden');
 
         try {
             const res = await fetch(myDefaultGasUrl, { 
                 method: 'POST', 
-                body: JSON.stringify({ action: 'verifyEmail', email: email }) 
+                body: JSON.stringify({ action: 'verifyAuth', email: currentValidatedEmail, password: pwd }) 
             }).then(r => r.json());
 
             if (res.status === 'success') {
-                localStorage.setItem('exp_sys_saved_email', email); 
-                
                 const sessionParam = new URLSearchParams(window.location.search).get('session');
                 if(sessionParam) {
                     await setDoc(getDocRef('sessions', sessionParam), { status: 'unlocked' }, { merge: true });
                 }
-                
-                document.getElementById('googleSignInContainer').classList.add('hidden');
-                document.getElementById('switchAccountBtn').classList.remove('hidden');
-
-                msg.className = "mt-4 text-emerald-500 font-black text-xl";
-                msg.textContent = "解鎖成功！請看大螢幕 ✓";
-                
+                document.getElementById('mobilePwdSection').innerHTML = `<div class="mt-8 text-emerald-500 font-black text-2xl flex flex-col items-center gap-2"><svg class="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>解鎖成功！<br><span class="text-sm text-slate-400">請看大螢幕</span></div>`;
             } else {
-                localStorage.removeItem('exp_sys_saved_email');
-                msg.className = "mt-4 font-bold text-lg h-6 text-rose-500";
-                msg.textContent = "抱歉，您的帳號不在白名單中";
-                document.getElementById('googleSignInContainer').classList.remove('hidden');
-                renderGoogleSignInBtn(); 
+                errorEl.textContent = res.message || "驗證失敗";
+                errorEl.classList.remove('hidden');
             }
         } catch (err) {
-            msg.className = "mt-4 font-bold text-lg h-6 text-rose-500";
-            msg.textContent = "連線失敗，請檢查網路";
-            document.getElementById('googleSignInContainer').classList.remove('hidden');
+            errorEl.textContent = "連線失敗，請檢查網路";
+            errorEl.classList.remove('hidden');
+        } finally {
+            if (btn) { btn.textContent = originalText; btn.disabled = false; }
         }
-    }
+    };
 
     window.clearSavedLogin = function() {
         localStorage.removeItem('exp_sys_saved_email');
-        document.getElementById('switchAccountBtn').classList.add('hidden');
-        document.getElementById('googleSignInContainer').classList.remove('hidden');
+        currentValidatedEmail = '';
+        document.getElementById('mobilePwdSection').classList.add('hidden');
+        document.getElementById('googleAuthSection').classList.remove('hidden');
         document.getElementById('remoteMsg').className = "mt-4 font-bold text-lg h-6 text-slate-500";
         document.getElementById('remoteMsg').textContent = "請重新登入";
         renderGoogleSignInBtn();
+    };
+
+    // --- PC 端密碼解鎖相關 ---
+    const MAX_PC_PWD_ATTEMPTS = 5;
+    const LOCK_DURATION_MS = 15 * 60 * 1000; // 15 分鐘
+
+    function checkPcLockStatus() {
+        const lockUntil = localStorage.getItem('exp_sys_pc_lock_until');
+        if (lockUntil) {
+            const remaining = parseInt(lockUntil) - Date.now();
+            if (remaining > 0) {
+                return Math.ceil(remaining / 60000); // 回傳剩餘分鐘數
+            } else {
+                // 鎖定時間已過，重置狀態
+                localStorage.removeItem('exp_sys_pc_attempts');
+                localStorage.removeItem('exp_sys_pc_lock_until');
+            }
+        }
+        return 0;
+    }
+
+    window.promptPcUnlock = function() {
+        const pwdInput = document.getElementById('pcPwdInput');
+        const errorMsg = document.getElementById('pcPwdErrorMsg');
+        const submitBtn = document.querySelector('#pcPasswordModal button[onclick^="submitPcPassword"]');
+        
+        pwdInput.value = '';
+        document.getElementById('pcPasswordModal').classList.remove('hidden');
+        
+        const lockedMins = checkPcLockStatus();
+        
+        if (lockedMins > 0) {
+            pwdInput.disabled = true;
+            errorMsg.textContent = `錯誤已達 5 次，請等待 ${lockedMins} 分鐘後再試。`;
+            errorMsg.classList.remove('hidden');
+            if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = "已鎖定"; }
+        } else {
+            pwdInput.disabled = false;
+            errorMsg.classList.add('hidden');
+            if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = "確認解鎖"; }
+            setTimeout(() => pwdInput.focus(), 100);
+        }
+    };
+
+    window.closePcPasswordModal = function() {
+        document.getElementById('pcPasswordModal').classList.add('hidden');
+    };
+
+    window.submitPcPassword = async function(btn) {
+        const pwdInput = document.getElementById('pcPwdInput');
+        const pwd = pwdInput.value;
+        const errorMsg = document.getElementById('pcPwdErrorMsg');
+        
+        if(!pwd) return;
+        
+        const lockedMins = checkPcLockStatus();
+        if (lockedMins > 0) {
+            errorMsg.textContent = `錯誤已達 5 次，請等待 ${lockedMins} 分鐘後再試。`;
+            errorMsg.classList.remove('hidden');
+            return;
+        }
+
+        const originalText = btn.textContent;
+        btn.textContent = "驗證中...";
+        btn.disabled = true;
+        pwdInput.disabled = true;
+        errorMsg.classList.add('hidden');
+
+        try {
+            const res = await fetch(myDefaultGasUrl, { 
+                method: 'POST', 
+                body: JSON.stringify({ action: 'verifyPassword', password: pwd }) 
+            }).then(r => r.json());
+
+            if (res.status === 'success') {
+                localStorage.removeItem('exp_sys_pc_attempts');
+                localStorage.removeItem('exp_sys_pc_lock_until');
+                
+                document.getElementById('pcPasswordModal').classList.add('hidden');
+                
+                // 本地模擬觸發 session 改變，以便跟手機端一致的解鎖流程
+                setDoc(getDocRef('sessions', windowSessionId), { status: 'unlocked' }, { merge: true });
+                
+                if (!isAppUnlocked) {
+                    isAppUnlocked = true;
+                    document.getElementById('lockScreenUI').classList.add('hidden');
+                    window.initApp(); 
+                }
+            } else {
+                let attempts = parseInt(localStorage.getItem('exp_sys_pc_attempts') || '0') + 1;
+                localStorage.setItem('exp_sys_pc_attempts', attempts);
+                
+                if (attempts >= MAX_PC_PWD_ATTEMPTS) {
+                    localStorage.setItem('exp_sys_pc_lock_until', Date.now() + LOCK_DURATION_MS);
+                    errorMsg.textContent = `錯誤已達 5 次，請等待 15 分鐘後再試。`;
+                    btn.textContent = "已鎖定";
+                } else {
+                    errorMsg.textContent = `${res.message || "密碼錯誤"} (剩餘 ${MAX_PC_PWD_ATTEMPTS - attempts} 次)`;
+                    pwdInput.disabled = false;
+                    btn.textContent = originalText;
+                    btn.disabled = false;
+                    setTimeout(() => pwdInput.focus(), 100);
+                }
+                errorMsg.classList.remove('hidden');
+            }
+        } catch (err) {
+            errorMsg.textContent = "連線失敗，請檢查網路";
+            errorMsg.classList.remove('hidden');
+            pwdInput.disabled = false;
+            btn.textContent = originalText;
+            btn.disabled = false;
+        }
     };
 
     window.startPcLockScreen = async function() {
         document.getElementById('lockScreenUI').classList.remove('hidden');
         let baseHref = window.location.href;
         if (baseHref.startsWith('blob:') || baseHref.startsWith('about:') || baseHref.startsWith('file:')) {
-            const warnEl = document.getElementById('qrWarning');
-            if(warnEl) warnEl.classList.remove('hidden');
             baseHref = 'https://example.com/'; 
         }
 
@@ -667,12 +789,6 @@
                 }
             }
         });
-    };
-
-    window.bypassUnlockForTesting = function() {
-        if(confirm("即將略過認證直接解鎖 (僅供單機測試用)。確定嗎？")) {
-            setDoc(getDocRef('sessions', windowSessionId), { status: 'unlocked' }, { merge: true });
-        }
     };
 
     window.initApp = async function() {
@@ -756,9 +872,6 @@
     window.openSyncModal = () => document.getElementById('syncModal').classList.remove('hidden');
     window.closeSyncModal = () => document.getElementById('syncModal').classList.add('hidden');
     
-    // ==========================================
-    // ★ 修復 pull / push 的「錯誤處理」與轉圈圈卡死
-    // ==========================================
     window.pullFromSheets = async function() {
         if (!isFirebaseReady) return; 
         showLoadingModal('正在下載名單與歷史紀錄...');
@@ -775,7 +888,6 @@
                 await fetchClassList(); 
                 closeSyncModal();
             } else {
-                // 若 GAS 回傳 status !== 'success' (例如發生錯誤)
                 hideLoadingModal(); 
                 showModal('同步失敗', res.message || '未知錯誤，請檢查 GAS 權限');
             }
@@ -801,7 +913,6 @@
                 showModal('備份成功', '數據已成功上傳！'); 
                 closeSyncModal(); 
             } else {
-                // 若 GAS 回傳 status !== 'success'
                 hideLoadingModal(); 
                 showModal('備份失敗', res.message || '未知錯誤，請檢查 GAS 權限');
             }
@@ -852,6 +963,14 @@
         document.getElementById('studentSearchInput').addEventListener('input', renderFilteredStudentList);
         document.getElementById('floatingTableContent').addEventListener('scroll', window.hideNumPad, {passive: true});
         document.addEventListener('click', (e) => { const pad = document.getElementById('numPad'); if (!pad || pad.classList.contains('hidden') || pad.contains(e.target) || e.target.tagName === 'INPUT') return; window.hideNumPad(); });
+        
+        // PC端密碼框按 Enter 鍵直接提交
+        const pcInput = document.getElementById('pcPwdInput');
+        if (pcInput) pcInput.addEventListener('keypress', function (e) { if (e.key === 'Enter') submitPcPassword(this.nextElementSibling); });
+        
+        // 手機端密碼框按 Enter 鍵直接提交
+        const mobileInput = document.getElementById('mobilePwdInput');
+        if (mobileInput) mobileInput.addEventListener('keypress', function (e) { if (e.key === 'Enter') submitMobileAuth(this.nextElementSibling.nextElementSibling); });
     }
 
     async function initCamera() { 
@@ -896,17 +1015,18 @@
                 
                 const urlParams = new URLSearchParams(window.location.search);
                 if (urlParams.get('mode') === 'remote') {
-                    // 顯示手機端介面
+                    // 手機端認證流程
                     document.getElementById('remoteMobileUI').classList.remove('hidden');
                     const savedEmail = localStorage.getItem('exp_sys_saved_email');
                     
                     if (savedEmail) {
-                        document.getElementById('googleSignInContainer').classList.add('hidden');
-                        verifyEmailAuth(savedEmail);
+                        currentValidatedEmail = savedEmail;
+                        showMobilePasswordInput(savedEmail);
                     } else {
                         renderGoogleSignInBtn();
                     }
                 } else {
+                    // PC 端流程
                     window.startPcLockScreen();
                 }
             } catch (err) { console.error(err); } 
