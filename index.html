@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>實驗紀錄系統 v4.32 (高資安雙重認證版)</title>
+    <title>實驗紀錄系統 v4.50 (高資安無密碼版)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
@@ -124,7 +124,7 @@
 </head>
 <body class="bg-slate-900 font-sans h-screen w-screen overflow-hidden text-slate-800 relative">
 
-<!-- ================= 手機專屬遠端解鎖畫面 (雙重認證版) ================= -->
+<!-- ================= 手機專屬遠端解鎖畫面 (無密碼自動解鎖) ================= -->
 <div id="remoteMobileUI" class="fixed inset-0 z-[500] bg-slate-50 flex flex-col items-center justify-center px-6 hidden">
     <div class="w-full max-w-sm bg-white p-8 rounded-[32px] shadow-2xl border border-slate-100 flex flex-col items-center text-center transition-all">
         <div class="w-20 h-20 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mb-6 shadow-inner border border-blue-100">
@@ -139,13 +139,14 @@
             <div id="remoteMsg" class="mt-4 font-bold text-lg h-6 text-slate-500">等待登入...</div>
         </div>
 
-        <!-- 專屬密碼輸入區塊 (預設隱藏，Google 登入後顯示) -->
-        <div id="mobilePwdSection" class="w-full flex flex-col items-center hidden">
+        <!-- 自動解鎖狀態區塊 (Google 登入後顯示) -->
+        <div id="mobileAuthVerifyingSection" class="w-full flex flex-col items-center hidden">
             <p id="verifiedEmailText" class="text-emerald-600 font-black mb-6 text-sm bg-emerald-50 px-4 py-2 rounded-xl w-full break-all border border-emerald-100"></p>
-            <p class="text-slate-500 font-bold mb-3 text-sm">請輸入雙重認證專屬密碼</p>
-            <input type="password" id="mobilePwdInput" class="w-full bg-slate-50 border-2 border-slate-200 rounded-xl px-4 py-3 text-center text-xl font-black text-slate-800 outline-none focus:border-blue-500 transition-colors mb-4" placeholder="••••••••">
-            <div id="mobilePwdError" class="text-rose-500 text-sm font-bold mb-4 hidden">密碼錯誤，請重試</div>
-            <button onclick="submitMobileAuth(this)" class="w-full bg-blue-600 text-white font-black py-4 rounded-2xl shadow-xl shadow-blue-200 hover:bg-blue-700 active:scale-95 transition-all text-lg tracking-widest">驗證並解鎖系統</button>
+            <div class="flex items-center gap-3 text-blue-600 mb-4">
+                <svg class="animate-spin h-7 w-7" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                <span id="mobileAuthStatusText" class="font-black tracking-widest text-xl">安全驗證中...</span>
+            </div>
+            <div id="mobileAuthError" class="text-rose-500 text-sm font-bold mb-4 hidden">驗證失敗，請重試</div>
             <button onclick="clearSavedLogin()" class="mt-6 text-slate-400 text-sm font-bold underline hover:text-slate-600">切換 Google 帳號</button>
         </div>
     </div>
@@ -173,7 +174,7 @@
     <div class="bg-slate-800/80 p-12 rounded-[40px] shadow-[0_30px_60px_rgba(0,0,0,0.6)] flex flex-col items-center border border-slate-700 text-center max-w-lg">
         <svg class="w-20 h-20 text-blue-500 mb-6 drop-shadow-md" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
         <h1 class="text-4xl font-black tracking-[0.2em] mb-3 text-white">系統已鎖定</h1>
-        <p class="text-slate-400 mb-8 font-bold text-lg">請使用手機掃描下方 QR Code 進行認證</p>
+        <p class="text-slate-400 mb-8 font-bold text-lg">請使用手機掃描下方 QR Code 進行驗證解鎖</p>
         
         <div class="bg-white p-6 rounded-[28px] mb-6 shadow-2xl">
             <img id="qrcodeImg" src="" alt="QR Code" class="w-56 h-56">
@@ -575,22 +576,28 @@
         return JSON.parse(jsonPayload);
     }
 
-    // Google 驗證成功後，儲存 JWT ID Token，並顯示密碼輸入框
+    // Google 驗證成功後，儲存 JWT ID Token，並自動提交給後端驗證 (無感解鎖)
     window.handleGoogleCredentialResponse = function(response) {
         window.currentIdToken = response.credential; // 儲存安全 JWT 供後端驗證
         const payload = decodeJwtResponse(response.credential);
         const email = payload.email;
         currentValidatedEmail = email;
-        localStorage.setItem('exp_sys_saved_email', email);
-        showMobilePasswordInput(email);
+        
+        showMobileVerifying(email);
+        
+        // 自動觸發驗證流程，無須手動點擊
+        submitMobileAuth();
     };
 
-    function showMobilePasswordInput(email) {
+    function showMobileVerifying(email) {
         document.getElementById('googleAuthSection').classList.add('hidden');
-        document.getElementById('mobilePwdSection').classList.remove('hidden');
+        document.getElementById('mobileAuthVerifyingSection').classList.remove('hidden');
         document.getElementById('verifiedEmailText').textContent = `已綁定 Google 帳號：\n${email}`;
-        document.getElementById('mobilePwdInput').value = '';
-        document.getElementById('mobilePwdInput').focus();
+        
+        // 確保初始顯示為驗證中
+        document.getElementById('mobileAuthStatusText').textContent = "安全驗證中...";
+        document.getElementById('mobileAuthStatusText').parentElement.querySelector('svg').classList.remove('hidden');
+        document.getElementById('mobileAuthError').classList.add('hidden');
     }
 
     function renderGoogleSignInBtn() {
@@ -607,29 +614,28 @@
         }
     }
 
-    // 送出手機端的 Google ID Token + 密碼給 GS 進行數位簽章驗證
-    window.submitMobileAuth = async function(btn) {
-        const pwd = document.getElementById('mobilePwdInput').value;
-        const errorEl = document.getElementById('mobilePwdError');
+    // 送出手機端的 Google ID Token 給 GS 進行數位簽章驗證 (無密碼)
+    window.submitMobileAuth = async function() {
+        const errorEl = document.getElementById('mobileAuthError');
+        const statusText = document.getElementById('mobileAuthStatusText');
+        const spinner = statusText.parentElement.querySelector('svg');
         
-        if (!pwd || !window.currentIdToken) {
+        if (!window.currentIdToken) {
              errorEl.textContent = "驗證資料不完整，請重新登入";
              errorEl.classList.remove('hidden');
+             spinner.classList.add('hidden');
+             statusText.textContent = "驗證中斷";
              return;
         }
         
-        const originalText = btn.textContent;
-        btn.textContent = "加密驗證中...";
-        btn.disabled = true;
         errorEl.classList.add('hidden');
 
         try {
             const res = await fetch(myDefaultGasUrl, { 
                 method: 'POST', 
                 body: JSON.stringify({ 
-                    action: 'verifyAuthSecure', // 改呼叫全新的高資安驗證入口
-                    idToken: window.currentIdToken, 
-                    password: pwd 
+                    action: 'verifyAuthSecure', 
+                    idToken: window.currentIdToken 
                 }) 
             }).then(r => r.json());
 
@@ -642,24 +648,42 @@
                         sessionToken: res.sessionToken 
                     }, { merge: true });
                 }
-                document.getElementById('mobilePwdSection').innerHTML = `<div class="mt-8 text-emerald-500 font-black text-2xl flex flex-col items-center gap-2"><svg class="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>解鎖成功！<br><span class="text-sm text-slate-400">連線金鑰已核發，請看大螢幕</span></div>`;
+                spinner.classList.add('hidden');
+                statusText.textContent = "解鎖成功！";
+                document.getElementById('mobileAuthVerifyingSection').innerHTML = `<div class="mt-4 text-emerald-500 font-black text-2xl flex flex-col items-center gap-2"><svg class="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>解鎖成功！<br><span class="text-sm text-slate-400">連線金鑰已核發，請看大螢幕</span><br><button onclick="clearSavedLogin()" class="mt-6 text-slate-400 text-sm font-bold underline hover:text-slate-600">登出 / 切換帳號</button></div>`;
             } else {
-                errorEl.textContent = res.message || "驗證失敗";
+                spinner.classList.add('hidden');
+                statusText.textContent = "授權拒絕";
+                errorEl.textContent = res.message || "驗證失敗，請確認是否在白名單中";
                 errorEl.classList.remove('hidden');
             }
         } catch (err) {
+            spinner.classList.add('hidden');
+            statusText.textContent = "連線異常";
             errorEl.textContent = "連線失敗，請檢查網路";
             errorEl.classList.remove('hidden');
-        } finally {
-            if (btn) { btn.textContent = originalText; btn.disabled = false; }
         }
     };
 
     window.clearSavedLogin = function() {
-        localStorage.removeItem('exp_sys_saved_email');
         currentValidatedEmail = '';
         window.currentIdToken = null;
-        document.getElementById('mobilePwdSection').classList.add('hidden');
+        
+        const verifyingSection = document.getElementById('mobileAuthVerifyingSection');
+        if (verifyingSection) {
+            // 恢復原始 UI
+            verifyingSection.innerHTML = `
+                <p id="verifiedEmailText" class="text-emerald-600 font-black mb-6 text-sm bg-emerald-50 px-4 py-2 rounded-xl w-full break-all border border-emerald-100"></p>
+                <div class="flex items-center gap-3 text-blue-600 mb-4">
+                    <svg class="animate-spin h-7 w-7" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                    <span id="mobileAuthStatusText" class="font-black tracking-widest text-xl">安全驗證中...</span>
+                </div>
+                <div id="mobileAuthError" class="text-rose-500 text-sm font-bold mb-4 hidden">驗證失敗，請重試</div>
+                <button onclick="clearSavedLogin()" class="mt-6 text-slate-400 text-sm font-bold underline hover:text-slate-600">切換 Google 帳號</button>
+            `;
+            verifyingSection.classList.add('hidden');
+        }
+        
         document.getElementById('googleAuthSection').classList.remove('hidden');
         document.getElementById('remoteMsg').className = "mt-4 font-bold text-lg h-6 text-slate-500";
         document.getElementById('remoteMsg').textContent = "請重新登入";
@@ -899,7 +923,7 @@
         // 取得連線金鑰
         const sessionToken = localStorage.getItem('exp_sys_session_token');
         if (!sessionToken) {
-            showModal('未授權存取', '遺失連線金鑰。請重新整理頁面並重新登入系統。');
+            showModal('未授權存取', '遺失連線金鑰。請重新整理頁面並重新解鎖系統。');
             return;
         }
 
@@ -935,7 +959,7 @@
         // 取得連線金鑰
         const sessionToken = localStorage.getItem('exp_sys_session_token');
         if (!sessionToken) {
-            showModal('未授權存取', '遺失連線金鑰。請重新整理頁面並重新登入系統。');
+            showModal('未授權存取', '遺失連線金鑰。請重新整理頁面並重新解鎖系統。');
             return;
         }
 
@@ -1014,9 +1038,6 @@
         
         const pcInput = document.getElementById('pcPwdInput');
         if (pcInput) pcInput.addEventListener('keypress', function (e) { if (e.key === 'Enter') submitPcPassword(this.nextElementSibling); });
-        
-        const mobileInput = document.getElementById('mobilePwdInput');
-        if (mobileInput) mobileInput.addEventListener('keypress', function (e) { if (e.key === 'Enter') submitMobileAuth(this.nextElementSibling.nextElementSibling); });
     }
 
     async function initCamera() { 
@@ -1061,15 +1082,9 @@
                 
                 const urlParams = new URLSearchParams(window.location.search);
                 if (urlParams.get('mode') === 'remote') {
+                    // 手機端認證流程：顯示 Google 登入按鈕，取消自動讀取 email 免登機制 (因為需要取得全新的 ID Token)
                     document.getElementById('remoteMobileUI').classList.remove('hidden');
-                    const savedEmail = localStorage.getItem('exp_sys_saved_email');
-                    
-                    if (savedEmail) {
-                        currentValidatedEmail = savedEmail;
-                        showMobilePasswordInput(savedEmail);
-                    } else {
-                        renderGoogleSignInBtn();
-                    }
+                    renderGoogleSignInBtn();
                 } else {
                     window.startPcLockScreen();
                 }
