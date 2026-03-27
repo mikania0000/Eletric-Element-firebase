@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>實驗紀錄系統 v4.32 (雙重認證版)</title>
+    <title>實驗紀錄系統 v4.32 (高資安雙重認證版)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
@@ -499,6 +499,7 @@
     let isAppUnlocked = false; 
     let windowSessionId = new URLSearchParams(window.location.search).get('session') || (Date.now().toString(36) + Math.random().toString(36).substr(2, 5));
     let currentValidatedEmail = '';
+    window.currentIdToken = null; // 儲存 Google 簽發的 JWT Token
 
     const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
     function getCollectionRef(colName) { return (typeof __app_id !== 'undefined') ? collection(db, 'artifacts', appId, 'public', 'data', colName) : collection(db, colName); }
@@ -574,8 +575,9 @@
         return JSON.parse(jsonPayload);
     }
 
-    // Google 驗證成功後，只儲存信箱，並顯示密碼輸入框
+    // Google 驗證成功後，儲存 JWT ID Token，並顯示密碼輸入框
     window.handleGoogleCredentialResponse = function(response) {
+        window.currentIdToken = response.credential; // 儲存安全 JWT 供後端驗證
         const payload = decodeJwtResponse(response.credential);
         const email = payload.email;
         currentValidatedEmail = email;
@@ -586,7 +588,7 @@
     function showMobilePasswordInput(email) {
         document.getElementById('googleAuthSection').classList.add('hidden');
         document.getElementById('mobilePwdSection').classList.remove('hidden');
-        document.getElementById('verifiedEmailText').textContent = `已驗證 Google 帳號：\n${email}`;
+        document.getElementById('verifiedEmailText').textContent = `已綁定 Google 帳號：\n${email}`;
         document.getElementById('mobilePwdInput').value = '';
         document.getElementById('mobilePwdInput').focus();
     }
@@ -605,30 +607,42 @@
         }
     }
 
-    // 送出手機端的 Google 信箱 + 密碼給 GS 驗證
+    // 送出手機端的 Google ID Token + 密碼給 GS 進行數位簽章驗證
     window.submitMobileAuth = async function(btn) {
         const pwd = document.getElementById('mobilePwdInput').value;
         const errorEl = document.getElementById('mobilePwdError');
         
-        if (!pwd) return;
+        if (!pwd || !window.currentIdToken) {
+             errorEl.textContent = "驗證資料不完整，請重新登入";
+             errorEl.classList.remove('hidden');
+             return;
+        }
         
         const originalText = btn.textContent;
-        btn.textContent = "驗證中...";
+        btn.textContent = "加密驗證中...";
         btn.disabled = true;
         errorEl.classList.add('hidden');
 
         try {
             const res = await fetch(myDefaultGasUrl, { 
                 method: 'POST', 
-                body: JSON.stringify({ action: 'verifyAuth', email: currentValidatedEmail, password: pwd }) 
+                body: JSON.stringify({ 
+                    action: 'verifyAuthSecure', // 改呼叫全新的高資安驗證入口
+                    idToken: window.currentIdToken, 
+                    password: pwd 
+                }) 
             }).then(r => r.json());
 
             if (res.status === 'success') {
                 const sessionParam = new URLSearchParams(window.location.search).get('session');
                 if(sessionParam) {
-                    await setDoc(getDocRef('sessions', sessionParam), { status: 'unlocked' }, { merge: true });
+                    // 將後端簽發的 Session Token 安全傳遞給 PC 端
+                    await setDoc(getDocRef('sessions', sessionParam), { 
+                        status: 'unlocked',
+                        sessionToken: res.sessionToken 
+                    }, { merge: true });
                 }
-                document.getElementById('mobilePwdSection').innerHTML = `<div class="mt-8 text-emerald-500 font-black text-2xl flex flex-col items-center gap-2"><svg class="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>解鎖成功！<br><span class="text-sm text-slate-400">請看大螢幕</span></div>`;
+                document.getElementById('mobilePwdSection').innerHTML = `<div class="mt-8 text-emerald-500 font-black text-2xl flex flex-col items-center gap-2"><svg class="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>解鎖成功！<br><span class="text-sm text-slate-400">連線金鑰已核發，請看大螢幕</span></div>`;
             } else {
                 errorEl.textContent = res.message || "驗證失敗";
                 errorEl.classList.remove('hidden');
@@ -644,6 +658,7 @@
     window.clearSavedLogin = function() {
         localStorage.removeItem('exp_sys_saved_email');
         currentValidatedEmail = '';
+        window.currentIdToken = null;
         document.getElementById('mobilePwdSection').classList.add('hidden');
         document.getElementById('googleAuthSection').classList.remove('hidden');
         document.getElementById('remoteMsg').className = "mt-4 font-bold text-lg h-6 text-slate-500";
@@ -660,9 +675,8 @@
         if (lockUntil) {
             const remaining = parseInt(lockUntil) - Date.now();
             if (remaining > 0) {
-                return Math.ceil(remaining / 60000); // 回傳剩餘分鐘數
+                return Math.ceil(remaining / 60000); 
             } else {
-                // 鎖定時間已過，重置狀態
                 localStorage.removeItem('exp_sys_pc_attempts');
                 localStorage.removeItem('exp_sys_pc_lock_until');
             }
@@ -720,16 +734,18 @@
         try {
             const res = await fetch(myDefaultGasUrl, { 
                 method: 'POST', 
-                body: JSON.stringify({ action: 'verifyPassword', password: pwd }) 
+                body: JSON.stringify({ action: 'verifyPasswordSecure', password: pwd }) 
             }).then(r => r.json());
 
             if (res.status === 'success') {
                 localStorage.removeItem('exp_sys_pc_attempts');
                 localStorage.removeItem('exp_sys_pc_lock_until');
                 
+                // 將後端核發的 Session Token 存入本地，做為後續 Pull/Push 憑證
+                localStorage.setItem('exp_sys_session_token', res.sessionToken);
+                
                 document.getElementById('pcPasswordModal').classList.add('hidden');
                 
-                // 本地模擬觸發 session 改變，以便跟手機端一致的解鎖流程
                 setDoc(getDocRef('sessions', windowSessionId), { status: 'unlocked' }, { merge: true });
                 
                 if (!isAppUnlocked) {
@@ -782,6 +798,11 @@
 
         onSnapshot(sessionDocRef, (docSnap) => {
             if (docSnap.exists() && docSnap.data().status === 'unlocked') {
+                
+                // 從 Firebase 取得手機端傳來的手機版 Session Token
+                const sToken = docSnap.data().sessionToken;
+                if (sToken) localStorage.setItem('exp_sys_session_token', sToken);
+
                 if (!isAppUnlocked) {
                     isAppUnlocked = true;
                     document.getElementById('lockScreenUI').classList.add('hidden');
@@ -874,9 +895,20 @@
     
     window.pullFromSheets = async function() {
         if (!isFirebaseReady) return; 
-        showLoadingModal('正在下載名單與歷史紀錄...');
+        
+        // 取得連線金鑰
+        const sessionToken = localStorage.getItem('exp_sys_session_token');
+        if (!sessionToken) {
+            showModal('未授權存取', '遺失連線金鑰。請重新整理頁面並重新登入系統。');
+            return;
+        }
+
+        showLoadingModal('正在驗證金鑰並下載名單...');
         try {
-            const res = await fetch(myDefaultGasUrl, { method: 'POST', body: JSON.stringify({ action: 'pull' }) }).then(r => r.json());
+            const res = await fetch(myDefaultGasUrl, { 
+                method: 'POST', 
+                body: JSON.stringify({ action: 'pull', sessionToken: sessionToken }) 
+            }).then(r => r.json());
             
             if (res.status === 'success') {
                 for (let k in res.classes) await setDoc(getDocRef('classes', k), res.classes[k]);
@@ -889,7 +921,7 @@
                 closeSyncModal();
             } else {
                 hideLoadingModal(); 
-                showModal('同步失敗', res.message || '未知錯誤，請檢查 GAS 權限');
+                showModal('授權/同步失敗', res.message || '金鑰可能已逾期，請重新登入');
             }
         } catch (e) { 
             hideLoadingModal(); 
@@ -899,14 +931,30 @@
     
     window.pushToSheets = async function() {
         if (!isFirebaseReady) return; 
-        showLoadingModal('正在備份數據...');
+        
+        // 取得連線金鑰
+        const sessionToken = localStorage.getItem('exp_sys_session_token');
+        if (!sessionToken) {
+            showModal('未授權存取', '遺失連線金鑰。請重新整理頁面並重新登入系統。');
+            return;
+        }
+
+        showLoadingModal('正在加密備份數據...');
         try {
             let exps = {};
             if (document.getElementById('syncExpsToggle').checked) {
                 const qSnap = await getDocs(getCollectionRef('experiments'));
                 qSnap.forEach(d => { exps[d.id] = d.data(); });
             }
-            const res = await fetch(myDefaultGasUrl, { method: 'POST', body: JSON.stringify({ action: 'push', classes: window.classDataCache, experiments: exps }) }).then(r => r.json());
+            const res = await fetch(myDefaultGasUrl, { 
+                method: 'POST', 
+                body: JSON.stringify({ 
+                    action: 'push', 
+                    sessionToken: sessionToken,
+                    classes: window.classDataCache, 
+                    experiments: exps 
+                }) 
+            }).then(r => r.json());
             
             if (res.status === 'success') { 
                 hideLoadingModal(); 
@@ -914,7 +962,7 @@
                 closeSyncModal(); 
             } else {
                 hideLoadingModal(); 
-                showModal('備份失敗', res.message || '未知錯誤，請檢查 GAS 權限');
+                showModal('授權/備份失敗', res.message || '金鑰可能已逾期，請重新登入');
             }
         } catch (e) { 
             hideLoadingModal(); 
@@ -964,11 +1012,9 @@
         document.getElementById('floatingTableContent').addEventListener('scroll', window.hideNumPad, {passive: true});
         document.addEventListener('click', (e) => { const pad = document.getElementById('numPad'); if (!pad || pad.classList.contains('hidden') || pad.contains(e.target) || e.target.tagName === 'INPUT') return; window.hideNumPad(); });
         
-        // PC端密碼框按 Enter 鍵直接提交
         const pcInput = document.getElementById('pcPwdInput');
         if (pcInput) pcInput.addEventListener('keypress', function (e) { if (e.key === 'Enter') submitPcPassword(this.nextElementSibling); });
         
-        // 手機端密碼框按 Enter 鍵直接提交
         const mobileInput = document.getElementById('mobilePwdInput');
         if (mobileInput) mobileInput.addEventListener('keypress', function (e) { if (e.key === 'Enter') submitMobileAuth(this.nextElementSibling.nextElementSibling); });
     }
@@ -1015,7 +1061,6 @@
                 
                 const urlParams = new URLSearchParams(window.location.search);
                 if (urlParams.get('mode') === 'remote') {
-                    // 手機端認證流程
                     document.getElementById('remoteMobileUI').classList.remove('hidden');
                     const savedEmail = localStorage.getItem('exp_sys_saved_email');
                     
@@ -1026,7 +1071,6 @@
                         renderGoogleSignInBtn();
                     }
                 } else {
-                    // PC 端流程
                     window.startPcLockScreen();
                 }
             } catch (err) { console.error(err); } 
