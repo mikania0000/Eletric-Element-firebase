@@ -73,11 +73,14 @@
         }
         #table-container table.theme-green td:first-child { background-color: #f0fdf4; }
         
-        /* 實驗五專用紫色主題 */
+        /* 實驗五專用紫色主題與緊湊樣式 */
         #table-container table.theme-purple { border-color: #e9d5ff; box-shadow: 0 4px 6px -1px rgba(168, 85, 247, 0.1); }
-        #table-container table.theme-purple th { background-color: #a855f7; border-bottom: 2px solid #9333ea; }
-        #table-container table.theme-purple td:first-child { background-color: #faf5ff; }
+        #table-container table.theme-purple th { background-color: #a855f7; border-bottom: 2px solid #9333ea; padding: 8px 4px; font-size: 16px !important; white-space: normal; line-height: 1.2; }
+        #table-container table.theme-purple td { padding: 8px 4px; font-size: 18px !important; }
+        #table-container table.theme-purple td:first-child { background-color: #faf5ff; white-space: nowrap; font-size: 18px !important; }
         #table-container table.theme-purple .table-input:focus { border-color: #a855f7; box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.15); }
+        #table-container table.theme-purple .table-input { min-width: 55px; padding: 6px 2px; font-size: 18px !important; }
+        #table-container table.theme-purple .exp5-res { font-size: 18px !important; }
         
         .table-input { 
             width: 100%; 
@@ -253,7 +256,7 @@
                 <option value="exp3">3. 電阻並聯 (固定 3V)</option>
                 <option value="exp4">4. 並聯迴路電流</option>
                 <!-- 新增：實驗五 -->
-                <option value="exp5">5. 實驗五：串聯兩個電阻</option>
+                <option value="exp5">5. 串聯電路分析</option>
             </select>
         </div>
     </div>
@@ -1009,7 +1012,7 @@
                     <tr><td class="text-left whitespace-nowrap px-2"><span>3個：</span><input type="text" inputmode="none" class="fill-blank" value="1K">${sym}<input type="text" inputmode="none" class="fill-blank" value="1K">${sym}<input type="text" inputmode="none" class="fill-blank" value="1K"></td><td><input type="text" inputmode="none" class="table-input"></td><td><input type="text" inputmode="none" class="table-input input-v"></td><td><input type="text" inputmode="none" class="table-input input-i"></td><td class="result-r font-bold text-blue-600">-</td></tr></tbody></table>`; 
         } else if (val === 'exp5') {
             // 新增：實驗五專用模板
-            html = `<h3 class="font-bold text-center text-purple-700 mb-4 text-2xl">5. 實驗五：串聯兩個電阻</h3>
+            html = `<h3 class="font-bold text-center text-purple-700 mb-4 text-2xl">5. 串聯電路分析</h3>
             <table class="theme-purple">
                 <thead>
                     <tr>
