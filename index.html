@@ -73,6 +73,12 @@
         }
         #table-container table.theme-green td:first-child { background-color: #f0fdf4; }
         
+        /* 實驗五專用紫色主題 */
+        #table-container table.theme-purple { border-color: #e9d5ff; box-shadow: 0 4px 6px -1px rgba(168, 85, 247, 0.1); }
+        #table-container table.theme-purple th { background-color: #a855f7; border-bottom: 2px solid #9333ea; }
+        #table-container table.theme-purple td:first-child { background-color: #faf5ff; }
+        #table-container table.theme-purple .table-input:focus { border-color: #a855f7; box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.15); }
+        
         .table-input { 
             width: 100%; 
             max-width: 12ch;
@@ -246,6 +252,8 @@
                 <option value="exp2">2. 電阻串聯 (固定 3V)</option>
                 <option value="exp3">3. 電阻並聯 (固定 3V)</option>
                 <option value="exp4">4. 並聯迴路電流</option>
+                <!-- 新增：實驗五 -->
+                <option value="exp5">5. 實驗五：串聯兩個電阻</option>
             </select>
         </div>
     </div>
@@ -576,16 +584,13 @@
         return JSON.parse(jsonPayload);
     }
 
-    // Google 驗證成功後，儲存 JWT ID Token，並自動提交給後端驗證 (無感解鎖)
     window.handleGoogleCredentialResponse = function(response) {
-        window.currentIdToken = response.credential; // 儲存安全 JWT 供後端驗證
+        window.currentIdToken = response.credential;
         const payload = decodeJwtResponse(response.credential);
         const email = payload.email;
         currentValidatedEmail = email;
         
         showMobileVerifying(email);
-        
-        // 自動觸發驗證流程，無須手動點擊
         submitMobileAuth();
     };
 
@@ -594,7 +599,6 @@
         document.getElementById('mobileAuthVerifyingSection').classList.remove('hidden');
         document.getElementById('verifiedEmailText').textContent = `已綁定 Google 帳號：\n${email}`;
         
-        // 確保初始顯示為驗證中
         document.getElementById('mobileAuthStatusText').textContent = "安全驗證中...";
         document.getElementById('mobileAuthStatusText').parentElement.querySelector('svg').classList.remove('hidden');
         document.getElementById('mobileAuthError').classList.add('hidden');
@@ -614,7 +618,6 @@
         }
     }
 
-    // 送出手機端的 Google ID Token 給 GS 進行數位簽章驗證 (無密碼)
     window.submitMobileAuth = async function() {
         const errorEl = document.getElementById('mobileAuthError');
         const statusText = document.getElementById('mobileAuthStatusText');
@@ -642,7 +645,6 @@
             if (res.status === 'success') {
                 const sessionParam = new URLSearchParams(window.location.search).get('session');
                 if(sessionParam) {
-                    // 將後端簽發的 Session Token 安全傳遞給 PC 端
                     await setDoc(getDocRef('sessions', sessionParam), { 
                         status: 'unlocked',
                         sessionToken: res.sessionToken 
@@ -671,7 +673,6 @@
         
         const verifyingSection = document.getElementById('mobileAuthVerifyingSection');
         if (verifyingSection) {
-            // 恢復原始 UI
             verifyingSection.innerHTML = `
                 <p id="verifiedEmailText" class="text-emerald-600 font-black mb-6 text-sm bg-emerald-50 px-4 py-2 rounded-xl w-full break-all border border-emerald-100"></p>
                 <div class="flex items-center gap-3 text-blue-600 mb-4">
@@ -690,9 +691,8 @@
         renderGoogleSignInBtn();
     };
 
-    // --- PC 端密碼解鎖相關 ---
     const MAX_PC_PWD_ATTEMPTS = 5;
-    const LOCK_DURATION_MS = 15 * 60 * 1000; // 15 分鐘
+    const LOCK_DURATION_MS = 15 * 60 * 1000;
 
     function checkPcLockStatus() {
         const lockUntil = localStorage.getItem('exp_sys_pc_lock_until');
@@ -765,7 +765,6 @@
                 localStorage.removeItem('exp_sys_pc_attempts');
                 localStorage.removeItem('exp_sys_pc_lock_until');
                 
-                // 將後端核發的 Session Token 存入本地，做為後續 Pull/Push 憑證
                 localStorage.setItem('exp_sys_session_token', res.sessionToken);
                 
                 document.getElementById('pcPasswordModal').classList.add('hidden');
@@ -822,8 +821,6 @@
 
         onSnapshot(sessionDocRef, (docSnap) => {
             if (docSnap.exists() && docSnap.data().status === 'unlocked') {
-                
-                // 從 Firebase 取得手機端傳來的手機版 Session Token
                 const sToken = docSnap.data().sessionToken;
                 if (sToken) localStorage.setItem('exp_sys_session_token', sToken);
 
@@ -920,7 +917,6 @@
     window.pullFromSheets = async function() {
         if (!isFirebaseReady) return; 
         
-        // 取得連線金鑰
         const sessionToken = localStorage.getItem('exp_sys_session_token');
         if (!sessionToken) {
             showModal('未授權存取', '遺失連線金鑰。請重新整理頁面並重新解鎖系統。');
@@ -956,7 +952,6 @@
     window.pushToSheets = async function() {
         if (!isFirebaseReady) return; 
         
-        // 取得連線金鑰
         const sessionToken = localStorage.getItem('exp_sys_session_token');
         if (!sessionToken) {
             showModal('未授權存取', '遺失連線金鑰。請重新整理頁面並重新解鎖系統。');
@@ -1012,6 +1007,35 @@
                     <tr><td class="text-left whitespace-nowrap px-2"><span>1個：</span><input type="text" inputmode="none" class="fill-blank" value="1K"></td><td><input type="text" inputmode="none" class="table-input"></td><td><input type="text" inputmode="none" class="table-input input-v"></td><td><input type="text" inputmode="none" class="table-input input-i"></td><td class="result-r font-bold text-blue-600">-</td></tr>
                     <tr><td class="text-left whitespace-nowrap px-2"><span>2個：</span><input type="text" inputmode="none" class="fill-blank" value="1K">${sym}<input type="text" inputmode="none" class="fill-blank" value="1K"></td><td><input type="text" inputmode="none" class="table-input"></td><td><input type="text" inputmode="none" class="table-input input-v"></td><td><input type="text" inputmode="none" class="table-input input-i"></td><td class="result-r font-bold text-blue-600">-</td></tr>
                     <tr><td class="text-left whitespace-nowrap px-2"><span>3個：</span><input type="text" inputmode="none" class="fill-blank" value="1K">${sym}<input type="text" inputmode="none" class="fill-blank" value="1K">${sym}<input type="text" inputmode="none" class="fill-blank" value="1K"></td><td><input type="text" inputmode="none" class="table-input"></td><td><input type="text" inputmode="none" class="table-input input-v"></td><td><input type="text" inputmode="none" class="table-input input-i"></td><td class="result-r font-bold text-blue-600">-</td></tr></tbody></table>`; 
+        } else if (val === 'exp5') {
+            // 新增：實驗五專用模板
+            html = `<h3 class="font-bold text-center text-purple-700 mb-4 text-2xl">5. 實驗五：串聯兩個電阻</h3>
+            <table class="theme-purple">
+                <thead>
+                    <tr>
+                        <th></th>
+                        <th>電壓<br>V1</th><th>電壓<br>V2</th><th>總電壓<br>V</th>
+                        <th>電流<br>I1</th><th>電流<br>I2</th><th>電流<br>I3</th>
+                        <th>平均<br>電流</th>
+                        <th>電阻<br>R1=V1/I</th><th>電阻<br>R2=V2/I</th><th>總電阻<br>R=V/I</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr id="exp5-row">
+                        <td class="font-bold text-slate-500">測量值</td>
+                        <td><input type="text" inputmode="none" class="table-input" data-var="v1"></td>
+                        <td><input type="text" inputmode="none" class="table-input" data-var="v2"></td>
+                        <td><input type="text" inputmode="none" class="table-input" data-var="v"></td>
+                        <td><input type="text" inputmode="none" class="table-input" data-var="i1"></td>
+                        <td><input type="text" inputmode="none" class="table-input" data-var="i2"></td>
+                        <td><input type="text" inputmode="none" class="table-input" data-var="i3"></td>
+                        <td class="font-bold text-purple-600 exp5-res" data-res="iavg">-</td>
+                        <td class="font-bold text-blue-600 exp5-res" data-res="r1">-</td>
+                        <td class="font-bold text-blue-600 exp5-res" data-res="r2">-</td>
+                        <td class="font-bold text-blue-600 exp5-res" data-res="r">-</td>
+                    </tr>
+                </tbody>
+            </table>`;
         } else { 
             html = `<h3 class="font-bold text-center text-green-700 mb-4 text-2xl">4. 並聯迴路觀察</h3><table class="theme-green"><thead><tr><th>位置</th><th>電阻(Ω)</th><th>電壓(V)</th><th>電流(mA)</th></tr></thead><tbody>
                     <tr><td class="font-bold text-slate-500">迴路 1</td><td><input type="text" inputmode="none" class="table-input"></td><td><input type="text" inputmode="none" class="table-input"></td><td><input type="text" inputmode="none" class="table-input"></td></tr>
@@ -1022,7 +1046,43 @@
         setTimeout(() => { document.querySelectorAll('#table-container input').forEach(input => { input.setAttribute('inputmode', 'none'); input.addEventListener('click', e => { e.preventDefault(); window.showNumPad(e.target); }); input.addEventListener('focus', e => { e.preventDefault(); window.showNumPad(e.target); }); }); }, 50);
     };
 
-    window.calculateRatio = () => { document.querySelectorAll('#table-container tr').forEach(row => { const vIn = row.querySelector('.input-v'), iIn = row.querySelector('.input-i'), res = row.querySelector('.result-r'); if (res) { let v = vIn ? parseFloat(vIn.value) : (row.cells[0]?.innerText.includes('V') ? parseFloat(row.cells[0].innerText) : NaN); const i = iIn ? parseFloat(iIn.value) : NaN; res.textContent = (!isNaN(v) && !isNaN(i) && i !== 0) ? ((v / i) * 1000).toFixed(2) : '-'; } }); };
+    window.calculateRatio = () => { 
+        const expType = document.getElementById('expSelect').value;
+        if (expType === 'exp5') {
+            // 新增：實驗五的特殊計算邏輯
+            const row = document.getElementById('exp5-row');
+            if (!row) return;
+            const getVal = (selector) => {
+                const el = row.querySelector(selector);
+                const val = el ? parseFloat(el.value) : NaN;
+                return isNaN(val) ? null : val;
+            };
+            const v1 = getVal('[data-var="v1"]'), v2 = getVal('[data-var="v2"]'), v = getVal('[data-var="v"]');
+            const i1 = getVal('[data-var="i1"]'), i2 = getVal('[data-var="i2"]'), i3 = getVal('[data-var="i3"]');
+
+            // 計算平均電流 (若輸入有效數值才會納入平均)
+            let iVals = [i1, i2, i3].filter(x => x !== null);
+            let iAvg = iVals.length > 0 ? iVals.reduce((a, b) => a + b, 0) / iVals.length : null;
+            row.querySelector('[data-res="iavg"]').textContent = iAvg !== null ? iAvg.toFixed(2) : '-';
+
+            // 電阻計算 R = V / I * 1000 (將電流視為 mA 單位)
+            const calcR = (volts, amps) => (volts !== null && amps !== null && amps !== 0) ? ((volts / amps) * 1000).toFixed(2) : '-';
+            row.querySelector('[data-res="r1"]').textContent = calcR(v1, iAvg);
+            row.querySelector('[data-res="r2"]').textContent = calcR(v2, iAvg);
+            row.querySelector('[data-res="r"]').textContent = calcR(v, iAvg);
+        } else {
+            // 原有的實驗一至四計算邏輯
+            document.querySelectorAll('#table-container tr').forEach(row => { 
+                const vIn = row.querySelector('.input-v'), iIn = row.querySelector('.input-i'), res = row.querySelector('.result-r'); 
+                if (res) { 
+                    let v = vIn ? parseFloat(vIn.value) : (row.cells[0]?.innerText.includes('V') ? parseFloat(row.cells[0].innerText) : NaN); 
+                    const i = iIn ? parseFloat(iIn.value) : NaN; 
+                    res.textContent = (!isNaN(v) && !isNaN(i) && i !== 0) ? ((v / i) * 1000).toFixed(2) : '-'; 
+                } 
+            }); 
+        }
+    };
+
     window.saveExpData = async function() { if (!currentGrade || !currentClass || !isFirebaseReady) return showModal('系統提示', '請先選擇班級'); const expType = document.getElementById('expSelect').value, data = Array.from(document.querySelectorAll('#table-container input')).map(i => i.value); try { await setDoc(getDocRef('experiments', `${currentGrade}_${currentClass}_${expType}`), { grade: currentGrade, className: currentClass, expType, data, updatedAt: new Date().toLocaleString() }); const ind = document.getElementById('saveStatusIndicator'); if (ind) { ind.classList.remove('hidden'); setTimeout(() => ind.classList.add('hidden'), 3000); } } catch (e) { showModal('儲存失敗', e.message); } };
     window.loadExpData = async () => { if (!currentGrade || !currentClass || !isFirebaseReady) return; try { const snap = await getDoc(getDocRef('experiments', `${currentGrade}_${currentClass}_${document.getElementById('expSelect').value}`)); if (snap.exists()) { const ins = document.querySelectorAll('#table-container input'); const data = snap.data().data; ins.forEach((input, i) => { let val = data[i]; if (input.classList.contains('fill-blank') && (!val || val.trim() === "")) val = "1K"; else if (val === undefined) val = ""; input.value = val; }); calculateRatio(); } else { window.clearExpData(); } } catch (e) {} };
 
@@ -1082,7 +1142,6 @@
                 
                 const urlParams = new URLSearchParams(window.location.search);
                 if (urlParams.get('mode') === 'remote') {
-                    // 手機端認證流程：顯示 Google 登入按鈕，取消自動讀取 email 免登機制 (因為需要取得全新的 ID Token)
                     document.getElementById('remoteMobileUI').classList.remove('hidden');
                     renderGoogleSignInBtn();
                 } else {
