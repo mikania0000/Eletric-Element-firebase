@@ -161,23 +161,6 @@
     </div>
 </div>
 
-<!-- ================= 大螢幕 PC 密碼解鎖 Modal ================= -->
-<div id="pcPasswordModal" class="fixed inset-0 z-[500] flex items-center justify-center bg-slate-900/80 hidden backdrop-blur-md p-4">
-    <div class="bg-white rounded-[32px] shadow-2xl w-full max-w-sm p-8 transform transition-all modal-enter">
-        <div class="flex justify-center mb-4">
-            <div class="w-16 h-16 bg-slate-100 text-slate-600 rounded-full flex items-center justify-center shadow-inner">
-                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path></svg>
-            </div>
-        </div>
-        <h3 class="text-2xl font-black text-slate-900 tracking-tighter mb-2 text-center">手動解鎖系統</h3>
-        <p class="text-slate-500 font-bold mb-6 text-sm text-center">請輸入系統解鎖密碼</p>
-        <input type="password" id="pcPwdInput" class="w-full bg-slate-50 border-2 border-slate-200 rounded-xl px-4 py-4 text-center text-xl font-black text-slate-800 outline-none focus:border-blue-500 transition-colors mb-4" placeholder="輸入解鎖密碼">
-        <div id="pcPwdErrorMsg" class="text-rose-500 text-sm font-bold text-center mb-4 hidden">密碼錯誤，請重試</div>
-        <button onclick="submitPcPassword(this)" class="w-full bg-blue-600 text-white font-black py-4 rounded-2xl shadow-xl shadow-blue-200 hover:bg-blue-700 active:scale-95 transition-all text-xl tracking-widest">確認解鎖</button>
-        <button onclick="closePcPasswordModal()" class="w-full mt-4 py-3 text-slate-400 font-bold hover:text-slate-600 transition-colors text-sm tracking-widest uppercase">取消</button>
-    </div>
-</div>
-
 <!-- ================= 大螢幕鎖定畫面 ================= -->
 <div id="lockScreenUI" class="fixed inset-0 z-[400] bg-slate-900/95 backdrop-blur-2xl flex flex-col items-center justify-center text-white hidden">
     <div class="bg-slate-800/80 p-12 rounded-[40px] shadow-[0_30px_60px_rgba(0,0,0,0.6)] flex flex-col items-center border border-slate-700 text-center max-w-lg">
@@ -194,12 +177,12 @@
             <span class="text-sm font-bold tracking-widest">等待手機授權中...</span>
         </div>
         
-        <button onclick="promptPcUnlock()" class="px-6 py-3 bg-slate-700/50 hover:bg-slate-700 rounded-xl text-slate-300 transition-colors font-bold text-sm tracking-wider flex items-center gap-2 border border-slate-600/50">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path></svg>
-            忘記帶手機？使用密碼手動解鎖
-        </button>
+            <div class="flex items-center gap-3 text-slate-500 mb-8">
+                <svg class="animate-spin h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                <span class="text-sm font-bold tracking-widest">等待手機授權中...</span>
+            </div>
+        </div>
     </div>
-</div>
 
 <!-- 視訊全螢幕底層 -->
 <div id="videoContainer" class="absolute inset-0 z-0 flex items-center justify-center bg-black">
@@ -618,6 +601,8 @@
                 btnContainer,
                 { theme: "outline", size: "large", width: 280, shape: "pill" }
             );
+            // 嘗試自動彈出 Google 帳號選擇畫面 (One Tap)
+            google.accounts.id.prompt();
         }
     }
 
@@ -692,117 +677,6 @@
         document.getElementById('remoteMsg').className = "mt-4 font-bold text-lg h-6 text-slate-500";
         document.getElementById('remoteMsg').textContent = "請重新登入";
         renderGoogleSignInBtn();
-    };
-
-    const MAX_PC_PWD_ATTEMPTS = 5;
-    const LOCK_DURATION_MS = 15 * 60 * 1000;
-
-    function checkPcLockStatus() {
-        const lockUntil = localStorage.getItem('exp_sys_pc_lock_until');
-        if (lockUntil) {
-            const remaining = parseInt(lockUntil) - Date.now();
-            if (remaining > 0) {
-                return Math.ceil(remaining / 60000); 
-            } else {
-                localStorage.removeItem('exp_sys_pc_attempts');
-                localStorage.removeItem('exp_sys_pc_lock_until');
-            }
-        }
-        return 0;
-    }
-
-    window.promptPcUnlock = function() {
-        const pwdInput = document.getElementById('pcPwdInput');
-        const errorMsg = document.getElementById('pcPwdErrorMsg');
-        const submitBtn = document.querySelector('#pcPasswordModal button[onclick^="submitPcPassword"]');
-        
-        pwdInput.value = '';
-        document.getElementById('pcPasswordModal').classList.remove('hidden');
-        
-        const lockedMins = checkPcLockStatus();
-        
-        if (lockedMins > 0) {
-            pwdInput.disabled = true;
-            errorMsg.textContent = `錯誤已達 5 次，請等待 ${lockedMins} 分鐘後再試。`;
-            errorMsg.classList.remove('hidden');
-            if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = "已鎖定"; }
-        } else {
-            pwdInput.disabled = false;
-            errorMsg.classList.add('hidden');
-            if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = "確認解鎖"; }
-            setTimeout(() => pwdInput.focus(), 100);
-        }
-    };
-
-    window.closePcPasswordModal = function() {
-        document.getElementById('pcPasswordModal').classList.add('hidden');
-    };
-
-    window.submitPcPassword = async function(btn) {
-        const pwdInput = document.getElementById('pcPwdInput');
-        const pwd = pwdInput.value;
-        const errorMsg = document.getElementById('pcPwdErrorMsg');
-        
-        if(!pwd) return;
-        
-        const lockedMins = checkPcLockStatus();
-        if (lockedMins > 0) {
-            errorMsg.textContent = `錯誤已達 5 次，請等待 ${lockedMins} 分鐘後再試。`;
-            errorMsg.classList.remove('hidden');
-            return;
-        }
-
-        const originalText = btn.textContent;
-        btn.textContent = "驗證中...";
-        btn.disabled = true;
-        pwdInput.disabled = true;
-        errorMsg.classList.add('hidden');
-
-        try {
-            const res = await fetch(myDefaultGasUrl, { 
-                method: 'POST', 
-                body: JSON.stringify({ action: 'verifyPasswordSecure', password: pwd }) 
-            }).then(r => r.json());
-
-            if (res.status === 'success') {
-                localStorage.removeItem('exp_sys_pc_attempts');
-                localStorage.removeItem('exp_sys_pc_lock_until');
-                
-                localStorage.setItem('exp_sys_session_token', res.sessionToken);
-                
-                document.getElementById('pcPasswordModal').classList.add('hidden');
-                
-                setDoc(getDocRef('sessions', windowSessionId), { status: 'unlocked' }, { merge: true });
-                
-                if (!isAppUnlocked) {
-                    isAppUnlocked = true;
-                    document.getElementById('lockScreenUI').classList.add('hidden');
-                    window.initApp(); 
-                }
-            } else {
-                let attempts = parseInt(localStorage.getItem('exp_sys_pc_attempts') || '0') + 1;
-                localStorage.setItem('exp_sys_pc_attempts', attempts);
-                
-                if (attempts >= MAX_PC_PWD_ATTEMPTS) {
-                    localStorage.setItem('exp_sys_pc_lock_until', Date.now() + LOCK_DURATION_MS);
-                    errorMsg.textContent = `錯誤已達 5 次，請等待 15 分鐘後再試。`;
-                    btn.textContent = "已鎖定";
-                } else {
-                    errorMsg.textContent = `${res.message || "密碼錯誤"} (剩餘 ${MAX_PC_PWD_ATTEMPTS - attempts} 次)`;
-                    pwdInput.disabled = false;
-                    btn.textContent = originalText;
-                    btn.disabled = false;
-                    setTimeout(() => pwdInput.focus(), 100);
-                }
-                errorMsg.classList.remove('hidden');
-            }
-        } catch (err) {
-            errorMsg.textContent = "連線失敗，請檢查網路";
-            errorMsg.classList.remove('hidden');
-            pwdInput.disabled = false;
-            btn.textContent = originalText;
-            btn.disabled = false;
-        }
     };
 
     window.startPcLockScreen = async function() {
@@ -1098,9 +972,6 @@
         document.getElementById('studentSearchInput').addEventListener('input', renderFilteredStudentList);
         document.getElementById('floatingTableContent').addEventListener('scroll', window.hideNumPad, {passive: true});
         document.addEventListener('click', (e) => { const pad = document.getElementById('numPad'); if (!pad || pad.classList.contains('hidden') || pad.contains(e.target) || e.target.tagName === 'INPUT') return; window.hideNumPad(); });
-        
-        const pcInput = document.getElementById('pcPwdInput');
-        if (pcInput) pcInput.addEventListener('keypress', function (e) { if (e.key === 'Enter') submitPcPassword(this.nextElementSibling); });
     }
 
     async function initCamera() { 
