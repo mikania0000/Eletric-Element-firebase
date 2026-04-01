@@ -233,7 +233,6 @@
                 <option value="exp2">2. 電阻串聯 (固定 3V)</option>
                 <option value="exp3">3. 電阻並聯 (固定 3V)</option>
                 <option value="exp4">4. 並聯迴路電流</option>
-                <!-- 新增：實驗五 -->
                 <option value="exp5">5. 串聯電路分析</option>
             </select>
         </div>
@@ -590,7 +589,9 @@
         if(btnContainer) {
             google.accounts.id.initialize({
                 client_id: GOOGLE_CLIENT_ID,
-                callback: handleGoogleCredentialResponse
+                callback: handleGoogleCredentialResponse,
+                itp_support: true, // 新增：專門支援 iOS/Safari 的防止跨站追蹤機制
+                auto_select: true  // 新增：如果該瀏覽器以前授權過，自動嘗試登入
             });
             google.accounts.id.renderButton(
                 btnContainer,
@@ -880,7 +881,6 @@
                     <tr><td class="text-left whitespace-nowrap px-2"><span>2個：</span><input type="text" inputmode="none" class="fill-blank" value="1K">${sym}<input type="text" inputmode="none" class="fill-blank" value="1K"></td><td><input type="text" inputmode="none" class="table-input"></td><td><input type="text" inputmode="none" class="table-input input-v"></td><td><input type="text" inputmode="none" class="table-input input-i"></td><td class="result-r font-bold text-blue-600">-</td></tr>
                     <tr><td class="text-left whitespace-nowrap px-2"><span>3個：</span><input type="text" inputmode="none" class="fill-blank" value="1K">${sym}<input type="text" inputmode="none" class="fill-blank" value="1K">${sym}<input type="text" inputmode="none" class="fill-blank" value="1K"></td><td><input type="text" inputmode="none" class="table-input"></td><td><input type="text" inputmode="none" class="table-input input-v"></td><td><input type="text" inputmode="none" class="table-input input-i"></td><td class="result-r font-bold text-blue-600">-</td></tr></tbody></table>`; 
         } else if (val === 'exp5') {
-            // 新增：實驗五專用模板
             html = `<h3 class="font-bold text-center text-purple-700 mb-4 text-2xl">5. 串聯電路分析</h3>
             <table class="theme-purple">
                 <thead>
@@ -921,7 +921,6 @@
     window.calculateRatio = () => { 
         const expType = document.getElementById('expSelect').value;
         if (expType === 'exp5') {
-            // 新增：實驗五的特殊計算邏輯
             const row = document.getElementById('exp5-row');
             if (!row) return;
             const getVal = (selector) => {
@@ -932,18 +931,15 @@
             const v1 = getVal('[data-var="v1"]'), v2 = getVal('[data-var="v2"]'), v = getVal('[data-var="v"]');
             const i1 = getVal('[data-var="i1"]'), i2 = getVal('[data-var="i2"]'), i3 = getVal('[data-var="i3"]');
 
-            // 計算平均電流 (若輸入有效數值才會納入平均)
             let iVals = [i1, i2, i3].filter(x => x !== null);
             let iAvg = iVals.length > 0 ? iVals.reduce((a, b) => a + b, 0) / iVals.length : null;
             row.querySelector('[data-res="iavg"]').textContent = iAvg !== null ? iAvg.toFixed(2) : '-';
 
-            // 電阻計算 R = V / I * 1000 (將電流視為 mA 單位)
             const calcR = (volts, amps) => (volts !== null && amps !== null && amps !== 0) ? ((volts / amps) * 1000).toFixed(2) : '-';
             row.querySelector('[data-res="r1"]').textContent = calcR(v1, iAvg);
             row.querySelector('[data-res="r2"]').textContent = calcR(v2, iAvg);
             row.querySelector('[data-res="r"]').textContent = calcR(v, iAvg);
         } else {
-            // 原有的實驗一至四計算邏輯
             document.querySelectorAll('#table-container tr').forEach(row => { 
                 const vIn = row.querySelector('.input-v'), iIn = row.querySelector('.input-i'), res = row.querySelector('.result-r'); 
                 if (res) { 
