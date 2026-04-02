@@ -876,7 +876,8 @@
         document.getElementById(`${id}-display`).value = state.currentInput; 
     };
     
-    function initInteractiveModal(modalId, headerId) {
+    // ★ 修正：將函式註冊為 window 屬性，確保動態生成的計算機能夠正確呼叫並綁定拖曳功能
+    window.initInteractiveModal = function(modalId, headerId) {
         const modal = document.getElementById(modalId);
         const header = document.getElementById(headerId);
         const handles = modal ? modal.querySelectorAll('.resize-handle') : [];
@@ -950,7 +951,7 @@
             document.addEventListener('mouseup', stopR); 
             document.addEventListener('touchend', stopR);
         });
-    }
+    };
 
     async function checkSheetsConnection() {
         const dot = document.getElementById('mainConnStatusDot'), badge = document.getElementById('syncStatusBadge');
@@ -1227,9 +1228,12 @@
         await fetchClassList();
         renderTableTemplate();
         setupEventListeners();
-        initInteractiveModal('floatingTableModal', 'floatingTableHeader');
-        initInteractiveModal('floatingGradingModal', 'floatingGradingHeader');
-        initInteractiveModal('numPad', 'numPadHeader'); 
+        
+        // ★ 修正：統一加上 window. 前綴
+        window.initInteractiveModal('floatingTableModal', 'floatingTableHeader');
+        window.initInteractiveModal('floatingGradingModal', 'floatingGradingHeader');
+        window.initInteractiveModal('numPad', 'numPadHeader'); 
+        
         initCamera();
         checkSheetsConnection();
     };
