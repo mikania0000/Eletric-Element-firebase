@@ -859,7 +859,12 @@ window.openFloatingTable = function() {
         if (!dot) return;
         dot.className = "absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-yellow-400 ping-yellow border-2 border-white shadow-sm";
         try {
-            const res = await fetch(myDefaultGasUrl, { method: 'POST', body: JSON.stringify({ action: 'check' }) }).then(r => r.json());
+            const res = await fetch(myDefaultGasUrl, { 
+                redirect: "follow",
+                method: 'POST', 
+                headers: { "Content-Type": "text/plain;charset=utf-8" },
+                body: JSON.stringify({ action: 'check' }) 
+            }).then(r => r.json());
             if (res.status === 'success') {
                 dot.className = "absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-green-500 ping-green border-2 border-white shadow-sm";
                 if (badge) { badge.textContent = "已連線至 Google Sheets"; badge.className = "text-sm font-black text-emerald-500 tracking-widest mt-1"; }
@@ -954,7 +959,9 @@ window.openFloatingTable = function() {
 
         try {
             const res = await fetch(myDefaultGasUrl, { 
+                redirect: "follow",
                 method: 'POST', 
+                headers: { "Content-Type": "text/plain;charset=utf-8" },
                 body: JSON.stringify({ 
                     action: 'verifyAuthSecure', 
                     idToken: window.currentIdToken 
@@ -985,9 +992,10 @@ window.openFloatingTable = function() {
                 }
             }
         } catch (err) {
+            console.error("Auth fetch error: ", err);
             spinner.classList.add('hidden');
             statusText.textContent = "連線異常";
-            errorEl.textContent = "連線失敗，請檢查網路";
+            errorEl.textContent = "連線失敗，請檢查網路 (" + err.message + ")";
             errorEl.classList.remove('hidden');
         }
     };
@@ -1229,9 +1237,9 @@ window.applyBatchScore = async function(amt) {
     } catch(e) {
         window.showModal('錯誤', '批次更新失敗: ' + e.message);
     }
-};
+}; // 這是本次修復缺少的右大括號！
 
-window.openSyncModal = () => document.getElementById('syncModal').classList.remove('hidden');
+    window.openSyncModal = () => document.getElementById('syncModal').classList.remove('hidden');
     window.closeSyncModal = () => document.getElementById('syncModal').classList.add('hidden');
     
     window.pullFromSheets = async function() {
@@ -1246,7 +1254,9 @@ window.openSyncModal = () => document.getElementById('syncModal').classList.remo
         showLoadingModal('正在驗證金鑰並下載名單...');
         try {
             const res = await fetch(myDefaultGasUrl, { 
+                redirect: "follow",
                 method: 'POST', 
+                headers: { "Content-Type": "text/plain;charset=utf-8" },
                 body: JSON.stringify({ action: 'pull', sessionToken: sessionToken }) 
             }).then(r => r.json());
             
@@ -1286,7 +1296,9 @@ window.openSyncModal = () => document.getElementById('syncModal').classList.remo
                 qSnap.forEach(d => { exps[d.id] = d.data(); });
             }
             const res = await fetch(myDefaultGasUrl, { 
+                redirect: "follow",
                 method: 'POST', 
+                headers: { "Content-Type": "text/plain;charset=utf-8" },
                 body: JSON.stringify({ 
                     action: 'push', 
                     sessionToken: sessionToken,
