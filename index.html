@@ -685,122 +685,215 @@ window.openFloatingTable = function() {
         window.calculateRatio(); 
     };
 
-    let calcExpression = '', calcCurrentInput = '0', calcLastAction = 'num';
-    
-    window.toggleCalculator = function() { 
-        const m = document.getElementById('calculatorModal'); 
-        if (m.classList.contains('hidden')) {
-            m.classList.remove('hidden');
-            if (!m.dataset.positioned) {
-                m.style.top = '80px';
-                m.style.left = Math.max(20, window.innerWidth - 480) + 'px';
-                m.dataset.positioned = 'true';
-            }
-        } else {
-            m.classList.add('hidden'); 
+    // ★ 全新的多台計算機管理系統 ★
+    window.calcInstances = {}; // 儲存所有計算機的獨立狀態
+    window.calcCounter = 0;    // 計算機編號計數器
+    window.baseZIndexCalc = 105; // 視窗層級基底
+
+    window.openNewCalculator = function() { 
+        const activeIds = Object.keys(window.calcInstances);
+        if (activeIds.length >= 3) {
+            window.showModal('提示', '為保持畫面整潔，最多只能同時開啟 3 台計算機喔！');
+            return;
         }
-    };
-    
-    window.showCalcChoiceModal = function(opt1, opt2) {
-        window.showModal("計算提示", `遇到模稜兩可的四則運算時，建議手動先結算括號內的數值，或是分段運算以確保正確性。\n\n可能出現的運算順序：\n1. ${opt1}\n2. ${opt2}`);
+
+        window.calcCounter++;
+        const calcId = 'calc-' + window.calcCounter;
+        
+        // 賦予獨立記憶體
+        window.calcInstances[calcId] = {
+            expression: '',
+            currentInput: '0',
+            lastAction: 'num',
+            zIndex: ++window.baseZIndexCalc
+        };
+
+        const offset = activeIds.length * 50; // 視窗錯開效果
+        const calcDiv = document.createElement('div');
+        calcDiv.id = calcId;
+        calcDiv.className = `fixed bg-white/95 backdrop-blur-2xl rounded-[20px] shadow-[0_20px_40px_-10px_rgba(0,0,0,0.5)] border border-slate-200 p-3 w-[260px] transition-opacity duration-200 touch-none flex flex-col`;
+        calcDiv.style.zIndex = window.calcInstances[calcId].zIndex;
+        calcDiv.style.top = (80 + offset) + 'px';
+        calcDiv.style.left = Math.max(20, window.innerWidth - 300 - offset) + 'px';
+
+        calcDiv.innerHTML = `
+            <div id="${calcId}-header" class="flex justify-between items-center mb-3 px-2 cursor-move bg-slate-100 rounded-lg p-1" title="按住拖曳">
+                <div class="flex items-center gap-1 text-slate-400 pointer-events-none">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                    <span id="${calcId}-title" class="text-sm font-black tracking-widest text-orange-500 uppercase">小計算機</span>
+                </div>
+                <button onclick="window.closeCalculator('${calcId}')" class="text-slate-400 hover:text-rose-500 font-black p-1 transition-colors rounded-full" title="關閉">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <div class="mb-2">
+                <div id="${calcId}-history" class="text-right text-sm text-slate-400 h-5 px-1 overflow-hidden font-bold tracking-wider mb-1"></div>
+                <input type="text" id="${calcId}-display" class="w-full bg-slate-50 border-2 border-slate-200 rounded-xl px-2 py-2 text-right text-3xl font-black text-slate-800 outline-none" value="0" readonly>
+            </div>
+            <div class="grid grid-cols-4 gap-2">
+                <button onclick="window.calcInput('${calcId}', 'C')" class="bg-rose-50 text-rose-600 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-rose-100">C</button>
+                <button onclick="window.calcInput('${calcId}', '√')" class="bg-slate-100 text-slate-600 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-slate-200">√</button>
+                <button onclick="window.calcInput('${calcId}', '/')" class="bg-orange-50 text-orange-600 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-orange-100">÷</button>
+                <button onclick="window.calcInput('${calcId}', '⌫')" class="bg-slate-100 text-slate-600 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-slate-200">⌫</button>
+
+                <button onclick="window.calcInput('${calcId}', '7')" class="bg-slate-50 text-slate-800 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-orange-50">7</button>
+                <button onclick="window.calcInput('${calcId}', '8')" class="bg-slate-50 text-slate-800 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-orange-50">8</button>
+                <button onclick="window.calcInput('${calcId}', '9')" class="bg-slate-50 text-slate-800 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-orange-50">9</button>
+                <button onclick="window.calcInput('${calcId}', '*')" class="bg-orange-50 text-orange-600 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-orange-100">×</button>
+
+                <button onclick="window.calcInput('${calcId}', '4')" class="bg-slate-50 text-slate-800 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-orange-50">4</button>
+                <button onclick="window.calcInput('${calcId}', '5')" class="bg-slate-50 text-slate-800 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-orange-50">5</button>
+                <button onclick="window.calcInput('${calcId}', '6')" class="bg-slate-50 text-slate-800 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-orange-50">6</button>
+                <button onclick="window.calcInput('${calcId}', '-')" class="bg-orange-50 text-orange-600 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-orange-100">-</button>
+
+                <button onclick="window.calcInput('${calcId}', '1')" class="bg-slate-50 text-slate-800 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-orange-50">1</button>
+                <button onclick="window.calcInput('${calcId}', '2')" class="bg-slate-50 text-slate-800 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-orange-50">2</button>
+                <button onclick="window.calcInput('${calcId}', '3')" class="bg-slate-50 text-slate-800 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-orange-50">3</button>
+                <button onclick="window.calcInput('${calcId}', '+')" class="bg-orange-50 text-orange-600 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-orange-100">+</button>
+
+                <button onclick="window.calcInput('${calcId}', '0')" class="col-span-2 bg-slate-50 text-slate-800 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-orange-50">0</button>
+                <button onclick="window.calcInput('${calcId}', '.')" class="bg-slate-50 text-slate-800 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-orange-50">.</button>
+                <button onclick="window.calcInput('${calcId}', '=')" class="bg-orange-500 text-white rounded-xl py-2 text-xl font-black shadow-md active:scale-95 transition-all hover:bg-orange-600">=</button>
+            </div>
+        `;
+
+        // 點擊任一處使其浮到最上層
+        calcDiv.addEventListener('mousedown', () => window.bringCalculatorToFront(calcId));
+        calcDiv.addEventListener('touchstart', () => window.bringCalculatorToFront(calcId), {passive: true});
+
+        document.body.appendChild(calcDiv);
+        window.initInteractiveModal(calcId, `${calcId}-header`);
+        window.reindexCalculators();
     };
 
-    window.calcInput = function(key) { 
-        const d = document.getElementById('calcDisplay'), h = document.getElementById('calcHistory'); 
+    window.closeCalculator = function(id) {
+        const el = document.getElementById(id);
+        if (el) el.remove();
+        delete window.calcInstances[id];
+        window.reindexCalculators();
+    };
+
+    window.bringCalculatorToFront = function(id) {
+        const el = document.getElementById(id);
+        if (el && window.calcInstances[id]) {
+            window.calcInstances[id].zIndex = ++window.baseZIndexCalc;
+            el.style.zIndex = window.calcInstances[id].zIndex;
+        }
+    };
+
+    window.reindexCalculators = function() {
+        const ids = Object.keys(window.calcInstances);
+        ids.forEach((id, index) => {
+            const titleEl = document.getElementById(`${id}-title`);
+            if (titleEl) {
+                titleEl.innerText = ids.length > 1 ? `計算機 ${index + 1}` : `小計算機`;
+            }
+        });
+    };
+
+    window.calcInput = function(id, key) { 
+        const state = window.calcInstances[id];
+        const d = document.getElementById(`${id}-display`);
+        const h = document.getElementById(`${id}-history`);
+        if (!state || !d || !h) return;
         
-        if (calcLastAction === 'err') {
-            calcExpression = '';
-            calcCurrentInput = '0';
-            calcLastAction = 'num';
+        window.bringCalculatorToFront(id);
+
+        if (state.lastAction === 'err') {
+            state.expression = '';
+            state.currentInput = '0';
+            state.lastAction = 'num';
             h.innerText = '';
         } 
         
         if (key >= '0' && key <= '9') {
-            if (calcLastAction === 'eq' || calcCurrentInput === '0' || calcLastAction === 'op') {
-                calcCurrentInput = key;
-                if (calcLastAction === 'eq') calcExpression = '';
+            if (state.lastAction === 'eq' || state.currentInput === '0' || state.lastAction === 'op') {
+                state.currentInput = key;
+                if (state.lastAction === 'eq') state.expression = '';
             } else {
-                calcCurrentInput += key;
+                state.currentInput += key;
             }
-            calcLastAction = 'num';
-            h.innerText = calcExpression + calcCurrentInput;
+            state.lastAction = 'num';
+            h.innerText = state.expression + state.currentInput;
         } else if (key === '.') {
-            if (calcLastAction === 'eq' || calcLastAction === 'op') {
-                calcCurrentInput = '0.';
-                if (calcLastAction === 'eq') calcExpression = '';
-            } else if (!calcCurrentInput.includes('.')) {
-                calcCurrentInput += '.';
+            if (state.lastAction === 'eq' || state.lastAction === 'op') {
+                state.currentInput = '0.';
+                if (state.lastAction === 'eq') state.expression = '';
+            } else if (!state.currentInput.includes('.')) {
+                state.currentInput += '.';
             }
-            calcLastAction = 'num';
-            h.innerText = calcExpression + calcCurrentInput;
+            state.lastAction = 'num';
+            h.innerText = state.expression + state.currentInput;
         } else if (key === 'C') {
-            calcExpression = '';
-            calcCurrentInput = '0';
-            calcLastAction = 'num';
+            state.expression = '';
+            state.currentInput = '0';
+            state.lastAction = 'num';
             h.innerText = '';
         } else if (key === '⌫') {
-            if (calcLastAction === 'num' || calcLastAction === 'eq') {
-                calcCurrentInput = calcCurrentInput.length > 1 ? calcCurrentInput.slice(0, -1) : '0';
-                if (calcCurrentInput === '-' || calcCurrentInput === '') calcCurrentInput = '0';
-                if (calcLastAction === 'eq') {
-                    calcExpression = '';
-                    calcLastAction = 'num';
+            if (state.lastAction === 'num' || state.lastAction === 'eq') {
+                state.currentInput = state.currentInput.length > 1 ? state.currentInput.slice(0, -1) : '0';
+                if (state.currentInput === '-' || state.currentInput === '') state.currentInput = '0';
+                if (state.lastAction === 'eq') {
+                    state.expression = '';
+                    state.lastAction = 'num';
                 }
-                h.innerText = calcExpression + (calcCurrentInput === '0' && calcExpression === '' ? '' : calcCurrentInput);
+                h.innerText = state.expression + (state.currentInput === '0' && state.expression === '' ? '' : state.currentInput);
             }
         } else if (key === '√') {
-            const v = parseFloat(calcCurrentInput);
+            const v = parseFloat(state.currentInput);
             if (v >= 0) {
-                if (calcLastAction === 'eq') {
-                    calcExpression = '';
+                if (state.lastAction === 'eq') {
+                    state.expression = '';
                     h.innerText = '√(' + v + ') =';
                 }
-                calcCurrentInput = String(parseFloat(Math.sqrt(v).toFixed(6)));
-                calcLastAction = 'num';
+                state.currentInput = String(parseFloat(Math.sqrt(v).toFixed(6)));
+                state.lastAction = 'num';
             } else {
-                calcCurrentInput = 'Error';
-                calcLastAction = 'err';
+                state.currentInput = 'Error';
+                state.lastAction = 'err';
             }
         } else if (['+', '-', '*', '/'].includes(key)) {
             const op = key === '*' ? '×' : key === '/' ? '÷' : key;
-            if (calcLastAction === 'op') {
-                calcExpression = calcExpression.replace(/[\+\-\×\÷]\s*$/, op + ' ');
+            if (state.lastAction === 'op') {
+                state.expression = state.expression.replace(/[\+\-\×\÷]\s*$/, op + ' ');
             } else {
-                calcExpression += calcCurrentInput + ' ' + op + ' ';
+                state.expression += state.currentInput + ' ' + op + ' ';
             }
-            calcLastAction = 'op';
-            h.innerText = calcExpression;
+            state.lastAction = 'op';
+            h.innerText = state.expression;
         } else if (key === '=') {
-            if (calcLastAction !== 'eq' && calcExpression !== '') {
-                let f = calcExpression + calcCurrentInput;
+            if (state.lastAction !== 'eq' && state.expression !== '') {
+                let f = state.expression + state.currentInput;
                 let t = f.split(' ').filter(x => x);
                 const isAS = o => o === '+' || o === '-';
                 const isMD = o => o === '×' || o === '÷';
                 
                 if (t.length === 5 && ((isAS(t[1]) && isMD(t[3])) || (isMD(t[1]) && isAS(t[3])))) {
-                    window.showCalcChoiceModal(`(${t[0]} ${t[1]} ${t[2]}) ${t[3]} ${t[4]}`, `${t[0]} ${t[1]} (${t[2]} ${t[3]} ${t[4]})`);
+                    window.showModal("計算提示", `遇到模稜兩可的四則運算時，建議先結算括號內的數值，或分段運算以確保正確性。\n\n可能出現的運算順序：\n1. (${t[0]} ${t[1]} ${t[2]}) ${t[3]} ${t[4]}\n2. ${t[0]} ${t[1]} (${t[2]} ${t[3]} ${t[4]})`);
                     return;
                 }
-                window.executeCalculation(f, f);
+                window.executeCalculation(id, f, f);
             }
         } 
-        d.value = calcCurrentInput; 
+        d.value = state.currentInput; 
     };
     
-    window.executeCalculation = function(ev, hs) { 
+    window.executeCalculation = function(id, ev, hs) { 
+        const state = window.calcInstances[id];
+        if (!state) return;
         let e = ev.replace(/×/g, '*').replace(/÷/g, '/'); 
         try {
             let r = new Function('return ' + e)();
             if (!isFinite(r)) throw new Error();
-            calcCurrentInput = String(parseFloat(r.toFixed(6)));
-            document.getElementById('calcHistory').innerText = hs + ' =';
-            calcExpression = '';
-            calcLastAction = 'eq';
+            state.currentInput = String(parseFloat(r.toFixed(6)));
+            document.getElementById(`${id}-history`).innerText = hs + ' =';
+            state.expression = '';
+            state.lastAction = 'eq';
         } catch (err) {
-            calcCurrentInput = 'Error';
-            calcLastAction = 'err';
+            state.currentInput = 'Error';
+            state.lastAction = 'err';
         } 
-        document.getElementById('calcDisplay').value = calcCurrentInput; 
+        document.getElementById(`${id}-display`).value = state.currentInput; 
     };
     
     function initInteractiveModal(modalId, headerId) {
