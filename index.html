@@ -145,7 +145,6 @@
         <div id="googleAuthSection" class="w-full flex flex-col items-center">
             <p class="text-slate-400 font-bold mb-4 text-sm">請使用具備權限的 Google 帳號登入</p>
             
-            <!-- ★ 已記憶帳號提示區塊 ★ -->
             <div id="savedAccountSection" class="hidden mb-4 w-full flex flex-col items-center bg-blue-50/50 p-3 rounded-2xl border border-blue-100/50">
                 <span class="text-xs text-blue-500 font-bold mb-1">手機已記憶帳號，即將自動解鎖</span>
                 <span id="savedEmailDisplay" class="text-blue-700 font-black text-sm break-all"></span>
@@ -153,7 +152,6 @@
 
             <div id="googleSignInContainer" class="w-full flex justify-center mb-4 min-h-[44px]"></div>
             
-            <!-- 內建瀏覽器警告 -->
             <div class="mt-2 text-left bg-rose-50 p-3 rounded-xl border border-rose-100">
                 <p class="text-xs text-rose-600 font-bold leading-relaxed flex items-start gap-1.5">
                     <svg class="w-4 h-4 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
@@ -184,7 +182,6 @@
         <h1 class="text-4xl font-black tracking-[0.2em] mb-3 text-white">系統已鎖定</h1>
         <p class="text-slate-400 mb-8 font-bold text-lg">請使用手機掃描下方 QR Code 進行驗證解鎖</p>
         
-        <!-- 原本的 QR Code 區塊 -->
         <div id="qrCodeSection" class="flex flex-col items-center w-full">
             <div class="bg-white p-6 rounded-[28px] mb-6 shadow-2xl">
                 <img id="qrcodeImg" src="" alt="QR Code" class="w-56 h-56">
@@ -195,11 +192,9 @@
                 <span class="text-sm font-bold tracking-widest">等待手機授權中...</span>
             </div>
             
-            <!-- 備用登入按鈕 -->
             <button onclick="window.showPcLoginFallback()" class="text-slate-500 text-sm font-bold underline hover:text-slate-300 transition-colors mt-2">忘記帶手機？使用電腦登入</button>
         </div>
 
-        <!-- 隱藏的電腦端備用登入區塊 -->
         <div id="pcLoginSection" class="hidden flex flex-col items-center w-full">
             <div class="bg-blue-900/50 p-4 rounded-2xl border border-blue-500/30 mb-6 w-full">
                 <p class="text-blue-200 text-sm font-bold">請直接點擊下方按鈕登入解鎖。<br><span class="text-rose-300">※ 注意：下課後請務必登出此電腦的 Google 帳號！</span></p>
@@ -248,7 +243,7 @@
         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
         雲端同步
     </button>
-    <button onclick="toggleCalculator()" class="w-full bg-orange-500 text-white px-5 py-3.5 rounded-2xl shadow-[0_8px_20px_rgba(249,115,22,0.4)] hover:bg-orange-400 active:scale-95 transition-all duration-200 font-black text-xl tracking-widest flex items-center justify-center gap-3 border border-white/10 backdrop-blur-md mt-1">
+    <button onclick="window.openNewCalculator()" class="w-full bg-orange-500 text-white px-5 py-3.5 rounded-2xl shadow-[0_8px_20px_rgba(249,115,22,0.4)] hover:bg-orange-400 active:scale-95 transition-all duration-200 font-black text-xl tracking-widest flex items-center justify-center gap-3 border border-white/10 backdrop-blur-md mt-1">
         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
         小計算機
     </button>
@@ -305,13 +300,14 @@
             </div>
             <div class="p-2 bg-white border-t shrink-0 shadow-[0_-5px_15px_rgba(0,0,0,0.05)] z-10">
                 <p class="text-[11px] font-bold text-slate-400 mb-1 text-center tracking-widest">點擊分數套用至已選定學生</p>
-                <div class="grid grid-cols-3 gap-2 pr-10"> <!-- 加了 pr-10 避免按鈕被右下角拉柄擋住 -->
-                    <button onclick="window.applyBatchScore(1, event)" class="py-2 bg-emerald-50 text-emerald-600 rounded-xl border border-emerald-200 font-black text-xl active:scale-95 transition-all shadow-sm">+1</button>
-                    <button onclick="window.applyBatchScore(2, event)" class="py-2 bg-emerald-50 text-emerald-600 rounded-xl border border-emerald-200 font-black text-xl active:scale-95 transition-all shadow-sm">+2</button>
-                    <button onclick="window.applyBatchScore(5, event)" class="py-2 bg-emerald-500 text-white rounded-xl font-black text-xl active:scale-95 transition-all shadow-md shadow-emerald-200">+5</button>
-                    <button onclick="window.applyBatchScore(-1, event)" class="py-2 bg-rose-50 text-rose-500 rounded-xl border border-rose-200 font-black text-xl active:scale-95 transition-all shadow-sm">-1</button>
-                    <button onclick="window.applyBatchScore(-2, event)" class="py-2 bg-rose-50 text-rose-500 rounded-xl border border-rose-200 font-black text-xl active:scale-95 transition-all shadow-sm">-2</button>
-                    <button onclick="window.applyBatchScore(-5, event)" class="py-2 bg-rose-500 text-white rounded-xl font-black text-xl active:scale-95 transition-all shadow-md shadow-rose-200">-5</button>
+                <div class="grid grid-cols-3 gap-2 pr-10"> 
+                    <!-- ★ 真多點觸控：使用 fastInput 處理 onpointerdown ★ -->
+                    <button onpointerdown="window.fastInput(event, 'batch', 1)" class="py-2 bg-emerald-50 text-emerald-600 rounded-xl border border-emerald-200 font-black text-xl shadow-sm">+1</button>
+                    <button onpointerdown="window.fastInput(event, 'batch', 2)" class="py-2 bg-emerald-50 text-emerald-600 rounded-xl border border-emerald-200 font-black text-xl shadow-sm">+2</button>
+                    <button onpointerdown="window.fastInput(event, 'batch', 5)" class="py-2 bg-emerald-500 text-white rounded-xl font-black text-xl shadow-md shadow-emerald-200">+5</button>
+                    <button onpointerdown="window.fastInput(event, 'batch', -1)" class="py-2 bg-rose-50 text-rose-500 rounded-xl border border-rose-200 font-black text-xl shadow-sm">-1</button>
+                    <button onpointerdown="window.fastInput(event, 'batch', -2)" class="py-2 bg-rose-50 text-rose-500 rounded-xl border border-rose-200 font-black text-xl shadow-sm">-2</button>
+                    <button onpointerdown="window.fastInput(event, 'batch', -5)" class="py-2 bg-rose-500 text-white rounded-xl font-black text-xl shadow-md shadow-rose-200">-5</button>
                 </div>
             </div>
         </div>
@@ -319,9 +315,9 @@
 </div>
 
 <!-- ================= 各類 Modals ================= -->
-<div id="floatingTableModal" class="fixed z-[60] hidden flex-col modal-enter" style="width: 850px; height: auto; min-height: 500px; top: 12vh; left: 5vw; touch-action: none;">
+<div id="floatingTableModal" class="fixed z-[60] hidden flex-col modal-enter" style="width: 850px; height: auto; min-height: 500px; top: 12vh; left: 5vw;">
     <div class="bg-white/95 backdrop-blur-2xl rounded-[28px] shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] border border-white/60 flex flex-col w-full h-full relative overflow-hidden">
-        <div id="floatingTableHeader" class="bg-blue-600/95 cursor-move p-4 flex justify-between items-center shrink-0 shadow-sm z-10" title="按住此處可拖曳視窗">
+        <div id="floatingTableHeader" class="bg-blue-600/95 cursor-move p-4 flex justify-between items-center shrink-0 shadow-sm z-10 touch-none" title="按住此處可拖曳視窗">
             <div class="flex items-center gap-3 pointer-events-none">
                 <svg class="w-7 h-7 text-blue-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                 <h2 class="text-2xl font-black tracking-widest text-white drop-shadow-sm">實驗記錄面板</h2>
@@ -347,10 +343,9 @@
     </div>
 </div>
 
-<!-- 修改：加長預設高度 (70vh -> 80vh)，並加入右下角縮放拉柄 -->
-<div id="floatingGradingModal" class="fixed z-[60] hidden flex-col modal-enter" style="width: 480px; height: 80vh; top: 8vh; right: 5vw; touch-action: none;">
+<div id="floatingGradingModal" class="fixed z-[60] hidden flex-col modal-enter" style="width: 480px; height: 80vh; top: 8vh; right: 5vw;">
     <div class="bg-white/95 backdrop-blur-2xl rounded-[28px] shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] border border-white/60 flex flex-col w-full h-full relative overflow-hidden">
-        <div id="floatingGradingHeader" class="bg-emerald-600/95 cursor-move p-4 flex justify-between items-center shrink-0 shadow-sm z-10" title="按住此處可拖曳視窗">
+        <div id="floatingGradingHeader" class="bg-emerald-600/95 cursor-move p-4 flex justify-between items-center shrink-0 shadow-sm z-10 touch-none" title="按住此處可拖曳視窗">
             <div class="flex items-center gap-3 pointer-events-none">
                 <svg class="w-7 h-7 text-emerald-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
                 <h2 class="text-2xl font-black tracking-widest text-white drop-shadow-sm">加扣紀錄</h2>
@@ -362,56 +357,14 @@
         <div class="p-3 bg-slate-100/60 border-b border-slate-200 shrink-0" id="floating-controls-container-grading"></div>
         <div class="overflow-hidden flex-1 bg-slate-50/80 flex flex-col relative rounded-b-[28px]" id="floatingGradingContent"></div>
         
-        <!-- 新增：右下角調整大小的拉柄 -->
         <div class="resize-handle absolute bottom-0 right-0 w-12 h-12 cursor-nwse-resize z-50 flex items-end justify-end p-2 opacity-60 hover:opacity-100 bg-emerald-100/80 rounded-tl-3xl touch-none">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" class="w-6 h-6 text-emerald-700"><path stroke-linecap="round" stroke-linejoin="round" d="M16 20L20 16M10 20L20 10" /></svg>
         </div>
     </div>
 </div>
 
-<div id="calculatorModal" class="fixed z-[105] hidden bg-white/95 backdrop-blur-2xl rounded-[20px] shadow-[0_20px_40px_-10px_rgba(0,0,0,0.5)] border border-slate-200 p-3 w-[260px] transition-opacity duration-200 touch-none">
-    <div id="calculatorHeader" class="flex justify-between items-center mb-3 px-2 cursor-move bg-slate-100 rounded-lg p-1" title="按住拖曳">
-        <div class="flex items-center gap-1 text-slate-400 pointer-events-none">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
-            <span class="text-sm font-black tracking-widest text-orange-500 uppercase">小計算機</span>
-        </div>
-        <button onclick="toggleCalculator()" class="text-slate-400 hover:text-rose-500 font-black p-1 transition-colors rounded-full" title="關閉">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg>
-        </button>
-    </div>
-    <div class="mb-2">
-        <div id="calcHistory" class="text-right text-sm text-slate-400 h-5 px-1 overflow-hidden font-bold tracking-wider mb-1"></div>
-        <input type="text" id="calcDisplay" class="w-full bg-slate-50 border-2 border-slate-200 rounded-xl px-2 py-2 text-right text-3xl font-black text-slate-800 outline-none" value="0" readonly>
-    </div>
-    <div class="grid grid-cols-4 gap-2">
-        <button onclick="calcInput('C')" class="bg-rose-50 text-rose-600 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-rose-100">C</button>
-        <button onclick="calcInput('√')" class="bg-slate-100 text-slate-600 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-slate-200">√</button>
-        <button onclick="calcInput('/')" class="bg-orange-50 text-orange-600 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-orange-100">÷</button>
-        <button onclick="calcInput('⌫')" class="bg-slate-100 text-slate-600 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-slate-200">⌫</button>
-
-        <button onclick="calcInput('7')" class="bg-slate-50 text-slate-800 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-orange-50">7</button>
-        <button onclick="calcInput('8')" class="bg-slate-50 text-slate-800 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-orange-50">8</button>
-        <button onclick="calcInput('9')" class="bg-slate-50 text-slate-800 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-orange-50">9</button>
-        <button onclick="calcInput('*')" class="bg-orange-50 text-orange-600 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-orange-100">×</button>
-
-        <button onclick="calcInput('4')" class="bg-slate-50 text-slate-800 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-orange-50">4</button>
-        <button onclick="calcInput('5')" class="bg-slate-50 text-slate-800 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-orange-50">5</button>
-        <button onclick="calcInput('6')" class="bg-slate-50 text-slate-800 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-orange-50">6</button>
-        <button onclick="calcInput('-')" class="bg-orange-50 text-orange-600 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-orange-100">-</button>
-
-        <button onclick="calcInput('1')" class="bg-slate-50 text-slate-800 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-orange-50">1</button>
-        <button onclick="calcInput('2')" class="bg-slate-50 text-slate-800 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-orange-50">2</button>
-        <button onclick="calcInput('3')" class="bg-slate-50 text-slate-800 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-orange-50">3</button>
-        <button onclick="calcInput('+')" class="bg-orange-50 text-orange-600 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-orange-100">+</button>
-
-        <button onclick="calcInput('0')" class="col-span-2 bg-slate-50 text-slate-800 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-orange-50">0</button>
-        <button onclick="calcInput('.')" class="bg-slate-50 text-slate-800 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-orange-50">.</button>
-        <button onclick="calcInput('=')" class="bg-orange-500 text-white rounded-xl py-2 text-xl font-black shadow-md active:scale-95 transition-all hover:bg-orange-600">=</button>
-    </div>
-</div>
-
-<div id="numPad" class="fixed z-[100] hidden bg-white/95 backdrop-blur-2xl rounded-[20px] shadow-[0_20px_40px_-10px_rgba(0,0,0,0.5)] border border-slate-200 p-3 w-[220px] transition-opacity duration-200 touch-none">
-    <div id="numPadHeader" class="flex justify-between items-center mb-3 px-2 cursor-move bg-slate-100 rounded-lg p-1" title="按住拖曳">
+<div id="numPad" class="fixed z-[100] hidden bg-white/95 backdrop-blur-2xl rounded-[20px] shadow-[0_20px_40px_-10px_rgba(0,0,0,0.5)] border border-slate-200 p-3 w-[220px] transition-opacity duration-200 flex flex-col">
+    <div id="numPadHeader" class="flex justify-between items-center mb-3 px-2 cursor-move bg-slate-100 rounded-lg p-1 touch-none" title="按住拖曳">
         <div class="flex items-center gap-1 text-slate-400 pointer-events-none">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"></path></svg>
             <span class="text-sm font-black tracking-widest text-blue-600 uppercase">數值輸入</span>
@@ -421,19 +374,19 @@
         </button>
     </div>
     <div class="grid grid-cols-3 gap-2">
-        <button onclick="handleNumPadClick('7')" class="bg-slate-50 text-slate-800 rounded-xl py-3 text-2xl font-black shadow-sm active:scale-90 transition-all border border-slate-200 hover:bg-blue-50 hover:text-blue-600">7</button>
-        <button onclick="handleNumPadClick('8')" class="bg-slate-50 text-slate-800 rounded-xl py-3 text-2xl font-black shadow-sm active:scale-90 transition-all border border-slate-200 hover:bg-blue-50 hover:text-blue-600">8</button>
-        <button onclick="handleNumPadClick('9')" class="bg-slate-50 text-slate-800 rounded-xl py-3 text-2xl font-black shadow-sm active:scale-90 transition-all border border-slate-200 hover:bg-blue-50 hover:text-blue-600">9</button>
-        <button onclick="handleNumPadClick('4')" class="bg-slate-50 text-slate-800 rounded-xl py-3 text-2xl font-black shadow-sm active:scale-90 transition-all border border-slate-200 hover:bg-blue-50 hover:text-blue-600">4</button>
-        <button onclick="handleNumPadClick('5')" class="bg-slate-50 text-slate-800 rounded-xl py-3 text-2xl font-black shadow-sm active:scale-90 transition-all border border-slate-200 hover:bg-blue-50 hover:text-blue-600">5</button>
-        <button onclick="handleNumPadClick('6')" class="bg-slate-50 text-slate-800 rounded-xl py-3 text-2xl font-black shadow-sm active:scale-90 transition-all border border-slate-200 hover:bg-blue-50 hover:text-blue-600">6</button>
-        <button onclick="handleNumPadClick('1')" class="bg-slate-50 text-slate-800 rounded-xl py-3 text-2xl font-black shadow-sm active:scale-90 transition-all border border-slate-200 hover:bg-blue-50 hover:text-blue-600">1</button>
-        <button onclick="handleNumPadClick('2')" class="bg-slate-50 text-slate-800 rounded-xl py-3 text-2xl font-black shadow-sm active:scale-90 transition-all border border-slate-200 hover:bg-blue-50 hover:text-blue-600">2</button>
-        <button onclick="handleNumPadClick('3')" class="bg-slate-50 text-slate-800 rounded-xl py-3 text-2xl font-black shadow-sm active:scale-90 transition-all border border-slate-200 hover:bg-blue-50 hover:text-blue-600">3</button>
-        <button onclick="handleNumPadClick('.')" class="bg-slate-50 text-slate-800 rounded-xl py-3 text-3xl font-black shadow-sm active:scale-90 transition-all border border-slate-200 hover:bg-blue-50 hover:text-blue-600">.</button>
-        <button onclick="handleNumPadClick('0')" class="bg-slate-50 text-slate-800 rounded-xl py-3 text-2xl font-black shadow-sm active:scale-90 transition-all border border-slate-200 hover:bg-blue-50 hover:text-blue-600">0</button>
-        <button onclick="handleNumPadClick('backspace')" class="bg-slate-100 text-slate-600 rounded-xl py-3 text-xl font-black shadow-sm active:scale-90 transition-all border border-slate-300 hover:bg-rose-50 hover:text-rose-600">⌫</button>
-        <button onclick="handleNumPadClick('done')" class="col-span-3 bg-blue-600 text-white rounded-xl py-3 text-xl font-black shadow-md shadow-blue-200 active:scale-95 transition-all mt-1 hover:bg-blue-700 tracking-widest">確認 (完成)</button>
+        <button onpointerdown="window.fastInput(event, 'numpad', '7')" class="bg-slate-50 text-slate-800 rounded-xl py-3 text-2xl font-black shadow-sm border border-slate-200 hover:bg-blue-50 hover:text-blue-600">7</button>
+        <button onpointerdown="window.fastInput(event, 'numpad', '8')" class="bg-slate-50 text-slate-800 rounded-xl py-3 text-2xl font-black shadow-sm border border-slate-200 hover:bg-blue-50 hover:text-blue-600">8</button>
+        <button onpointerdown="window.fastInput(event, 'numpad', '9')" class="bg-slate-50 text-slate-800 rounded-xl py-3 text-2xl font-black shadow-sm border border-slate-200 hover:bg-blue-50 hover:text-blue-600">9</button>
+        <button onpointerdown="window.fastInput(event, 'numpad', '4')" class="bg-slate-50 text-slate-800 rounded-xl py-3 text-2xl font-black shadow-sm border border-slate-200 hover:bg-blue-50 hover:text-blue-600">4</button>
+        <button onpointerdown="window.fastInput(event, 'numpad', '5')" class="bg-slate-50 text-slate-800 rounded-xl py-3 text-2xl font-black shadow-sm border border-slate-200 hover:bg-blue-50 hover:text-blue-600">5</button>
+        <button onpointerdown="window.fastInput(event, 'numpad', '6')" class="bg-slate-50 text-slate-800 rounded-xl py-3 text-2xl font-black shadow-sm border border-slate-200 hover:bg-blue-50 hover:text-blue-600">6</button>
+        <button onpointerdown="window.fastInput(event, 'numpad', '1')" class="bg-slate-50 text-slate-800 rounded-xl py-3 text-2xl font-black shadow-sm border border-slate-200 hover:bg-blue-50 hover:text-blue-600">1</button>
+        <button onpointerdown="window.fastInput(event, 'numpad', '2')" class="bg-slate-50 text-slate-800 rounded-xl py-3 text-2xl font-black shadow-sm border border-slate-200 hover:bg-blue-50 hover:text-blue-600">2</button>
+        <button onpointerdown="window.fastInput(event, 'numpad', '3')" class="bg-slate-50 text-slate-800 rounded-xl py-3 text-2xl font-black shadow-sm border border-slate-200 hover:bg-blue-50 hover:text-blue-600">3</button>
+        <button onpointerdown="window.fastInput(event, 'numpad', '.')" class="bg-slate-50 text-slate-800 rounded-xl py-3 text-3xl font-black shadow-sm border border-slate-200 hover:bg-blue-50 hover:text-blue-600">.</button>
+        <button onpointerdown="window.fastInput(event, 'numpad', '0')" class="bg-slate-50 text-slate-800 rounded-xl py-3 text-2xl font-black shadow-sm border border-slate-200 hover:bg-blue-50 hover:text-blue-600">0</button>
+        <button onpointerdown="window.fastInput(event, 'numpad', 'backspace')" class="bg-slate-100 text-slate-600 rounded-xl py-3 text-xl font-black shadow-sm border border-slate-300 hover:bg-rose-50 hover:text-rose-600">⌫</button>
+        <button onpointerdown="window.fastInput(event, 'numpad', 'done')" class="col-span-3 bg-blue-600 text-white rounded-xl py-3 text-xl font-black shadow-md shadow-blue-200 hover:bg-blue-700 tracking-widest mt-1">確認 (完成)</button>
     </div>
 </div>
 
@@ -567,11 +520,39 @@
     }
 
     window.classDataCache = {};
-let unsubscribeStudents = null, currentGrade = '', currentClass = '', currentSelectedStudentId = null;
-window.selectedBatchStudents = new Set();
+    let unsubscribeStudents = null, currentGrade = '', currentClass = '', currentSelectedStudentId = null;
+    window.selectedBatchStudents = new Set();
 
-/* ================= 浮動面板、計算機、鍵盤 等 UI 邏輯 ================= */
-window.openFloatingTable = function() { 
+    // ★ 真多點觸控管理器 (解決點擊無反應問題) ★
+    window.fastInput = function(e, type, ...args) {
+        // 如果是滑鼠左鍵以外的點擊則忽略
+        if (e.type === 'pointerdown' && e.pointerType === 'mouse' && e.button !== 0) return;
+        
+        // ★ 核心：阻擋預設行為，防止瀏覽器判定為拖曳或延遲，實現零延遲真多點觸控
+        e.preventDefault(); 
+        
+        // 手動加上點擊視覺效果 (因為 preventDefault 會讓 CSS 的 :active 失效)
+        const btn = e.currentTarget;
+        if (btn) {
+            btn.style.transform = 'scale(0.9)';
+            btn.style.transition = 'transform 0.05s ease-in-out';
+            setTimeout(() => {
+                btn.style.transform = '';
+            }, 100);
+        }
+
+        // 依照類別分派任務
+        if (type === 'calc') {
+            window.calcInput(args[0], args[1]);
+        } else if (type === 'batch') {
+            window.applyBatchScore(args[0], e);
+        } else if (type === 'numpad') {
+            window.handleNumPadClick(args[0]);
+        }
+    };
+
+    /* ================= 浮動面板、計算機、鍵盤 等 UI 邏輯 ================= */
+    window.openFloatingTable = function() { 
         window.closeFloatingGrading(); 
         const m = document.getElementById('floatingTableModal');
         const c = document.getElementById('floatingTableContent');
@@ -700,7 +681,6 @@ window.openFloatingTable = function() {
         window.calcCounter++;
         const calcId = 'calc-' + window.calcCounter;
         
-        // 賦予獨立記憶體
         window.calcInstances[calcId] = {
             expression: '',
             currentInput: '0',
@@ -708,16 +688,17 @@ window.openFloatingTable = function() {
             zIndex: ++window.baseZIndexCalc
         };
 
-        const offset = activeIds.length * 50; // 視窗錯開效果
+        const offset = activeIds.length * 50; 
         const calcDiv = document.createElement('div');
         calcDiv.id = calcId;
-        calcDiv.className = `fixed bg-white/95 backdrop-blur-2xl rounded-[20px] shadow-[0_20px_40px_-10px_rgba(0,0,0,0.5)] border border-slate-200 p-3 w-[260px] transition-opacity duration-200 touch-none flex flex-col`;
+        calcDiv.className = `fixed bg-white/95 backdrop-blur-2xl rounded-[20px] shadow-[0_20px_40px_-10px_rgba(0,0,0,0.5)] border border-slate-200 p-3 w-[260px] transition-opacity duration-200 flex flex-col`;
         calcDiv.style.zIndex = window.calcInstances[calcId].zIndex;
         calcDiv.style.top = (80 + offset) + 'px';
         calcDiv.style.left = Math.max(20, window.innerWidth - 300 - offset) + 'px';
 
+        // 裡面的按鈕全改為 onpointerdown 配合 fastInput 實現真多點觸控
         calcDiv.innerHTML = `
-            <div id="${calcId}-header" class="flex justify-between items-center mb-3 px-2 cursor-move bg-slate-100 rounded-lg p-1" title="按住拖曳">
+            <div id="${calcId}-header" class="flex justify-between items-center mb-3 px-2 cursor-move bg-slate-100 rounded-lg p-1 touch-none" title="按住拖曳">
                 <div class="flex items-center gap-1 text-slate-400 pointer-events-none">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
                     <span id="${calcId}-title" class="text-sm font-black tracking-widest text-orange-500 uppercase">小計算機</span>
@@ -731,33 +712,32 @@ window.openFloatingTable = function() {
                 <input type="text" id="${calcId}-display" class="w-full bg-slate-50 border-2 border-slate-200 rounded-xl px-2 py-2 text-right text-3xl font-black text-slate-800 outline-none" value="0" readonly>
             </div>
             <div class="grid grid-cols-4 gap-2">
-                <button onclick="window.calcInput('${calcId}', 'C')" class="bg-rose-50 text-rose-600 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-rose-100">C</button>
-                <button onclick="window.calcInput('${calcId}', '√')" class="bg-slate-100 text-slate-600 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-slate-200">√</button>
-                <button onclick="window.calcInput('${calcId}', '/')" class="bg-orange-50 text-orange-600 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-orange-100">÷</button>
-                <button onclick="window.calcInput('${calcId}', '⌫')" class="bg-slate-100 text-slate-600 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-slate-200">⌫</button>
+                <button onpointerdown="window.fastInput(event, 'calc', '${calcId}', 'C')" class="bg-rose-50 text-rose-600 rounded-xl py-2 text-xl font-black shadow-sm hover:bg-rose-100">C</button>
+                <button onpointerdown="window.fastInput(event, 'calc', '${calcId}', '√')" class="bg-slate-100 text-slate-600 rounded-xl py-2 text-xl font-black shadow-sm hover:bg-slate-200">√</button>
+                <button onpointerdown="window.fastInput(event, 'calc', '${calcId}', '/')" class="bg-orange-50 text-orange-600 rounded-xl py-2 text-xl font-black shadow-sm hover:bg-orange-100">÷</button>
+                <button onpointerdown="window.fastInput(event, 'calc', '${calcId}', '⌫')" class="bg-slate-100 text-slate-600 rounded-xl py-2 text-xl font-black shadow-sm hover:bg-slate-200">⌫</button>
 
-                <button onclick="window.calcInput('${calcId}', '7')" class="bg-slate-50 text-slate-800 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-orange-50">7</button>
-                <button onclick="window.calcInput('${calcId}', '8')" class="bg-slate-50 text-slate-800 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-orange-50">8</button>
-                <button onclick="window.calcInput('${calcId}', '9')" class="bg-slate-50 text-slate-800 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-orange-50">9</button>
-                <button onclick="window.calcInput('${calcId}', '*')" class="bg-orange-50 text-orange-600 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-orange-100">×</button>
+                <button onpointerdown="window.fastInput(event, 'calc', '${calcId}', '7')" class="bg-slate-50 text-slate-800 rounded-xl py-2 text-xl font-black shadow-sm hover:bg-orange-50">7</button>
+                <button onpointerdown="window.fastInput(event, 'calc', '${calcId}', '8')" class="bg-slate-50 text-slate-800 rounded-xl py-2 text-xl font-black shadow-sm hover:bg-orange-50">8</button>
+                <button onpointerdown="window.fastInput(event, 'calc', '${calcId}', '9')" class="bg-slate-50 text-slate-800 rounded-xl py-2 text-xl font-black shadow-sm hover:bg-orange-50">9</button>
+                <button onpointerdown="window.fastInput(event, 'calc', '${calcId}', '*')" class="bg-orange-50 text-orange-600 rounded-xl py-2 text-xl font-black shadow-sm hover:bg-orange-100">×</button>
 
-                <button onclick="window.calcInput('${calcId}', '4')" class="bg-slate-50 text-slate-800 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-orange-50">4</button>
-                <button onclick="window.calcInput('${calcId}', '5')" class="bg-slate-50 text-slate-800 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-orange-50">5</button>
-                <button onclick="window.calcInput('${calcId}', '6')" class="bg-slate-50 text-slate-800 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-orange-50">6</button>
-                <button onclick="window.calcInput('${calcId}', '-')" class="bg-orange-50 text-orange-600 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-orange-100">-</button>
+                <button onpointerdown="window.fastInput(event, 'calc', '${calcId}', '4')" class="bg-slate-50 text-slate-800 rounded-xl py-2 text-xl font-black shadow-sm hover:bg-orange-50">4</button>
+                <button onpointerdown="window.fastInput(event, 'calc', '${calcId}', '5')" class="bg-slate-50 text-slate-800 rounded-xl py-2 text-xl font-black shadow-sm hover:bg-orange-50">5</button>
+                <button onpointerdown="window.fastInput(event, 'calc', '${calcId}', '6')" class="bg-slate-50 text-slate-800 rounded-xl py-2 text-xl font-black shadow-sm hover:bg-orange-50">6</button>
+                <button onpointerdown="window.fastInput(event, 'calc', '${calcId}', '-')" class="bg-orange-50 text-orange-600 rounded-xl py-2 text-xl font-black shadow-sm hover:bg-orange-100">-</button>
 
-                <button onclick="window.calcInput('${calcId}', '1')" class="bg-slate-50 text-slate-800 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-orange-50">1</button>
-                <button onclick="window.calcInput('${calcId}', '2')" class="bg-slate-50 text-slate-800 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-orange-50">2</button>
-                <button onclick="window.calcInput('${calcId}', '3')" class="bg-slate-50 text-slate-800 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-orange-50">3</button>
-                <button onclick="window.calcInput('${calcId}', '+')" class="bg-orange-50 text-orange-600 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-orange-100">+</button>
+                <button onpointerdown="window.fastInput(event, 'calc', '${calcId}', '1')" class="bg-slate-50 text-slate-800 rounded-xl py-2 text-xl font-black shadow-sm hover:bg-orange-50">1</button>
+                <button onpointerdown="window.fastInput(event, 'calc', '${calcId}', '2')" class="bg-slate-50 text-slate-800 rounded-xl py-2 text-xl font-black shadow-sm hover:bg-orange-50">2</button>
+                <button onpointerdown="window.fastInput(event, 'calc', '${calcId}', '3')" class="bg-slate-50 text-slate-800 rounded-xl py-2 text-xl font-black shadow-sm hover:bg-orange-50">3</button>
+                <button onpointerdown="window.fastInput(event, 'calc', '${calcId}', '+')" class="bg-orange-50 text-orange-600 rounded-xl py-2 text-xl font-black shadow-sm hover:bg-orange-100">+</button>
 
-                <button onclick="window.calcInput('${calcId}', '0')" class="col-span-2 bg-slate-50 text-slate-800 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-orange-50">0</button>
-                <button onclick="window.calcInput('${calcId}', '.')" class="bg-slate-50 text-slate-800 rounded-xl py-2 text-xl font-black shadow-sm active:scale-90 transition-all hover:bg-orange-50">.</button>
-                <button onclick="window.calcInput('${calcId}', '=')" class="bg-orange-500 text-white rounded-xl py-2 text-xl font-black shadow-md active:scale-95 transition-all hover:bg-orange-600">=</button>
+                <button onpointerdown="window.fastInput(event, 'calc', '${calcId}', '0')" class="col-span-2 bg-slate-50 text-slate-800 rounded-xl py-2 text-xl font-black shadow-sm hover:bg-orange-50">0</button>
+                <button onpointerdown="window.fastInput(event, 'calc', '${calcId}', '.')" class="bg-slate-50 text-slate-800 rounded-xl py-2 text-xl font-black shadow-sm hover:bg-orange-50">.</button>
+                <button onpointerdown="window.fastInput(event, 'calc', '${calcId}', '=')" class="bg-orange-500 text-white rounded-xl py-2 text-xl font-black shadow-md hover:bg-orange-600">=</button>
             </div>
         `;
 
-        // 點擊任一處使其浮到最上層
         calcDiv.addEventListener('mousedown', () => window.bringCalculatorToFront(calcId));
         calcDiv.addEventListener('touchstart', () => window.bringCalculatorToFront(calcId), {passive: true});
 
@@ -1250,7 +1230,6 @@ window.openFloatingTable = function() {
         initInteractiveModal('floatingTableModal', 'floatingTableHeader');
         initInteractiveModal('floatingGradingModal', 'floatingGradingHeader');
         initInteractiveModal('numPad', 'numPadHeader'); 
-        initInteractiveModal('calculatorModal', 'calculatorHeader'); 
         initCamera();
         checkSheetsConnection();
     };
@@ -1406,7 +1385,7 @@ window.selectAllBatch = function() {
 window.applyBatchScore = async function(amt, e) {
     if (window.selectedBatchStudents.size === 0) return window.showModal('提示', '請先選擇至少一位學生');
     
-    // 💡 關鍵修正：在 await 發生前，先抓住觸發事件的按鈕
+    // 💡 已經由 fastInput 攔截過 e.preventDefault()，這裡可以直接安全執行
     const btn = e ? e.currentTarget : null;
     
     const list = window.classDataCache[currentGrade][currentClass];
@@ -1429,7 +1408,6 @@ window.applyBatchScore = async function(amt, e) {
                 window.renderFilteredStudentList();
             }, 600);
         } else {
-            // 如果沒有抓到按鈕，依然要清空選擇並重新渲染畫面
             window.selectedBatchStudents.clear();
             window.renderFilteredStudentList();
         }
