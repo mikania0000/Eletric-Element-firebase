@@ -532,6 +532,7 @@
         e.preventDefault(); 
         
         // 手動加上點擊視覺效果 (因為 preventDefault 會讓 CSS 的 :active 失效)
+        // 💡 關鍵修正：在這裡立刻把按鈕實體抓下來，不要傳遞 event，以免非同步後 event 被瀏覽器回收
         const btn = e.currentTarget;
         if (btn) {
             btn.style.transform = 'scale(0.9)';
@@ -545,9 +546,13 @@
         if (type === 'calc') {
             window.calcInput(args[0], args[1]);
         } else if (type === 'batch') {
-            window.applyBatchScore(args[0], e);
+            window.applyBatchScore(args[0], btn); // 改為直接傳遞按鈕實體 (btn)
         } else if (type === 'numpad') {
             window.handleNumPadClick(args[0]);
+        } else if (type === 'calcChoice') {
+            window.executeChoice(args[0], args[1]); // 新增：處理四則運算防呆選項
+        } else if (type === 'calcChoiceCancel') {
+            window.cancelCalcChoice(args[0]); // 新增：處理防呆選項取消
         }
     };
 
@@ -1429,11 +1434,9 @@ window.selectAllBatch = function() {
     window.renderFilteredStudentList();
 };
 
-window.applyBatchScore = async function(amt, e) {
+// ★ 將參數改為接收 btn (按鈕實體) 而不是 e (事件)
+window.applyBatchScore = async function(amt, btn) {
     if (window.selectedBatchStudents.size === 0) return window.showModal('提示', '請先選擇至少一位學生');
-    
-    // 💡 已經由 fastInput 攔截過 e.preventDefault()，這裡可以直接安全執行
-    const btn = e ? e.currentTarget : null;
     
     const list = window.classDataCache[currentGrade][currentClass];
     window.selectedBatchStudents.forEach(idx => {
