@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>實驗紀錄系統 v4.50 (高資安無密碼版)</title>
+    <title>實驗紀錄系統 v4.60 (高資安自動解鎖版)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
@@ -133,9 +133,9 @@
 </head>
 <body class="bg-slate-900 font-sans h-screen w-screen overflow-hidden text-slate-800 relative">
 
-<!-- ================= 手機專屬遠端解鎖畫面 (無密碼自動解鎖) ================= -->
+<!-- ================= 手機專屬遠端解鎖畫面 ================= -->
 <div id="remoteMobileUI" class="fixed inset-0 z-[500] bg-slate-50 flex flex-col items-center justify-center px-6 hidden">
-    <div class="w-full max-w-sm bg-white p-8 rounded-[32px] shadow-2xl border border-slate-100 flex flex-col items-center text-center transition-all">
+    <div class="w-full max-w-sm bg-white p-8 rounded-[32px] shadow-2xl border border-slate-100 flex flex-col items-center text-center transition-all relative overflow-hidden">
         <div class="w-20 h-20 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mb-6 shadow-inner border border-blue-100">
             <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
         </div>
@@ -143,12 +143,28 @@
         
         <!-- Google 登入驗證區塊 -->
         <div id="googleAuthSection" class="w-full flex flex-col items-center">
-            <p class="text-slate-400 font-bold mb-8 text-sm">請使用具備白名單權限的 Google 帳號登入</p>
+            <p class="text-slate-400 font-bold mb-4 text-sm">請使用具備權限的 Google 帳號登入</p>
+            
+            <!-- ★ 已記憶帳號提示區塊 ★ -->
+            <div id="savedAccountSection" class="hidden mb-4 w-full flex flex-col items-center bg-blue-50/50 p-3 rounded-2xl border border-blue-100/50">
+                <span class="text-xs text-blue-500 font-bold mb-1">手機已記憶帳號，即將自動解鎖</span>
+                <span id="savedEmailDisplay" class="text-blue-700 font-black text-sm break-all"></span>
+            </div>
+
             <div id="googleSignInContainer" class="w-full flex justify-center mb-4 min-h-[44px]"></div>
+            
+            <!-- 內建瀏覽器警告 -->
+            <div class="mt-2 text-left bg-rose-50 p-3 rounded-xl border border-rose-100">
+                <p class="text-xs text-rose-600 font-bold leading-relaxed flex items-start gap-1.5">
+                    <svg class="w-4 h-4 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                    若是用 LINE 掃碼發生空白或無法點擊，請點右上角「以預設瀏覽器(Safari/Chrome)開啟」才能記憶登入。
+                </p>
+            </div>
+
             <div id="remoteMsg" class="mt-4 font-bold text-lg h-6 text-slate-500">等待登入...</div>
         </div>
 
-        <!-- 自動解鎖狀態區塊 (Google 登入後顯示) -->
+        <!-- 自動解鎖狀態區塊 -->
         <div id="mobileAuthVerifyingSection" class="w-full flex flex-col items-center hidden">
             <p id="verifiedEmailText" class="text-emerald-600 font-black mb-6 text-sm bg-emerald-50 px-4 py-2 rounded-xl w-full break-all border border-emerald-100"></p>
             <div class="flex items-center gap-3 text-blue-600 mb-4">
@@ -156,7 +172,7 @@
                 <span id="mobileAuthStatusText" class="font-black tracking-widest text-xl">安全驗證中...</span>
             </div>
             <div id="mobileAuthError" class="text-rose-500 text-sm font-bold mb-4 hidden">驗證失敗，請重試</div>
-            <button onclick="clearSavedLogin()" class="mt-6 text-slate-400 text-sm font-bold underline hover:text-slate-600">切換 Google 帳號</button>
+            <button onclick="clearSavedLogin()" class="mt-6 text-slate-400 text-sm font-bold underline hover:text-slate-600">更換 Google 帳號</button>
         </div>
     </div>
 </div>
@@ -238,22 +254,47 @@
         </div>
     </div>
     <div id="table-container" class="w-full relative pb-4"></div>
-    <div id="studentListContainer" class="w-full flex flex-col h-full">
-        <div class="bg-slate-50/50 px-5 py-4 border-b flex justify-between items-center shrink-0 rounded-t-2xl">
-            <h3 class="font-black text-slate-700 flex items-center gap-2 text-lg tracking-wider">
-                <svg class="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" stroke-width="2"/></svg>
-                名單
-            </h3>
-            <span id="studentCount" class="text-sm font-black bg-slate-900 text-white px-3 py-1 rounded-full shadow-md">--</span>
+    <div id="studentListContainer" class="w-full flex flex-col h-full bg-slate-100 rounded-b-[28px] overflow-hidden">
+        <!-- New Tabs Header -->
+        <div class="bg-slate-100 border-b flex justify-between items-center shrink-0 p-3 gap-2">
+            <button onclick="window.switchGradingTab('list')" id="tab-list" class="flex-1 py-2 font-black text-blue-600 bg-white rounded-lg shadow-sm border border-slate-200 transition-all tracking-widest text-lg">逐一單選</button>
+            <button onclick="window.switchGradingTab('batch')" id="tab-batch" class="flex-1 py-2 font-bold text-slate-500 bg-transparent rounded-lg border border-transparent hover:bg-slate-200 transition-all tracking-widest text-lg">多選批次</button>
+            <span id="studentCount" class="text-sm font-black bg-slate-800 text-white px-3 py-1 rounded-full shadow-md ml-2 shrink-0">--</span>
         </div>
-        <div class="p-3 border-b bg-white shrink-0">
-            <div class="relative group">
-                <input type="text" id="studentSearchInput" placeholder="搜尋姓名/座號..." class="w-full pl-10 pr-3 py-3 bg-slate-50 border border-slate-200 rounded-xl text-base focus:ring-2 focus:ring-blue-500 outline-none transition-all font-bold">
-                <svg class="w-6 h-6 text-slate-300 absolute left-3 top-3 group-focus-within:text-blue-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" stroke-width="2.5"/></svg>
+        
+        <!-- 逐一單選 View -->
+        <div id="grading-list-view" class="flex flex-col h-full flex-1 min-h-0 bg-white">
+            <div class="p-3 border-b bg-white shrink-0 shadow-sm z-10">
+                <div class="relative group">
+                    <input type="text" id="studentSearchInput" placeholder="搜尋姓名/座號..." class="w-full pl-10 pr-3 py-3 bg-slate-50 border border-slate-200 rounded-xl text-base focus:ring-2 focus:ring-blue-500 outline-none transition-all font-bold">
+                    <svg class="w-6 h-6 text-slate-300 absolute left-3 top-3 group-focus-within:text-blue-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" stroke-width="2.5"/></svg>
+                </div>
+            </div>
+            <div id="student-list" class="divide-y divide-slate-50 p-2 overflow-y-auto no-scrollbar bg-white flex-1 min-h-[300px]">
+                <div class="p-10 text-center text-slate-400 font-bold italic">請先同步名單</div>
             </div>
         </div>
-        <div id="student-list" class="divide-y divide-slate-50 p-2 overflow-y-auto no-scrollbar bg-white flex-1 min-h-[300px]">
-            <div class="p-10 text-center text-slate-400 font-bold italic">請先同步名單</div>
+
+        <!-- 多選批次 View -->
+        <div id="grading-batch-view" class="hidden flex-col h-full flex-1 min-h-0 bg-slate-50">
+            <div class="p-3 bg-white border-b shrink-0 flex justify-between items-center shadow-sm z-10">
+                <span class="font-bold text-slate-600 tracking-widest">已選定: <span id="batchSelectedCount" class="text-blue-600 font-black text-xl">0</span> 人</span>
+                <button onclick="window.clearBatchSelection()" class="text-sm font-bold text-rose-500 bg-rose-50 px-4 py-2 rounded-lg border border-rose-100 active:scale-95 transition-all">取消全選</button>
+            </div>
+            <div id="batch-student-grid" class="grid grid-cols-5 gap-2 p-3 overflow-y-auto no-scrollbar flex-1 content-start bg-slate-50 pb-8">
+                <!-- Grid buttons injected here via JS -->
+            </div>
+            <div class="p-4 bg-white border-t shrink-0 shadow-[0_-5px_15px_rgba(0,0,0,0.05)] z-10">
+                <p class="text-xs font-bold text-slate-400 mb-2 text-center tracking-widest">點擊分數按鈕直接套用至已選學生</p>
+                <div class="grid grid-cols-3 gap-3 mb-1">
+                    <button onclick="window.applyBatchScore(1)" class="py-3 bg-emerald-50 text-emerald-600 rounded-xl border border-emerald-200 font-black text-2xl active:scale-95 transition-all shadow-sm">+1</button>
+                    <button onclick="window.applyBatchScore(2)" class="py-3 bg-emerald-50 text-emerald-600 rounded-xl border border-emerald-200 font-black text-2xl active:scale-95 transition-all shadow-sm">+2</button>
+                    <button onclick="window.applyBatchScore(5)" class="py-3 bg-emerald-500 text-white rounded-xl font-black text-2xl active:scale-95 transition-all shadow-md shadow-emerald-200">+5</button>
+                    <button onclick="window.applyBatchScore(-1)" class="py-3 bg-rose-50 text-rose-500 rounded-xl border border-rose-200 font-black text-2xl active:scale-95 transition-all shadow-sm">-1</button>
+                    <button onclick="window.applyBatchScore(-2)" class="py-3 bg-rose-50 text-rose-500 rounded-xl border border-rose-200 font-black text-2xl active:scale-95 transition-all shadow-sm">-2</button>
+                    <button onclick="window.applyBatchScore(-5)" class="py-3 bg-rose-500 text-white rounded-xl font-black text-2xl active:scale-95 transition-all shadow-md shadow-rose-200">-5</button>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -477,7 +518,7 @@
         measurementId: "G-S6BVBCQ6RS"
     };
 
-    // ★ 請替換為重新部署後的最新 Web App 網址
+    // ★ 請替換為重新部署後的最新 Web App 網址 (全開權限版)
     const myDefaultGasUrl = "https://script.google.com/macros/s/AKfycbzGj5KcJxD9iXeR5jiQEe_g9FhK5eYF3UFpyqPaQzxm5Fcns5-KdcOCGUYbbZw6AQ0g/exec";
     
     // Google Client ID
@@ -488,49 +529,328 @@
     let isAppUnlocked = false; 
     let windowSessionId = new URLSearchParams(window.location.search).get('session') || (Date.now().toString(36) + Math.random().toString(36).substr(2, 5));
     let currentValidatedEmail = '';
-    window.currentIdToken = null; // 儲存 Google 簽發的 JWT Token
+    window.currentIdToken = null; 
 
     const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-    function getCollectionRef(colName) { return (typeof __app_id !== 'undefined') ? collection(db, 'artifacts', appId, 'public', 'data', colName) : collection(db, colName); }
-    function getDocRef(colName, documentId) { return (typeof __app_id !== 'undefined') ? doc(db, 'artifacts', appId, 'public', 'data', colName, documentId) : doc(db, colName, documentId); }
+    
+    function getCollectionRef(colName) { 
+        return (typeof __app_id !== 'undefined') ? collection(db, 'artifacts', appId, 'public', 'data', colName) : collection(db, colName); 
+    }
+    
+    function getDocRef(colName, documentId) { 
+        return (typeof __app_id !== 'undefined') ? doc(db, 'artifacts', appId, 'public', 'data', colName, documentId) : doc(db, colName, documentId); 
+    }
 
     window.classDataCache = {};
-    let unsubscribeStudents = null, currentGrade = '', currentClass = '', currentSelectedStudentId = null;
+let unsubscribeStudents = null, currentGrade = '', currentClass = '', currentSelectedStudentId = null;
+window.selectedBatchStudents = new Set();
 
-    /* ================= 浮動面板、計算機、鍵盤 等 UI 邏輯 ================= */
-    window.openFloatingTable = function() { window.closeFloatingGrading(); const m=document.getElementById('floatingTableModal'),c=document.getElementById('floatingTableContent'),t=document.getElementById('table-container'),cc=document.getElementById('floating-controls-container-table'),cr=document.getElementById('shared-controls-row'); if(m&&c&&t&&cc&&cr){if(!m.dataset.positioned){m.style.left=Math.max(20,window.innerWidth-850)+'px';m.style.top='12vh';m.dataset.positioned='true';} cc.appendChild(cr);document.getElementById('expSelectContainer').style.display='block';c.appendChild(t); m.classList.remove('hidden');} };
-    window.closeFloatingTable = function() { const m=document.getElementById('floatingTableModal'),h=document.getElementById('hidden-stash'),t=document.getElementById('table-container'),cr=document.getElementById('shared-controls-row'); if(m&&h&&t&&cr&&!m.classList.contains('hidden')){window.hideNumPad();h.appendChild(cr);h.appendChild(t);m.classList.add('hidden');} };
-    window.openFloatingGrading = function() { window.closeFloatingTable(); const m=document.getElementById('floatingGradingModal'),c=document.getElementById('floatingGradingContent'),sc=document.getElementById('studentListContainer'),cc=document.getElementById('floating-controls-container-grading'),cr=document.getElementById('shared-controls-row'); if(m&&c&&sc&&cc&&cr){if(!m.dataset.positioned){m.style.left=Math.max(20,window.innerWidth-500)+'px';m.style.top='12vh';m.dataset.positioned='true';} cc.appendChild(cr);document.getElementById('expSelectContainer').style.display='none';c.appendChild(sc); m.classList.remove('hidden');} };
-    window.closeFloatingGrading = function() { const m=document.getElementById('floatingGradingModal'),h=document.getElementById('hidden-stash'),sc=document.getElementById('studentListContainer'),cr=document.getElementById('shared-controls-row'); if(m&&h&&sc&&cr&&!m.classList.contains('hidden')){h.appendChild(cr);h.appendChild(sc);m.classList.add('hidden');} };
+/* ================= 浮動面板、計算機、鍵盤 等 UI 邏輯 ================= */
+window.openFloatingTable = function() { 
+        window.closeFloatingGrading(); 
+        const m = document.getElementById('floatingTableModal');
+        const c = document.getElementById('floatingTableContent');
+        const t = document.getElementById('table-container');
+        const cc = document.getElementById('floating-controls-container-table');
+        const cr = document.getElementById('shared-controls-row'); 
+        
+        if (m && c && t && cc && cr) {
+            if (!m.dataset.positioned) {
+                m.style.left = Math.max(20, window.innerWidth - 850) + 'px';
+                m.style.top = '12vh';
+                m.dataset.positioned = 'true';
+            } 
+            cc.appendChild(cr);
+            document.getElementById('expSelectContainer').style.display = 'block';
+            c.appendChild(t); 
+            m.classList.remove('hidden');
+        } 
+    };
+    
+    window.closeFloatingTable = function() { 
+        const m = document.getElementById('floatingTableModal');
+        const h = document.getElementById('hidden-stash');
+        const t = document.getElementById('table-container');
+        const cr = document.getElementById('shared-controls-row'); 
+        
+        if (m && h && t && cr && !m.classList.contains('hidden')) {
+            window.hideNumPad();
+            h.appendChild(cr);
+            h.appendChild(t);
+            m.classList.add('hidden');
+        } 
+    };
+    
+    window.openFloatingGrading = function() { 
+        window.closeFloatingTable(); 
+        const m = document.getElementById('floatingGradingModal');
+        const c = document.getElementById('floatingGradingContent');
+        const sc = document.getElementById('studentListContainer');
+        const cc = document.getElementById('floating-controls-container-grading');
+        const cr = document.getElementById('shared-controls-row'); 
+        
+        if (m && c && sc && cc && cr) {
+            if (!m.dataset.positioned) {
+                m.style.left = Math.max(20, window.innerWidth - 500) + 'px';
+                m.style.top = '12vh';
+                m.dataset.positioned = 'true';
+            } 
+            cc.appendChild(cr);
+            document.getElementById('expSelectContainer').style.display = 'none';
+            c.appendChild(sc); 
+            m.classList.remove('hidden');
+        } 
+    };
+    
+    window.closeFloatingGrading = function() { 
+        const m = document.getElementById('floatingGradingModal');
+        const h = document.getElementById('hidden-stash');
+        const sc = document.getElementById('studentListContainer');
+        const cr = document.getElementById('shared-controls-row'); 
+        
+        if (m && h && sc && cr && !m.classList.contains('hidden')) {
+            h.appendChild(cr);
+            h.appendChild(sc);
+            m.classList.add('hidden');
+        } 
+    };
     
     let currentActiveInput = null;
-    window.showNumPad = function(input) { currentActiveInput=input; const p=document.getElementById('numPad'); if(!p.classList.contains('hidden'))return; p.classList.remove('hidden'); const r=input.getBoundingClientRect(); let l=r.right+15,t=r.top-10; if(l+220>window.innerWidth-20)l=r.left-235; if(l<20){l=r.left+(r.width/2)-110;t=r.bottom+15;} if(t+310>window.innerHeight-20)t=window.innerHeight-330; if(t<20)t=20; p.style.top=t+'px';p.style.left=l+'px'; };
-    window.hideNumPad = function() { const p=document.getElementById('numPad'); if(p)p.classList.add('hidden'); currentActiveInput=null; };
-    window.handleNumPadClick = function(val) { if(!currentActiveInput)return; if(val==='done'){window.hideNumPad();window.calculateRatio();return;} if(val==='backspace')currentActiveInput.value=currentActiveInput.value.slice(0,-1); else if(val==='.'){if(!currentActiveInput.value.includes('.'))currentActiveInput.value+=currentActiveInput.value===''?'0.':'.';} else currentActiveInput.value+=val; window.calculateRatio(); };
+    window.showNumPad = function(input) { 
+        currentActiveInput = input; 
+        const p = document.getElementById('numPad'); 
+        if (!p.classList.contains('hidden')) return; 
+        
+        p.classList.remove('hidden'); 
+        const r = input.getBoundingClientRect(); 
+        let l = r.right + 15, t = r.top - 10; 
+        
+        if (l + 220 > window.innerWidth - 20) l = r.left - 235; 
+        if (l < 20) { l = r.left + (r.width / 2) - 110; t = r.bottom + 15; } 
+        if (t + 310 > window.innerHeight - 20) t = window.innerHeight - 330; 
+        if (t < 20) t = 20; 
+        
+        p.style.top = t + 'px';
+        p.style.left = l + 'px'; 
+    };
+    
+    window.hideNumPad = function() { 
+        const p = document.getElementById('numPad'); 
+        if (p) p.classList.add('hidden'); 
+        currentActiveInput = null; 
+    };
+    
+    window.handleNumPadClick = function(val) { 
+        if (!currentActiveInput) return; 
+        if (val === 'done') {
+            window.hideNumPad();
+            window.calculateRatio();
+            return;
+        } 
+        
+        if (val === 'backspace') {
+            currentActiveInput.value = currentActiveInput.value.slice(0, -1); 
+        } else if (val === '.') {
+            if (!currentActiveInput.value.includes('.')) {
+                currentActiveInput.value += currentActiveInput.value === '' ? '0.' : '.';
+            }
+        } else {
+            currentActiveInput.value += val; 
+        }
+        window.calculateRatio(); 
+    };
 
-    let calcExpression='',calcCurrentInput='0',calcLastAction='num';
-    window.toggleCalculator = function() { const m=document.getElementById('calculatorModal'); if(m.classList.contains('hidden')){m.classList.remove('hidden');if(!m.dataset.positioned){m.style.top='80px';m.style.left=Math.max(20,window.innerWidth-480)+'px';m.dataset.positioned='true';}}else m.classList.add('hidden'); };
-    window.calcInput = function(key) { const d=document.getElementById('calcDisplay'),h=document.getElementById('calcHistory'); if(calcLastAction==='err'){calcExpression='';calcCurrentInput='0';calcLastAction='num';h.innerText='';} if(key>='0'&&key<='9'){if(calcLastAction==='eq'||calcCurrentInput==='0'||calcLastAction==='op'){calcCurrentInput=key;if(calcLastAction==='eq')calcExpression='';}else calcCurrentInput+=key;calcLastAction='num';h.innerText=calcExpression+calcCurrentInput;}else if(key==='.'){if(calcLastAction==='eq'||calcLastAction==='op'){calcCurrentInput='0.';if(calcLastAction==='eq')calcExpression='';}else if(!calcCurrentInput.includes('.'))calcCurrentInput+='.';calcLastAction='num';h.innerText=calcExpression+calcCurrentInput;}else if(key==='C'){calcExpression='';calcCurrentInput='0';calcLastAction='num';h.innerText='';}else if(key==='⌫'){if(calcLastAction==='num'||calcLastAction==='eq'){calcCurrentInput=calcCurrentInput.length>1?calcCurrentInput.slice(0,-1):'0';if(calcCurrentInput==='-'||calcCurrentInput==='')calcCurrentInput='0';if(calcLastAction==='eq'){calcExpression='';calcLastAction='num';}h.innerText=calcExpression+(calcCurrentInput==='0'&&calcExpression===''? '':calcCurrentInput);}}else if(key==='√'){const v=parseFloat(calcCurrentInput);if(v>=0){if(calcLastAction==='eq'){calcExpression='';h.innerText='√('+v+') =';}calcCurrentInput=String(parseFloat(Math.sqrt(v).toFixed(6)));calcLastAction='num';}else{calcCurrentInput='Error';calcLastAction='err';}}else if(['+','-','*','/'].includes(key)){const op=key==='*'?'×':key==='/'?'÷':key;if(calcLastAction==='op')calcExpression=calcExpression.replace(/[\+\-\×\÷]\s*$/,op+' ');else calcExpression+=calcCurrentInput+' '+op+' ';calcLastAction='op';h.innerText=calcExpression;}else if(key==='='){if(calcLastAction!=='eq'&&calcExpression!==''){let f=calcExpression+calcCurrentInput;let t=f.split(' ').filter(x=>x);const isAS=o=>o==='+'||o==='-';const isMD=o=>o==='×'||o==='÷';if(t.length===5&&((isAS(t[1])&&isMD(t[3]))||(isMD(t[1])&&isAS(t[3])))){window.showCalcChoiceModal(`(${t[0]} ${t[1]} ${t[2]}) ${t[3]} ${t[4]}`,`${t[0]} ${t[1]} (${t[2]} ${t[3]} ${t[4]})`);return;}window.executeCalculation(f,f);}} d.value=calcCurrentInput; };
-    window.executeCalculation = function(ev,hs) { let e=ev.replace(/×/g,'*').replace(/÷/g,'/'); try{let r=new Function('return '+e)();if(!isFinite(r))throw new Error();calcCurrentInput=String(parseFloat(r.toFixed(6)));document.getElementById('calcHistory').innerText=hs+' =';calcExpression='';calcLastAction='eq';}catch(err){calcCurrentInput='Error';calcLastAction='err';} document.getElementById('calcDisplay').value=calcCurrentInput; };
+    let calcExpression = '', calcCurrentInput = '0', calcLastAction = 'num';
+    
+    window.toggleCalculator = function() { 
+        const m = document.getElementById('calculatorModal'); 
+        if (m.classList.contains('hidden')) {
+            m.classList.remove('hidden');
+            if (!m.dataset.positioned) {
+                m.style.top = '80px';
+                m.style.left = Math.max(20, window.innerWidth - 480) + 'px';
+                m.dataset.positioned = 'true';
+            }
+        } else {
+            m.classList.add('hidden'); 
+        }
+    };
+    
+    window.showCalcChoiceModal = function(opt1, opt2) {
+        window.showModal("計算提示", `遇到模稜兩可的四則運算時，建議手動先結算括號內的數值，或是分段運算以確保正確性。\n\n可能出現的運算順序：\n1. ${opt1}\n2. ${opt2}`);
+    };
+
+    window.calcInput = function(key) { 
+        const d = document.getElementById('calcDisplay'), h = document.getElementById('calcHistory'); 
+        
+        if (calcLastAction === 'err') {
+            calcExpression = '';
+            calcCurrentInput = '0';
+            calcLastAction = 'num';
+            h.innerText = '';
+        } 
+        
+        if (key >= '0' && key <= '9') {
+            if (calcLastAction === 'eq' || calcCurrentInput === '0' || calcLastAction === 'op') {
+                calcCurrentInput = key;
+                if (calcLastAction === 'eq') calcExpression = '';
+            } else {
+                calcCurrentInput += key;
+            }
+            calcLastAction = 'num';
+            h.innerText = calcExpression + calcCurrentInput;
+        } else if (key === '.') {
+            if (calcLastAction === 'eq' || calcLastAction === 'op') {
+                calcCurrentInput = '0.';
+                if (calcLastAction === 'eq') calcExpression = '';
+            } else if (!calcCurrentInput.includes('.')) {
+                calcCurrentInput += '.';
+            }
+            calcLastAction = 'num';
+            h.innerText = calcExpression + calcCurrentInput;
+        } else if (key === 'C') {
+            calcExpression = '';
+            calcCurrentInput = '0';
+            calcLastAction = 'num';
+            h.innerText = '';
+        } else if (key === '⌫') {
+            if (calcLastAction === 'num' || calcLastAction === 'eq') {
+                calcCurrentInput = calcCurrentInput.length > 1 ? calcCurrentInput.slice(0, -1) : '0';
+                if (calcCurrentInput === '-' || calcCurrentInput === '') calcCurrentInput = '0';
+                if (calcLastAction === 'eq') {
+                    calcExpression = '';
+                    calcLastAction = 'num';
+                }
+                h.innerText = calcExpression + (calcCurrentInput === '0' && calcExpression === '' ? '' : calcCurrentInput);
+            }
+        } else if (key === '√') {
+            const v = parseFloat(calcCurrentInput);
+            if (v >= 0) {
+                if (calcLastAction === 'eq') {
+                    calcExpression = '';
+                    h.innerText = '√(' + v + ') =';
+                }
+                calcCurrentInput = String(parseFloat(Math.sqrt(v).toFixed(6)));
+                calcLastAction = 'num';
+            } else {
+                calcCurrentInput = 'Error';
+                calcLastAction = 'err';
+            }
+        } else if (['+', '-', '*', '/'].includes(key)) {
+            const op = key === '*' ? '×' : key === '/' ? '÷' : key;
+            if (calcLastAction === 'op') {
+                calcExpression = calcExpression.replace(/[\+\-\×\÷]\s*$/, op + ' ');
+            } else {
+                calcExpression += calcCurrentInput + ' ' + op + ' ';
+            }
+            calcLastAction = 'op';
+            h.innerText = calcExpression;
+        } else if (key === '=') {
+            if (calcLastAction !== 'eq' && calcExpression !== '') {
+                let f = calcExpression + calcCurrentInput;
+                let t = f.split(' ').filter(x => x);
+                const isAS = o => o === '+' || o === '-';
+                const isMD = o => o === '×' || o === '÷';
+                
+                if (t.length === 5 && ((isAS(t[1]) && isMD(t[3])) || (isMD(t[1]) && isAS(t[3])))) {
+                    window.showCalcChoiceModal(`(${t[0]} ${t[1]} ${t[2]}) ${t[3]} ${t[4]}`, `${t[0]} ${t[1]} (${t[2]} ${t[3]} ${t[4]})`);
+                    return;
+                }
+                window.executeCalculation(f, f);
+            }
+        } 
+        d.value = calcCurrentInput; 
+    };
+    
+    window.executeCalculation = function(ev, hs) { 
+        let e = ev.replace(/×/g, '*').replace(/÷/g, '/'); 
+        try {
+            let r = new Function('return ' + e)();
+            if (!isFinite(r)) throw new Error();
+            calcCurrentInput = String(parseFloat(r.toFixed(6)));
+            document.getElementById('calcHistory').innerText = hs + ' =';
+            calcExpression = '';
+            calcLastAction = 'eq';
+        } catch (err) {
+            calcCurrentInput = 'Error';
+            calcLastAction = 'err';
+        } 
+        document.getElementById('calcDisplay').value = calcCurrentInput; 
+    };
     
     function initInteractiveModal(modalId, headerId) {
-        const modal = document.getElementById(modalId), header = document.getElementById(headerId), handles = modal ? modal.querySelectorAll('.resize-handle') : [];
-        if(!modal || !header) return;
+        const modal = document.getElementById(modalId);
+        const header = document.getElementById(headerId);
+        const handles = modal ? modal.querySelectorAll('.resize-handle') : [];
+        if (!modal || !header) return;
+        
         let isDragging = false, dX = 0, dY = 0;
-        const startDrag = (e, cX, cY) => { if(e.target.tagName==='BUTTON'||e.target.closest('button'))return; isDragging=true; const r=modal.getBoundingClientRect(); dX=cX-r.left; dY=cY-r.top; document.body.style.userSelect='none'; };
-        const doDrag = (cX, cY) => { if(!isDragging)return; let nX=cX-dX, nY=cY-dY; nX=Math.max(-modal.offsetWidth+100, Math.min(nX, window.innerWidth-100)); nY=Math.max(0, Math.min(nY, window.innerHeight-100)); modal.style.left=nX+'px'; modal.style.top=nY+'px'; };
-        const stopDrag = () => { if(isDragging){isDragging=false;document.body.style.userSelect='';} };
-        header.addEventListener('mousedown', e => startDrag(e, e.clientX, e.clientY)); header.addEventListener('touchstart', e => startDrag(e, e.touches[0].clientX, e.touches[0].clientY), {passive:true});
-        document.addEventListener('mousemove', e => doDrag(e.clientX, e.clientY)); document.addEventListener('touchmove', e => doDrag(e.touches[0].clientX, e.touches[0].clientY), {passive:false});
-        document.addEventListener('mouseup', stopDrag); document.addEventListener('touchend', stopDrag);
+        
+        const startDrag = (e, cX, cY) => { 
+            if (e.target.tagName === 'BUTTON' || e.target.closest('button')) return; 
+            isDragging = true; 
+            const r = modal.getBoundingClientRect(); 
+            dX = cX - r.left; 
+            dY = cY - r.top; 
+            document.body.style.userSelect = 'none'; 
+        };
+        
+        const doDrag = (cX, cY) => { 
+            if (!isDragging) return; 
+            let nX = cX - dX, nY = cY - dY; 
+            nX = Math.max(-modal.offsetWidth + 100, Math.min(nX, window.innerWidth - 100)); 
+            nY = Math.max(0, Math.min(nY, window.innerHeight - 100)); 
+            modal.style.left = nX + 'px'; 
+            modal.style.top = nY + 'px'; 
+        };
+        
+        const stopDrag = () => { 
+            if (isDragging) {
+                isDragging = false;
+                document.body.style.userSelect = '';
+            } 
+        };
+        
+        header.addEventListener('mousedown', e => startDrag(e, e.clientX, e.clientY)); 
+        header.addEventListener('touchstart', e => startDrag(e, e.touches[0].clientX, e.touches[0].clientY), {passive: true});
+        document.addEventListener('mousemove', e => doDrag(e.clientX, e.clientY)); 
+        document.addEventListener('touchmove', e => doDrag(e.touches[0].clientX, e.touches[0].clientY), {passive: false});
+        document.addEventListener('mouseup', stopDrag); 
+        document.addEventListener('touchend', stopDrag);
+        
         handles.forEach(h => {
             let isR = false, sX, sY, sW, sH;
-            const startR = (e) => { e.preventDefault(); e.stopPropagation(); isR=true; sX=e.type.includes('mouse')?e.clientX:e.touches[0].clientX; sY=e.type.includes('mouse')?e.clientY:e.touches[0].clientY; const r=modal.getBoundingClientRect(); sW=r.width; sH=r.height; document.body.style.userSelect='none'; };
-            const doR = (e) => { if(!isR)return; const cX=e.type.includes('mouse')?e.clientX:e.touches[0].clientX; const cY=e.type.includes('mouse')?e.clientY:e.touches[0].clientY; modal.style.width=Math.max(350, sW+(cX-sX))+'px'; modal.style.height=Math.max(300, sH+(cY-sY))+'px'; };
-            const stopR = () => { if(isR){isR=false;document.body.style.userSelect='';} };
-            h.addEventListener('mousedown', startR); h.addEventListener('touchstart', startR, {passive:false});
-            document.addEventListener('mousemove', doR); document.addEventListener('touchmove', doR, {passive:false});
-            document.addEventListener('mouseup', stopR); document.addEventListener('touchend', stopR);
+            const startR = (e) => { 
+                e.preventDefault(); 
+                e.stopPropagation(); 
+                isR = true; 
+                sX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX; 
+                sY = e.type.includes('mouse') ? e.clientY : e.touches[0].clientY; 
+                const r = modal.getBoundingClientRect(); 
+                sW = r.width; 
+                sH = r.height; 
+                document.body.style.userSelect = 'none'; 
+            };
+            const doR = (e) => { 
+                if (!isR) return; 
+                const cX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX; 
+                const cY = e.type.includes('mouse') ? e.clientY : e.touches[0].clientY; 
+                modal.style.width = Math.max(350, sW + (cX - sX)) + 'px'; 
+                modal.style.height = Math.max(300, sH + (cY - sY)) + 'px'; 
+            };
+            const stopR = () => { 
+                if (isR) {
+                    isR = false;
+                    document.body.style.userSelect = '';
+                } 
+            };
+            
+            h.addEventListener('mousedown', startR); 
+            h.addEventListener('touchstart', startR, {passive: false});
+            document.addEventListener('mousemove', doR); 
+            document.addEventListener('touchmove', doR, {passive: false});
+            document.addEventListener('mouseup', stopR); 
+            document.addEventListener('touchend', stopR);
         });
     }
 
@@ -549,7 +869,7 @@
             }
         } catch (e) {
             dot.className = "absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-rose-500 ping-red border-2 border-white shadow-sm";
-            if (badge) { badge.textContent = "連線失敗，請檢查權限"; badge.className = "text-sm font-black text-rose-500 tracking-widest mt-1"; }
+            if (badge) { badge.textContent = "連線失敗，請檢查網路或權限"; badge.className = "text-sm font-black text-rose-500 tracking-widest mt-1"; }
         }
     }
 
@@ -564,11 +884,15 @@
         return JSON.parse(jsonPayload);
     }
 
+    // ★ GSI 登入回調，成功時儲存狀態
     window.handleGoogleCredentialResponse = function(response) {
         window.currentIdToken = response.credential;
         const payload = decodeJwtResponse(response.credential);
         const email = payload.email;
         currentValidatedEmail = email;
+        
+        // 將 Email 記憶在手機
+        localStorage.setItem('exp_sys_saved_email', email);
         
         showMobileVerifying(email);
         submitMobileAuth();
@@ -584,23 +908,34 @@
         document.getElementById('mobileAuthError').classList.add('hidden');
     }
 
-    function renderGoogleSignInBtn() {
+    // ★ 渲染按鈕與觸發自動登入
+    window.renderGoogleSignInBtn = function() {
         const btnContainer = document.getElementById("googleSignInContainer");
+        const savedEmail = localStorage.getItem('exp_sys_saved_email');
+        const savedSection = document.getElementById('savedAccountSection');
+        const savedDisplay = document.getElementById('savedEmailDisplay');
+
+        if(savedEmail && savedSection) {
+            savedSection.classList.remove('hidden');
+            savedDisplay.textContent = savedEmail;
+        }
+
         if(btnContainer) {
             google.accounts.id.initialize({
                 client_id: GOOGLE_CLIENT_ID,
                 callback: handleGoogleCredentialResponse,
-                itp_support: true, // 新增：專門支援 iOS/Safari 的防止跨站追蹤機制
-                auto_select: true  // 新增：如果該瀏覽器以前授權過，自動嘗試登入
+                itp_support: true, 
+                auto_select: true, // 手機記憶狀態下會自動發送 token
+                login_hint: savedEmail || undefined
             });
             google.accounts.id.renderButton(
                 btnContainer,
                 { theme: "outline", size: "large", width: 280, shape: "pill" }
             );
-            // 嘗試自動彈出 Google 帳號選擇畫面 (One Tap)
+            // 嘗試自動彈出 One Tap 或直接登入
             google.accounts.id.prompt();
         }
-    }
+    };
 
     window.submitMobileAuth = async function() {
         const errorEl = document.getElementById('mobileAuthError');
@@ -628,7 +963,7 @@
 
             if (res.status === 'success') {
                 const sessionParam = new URLSearchParams(window.location.search).get('session');
-                if(sessionParam) {
+                if (sessionParam) {
                     await setDoc(getDocRef('sessions', sessionParam), { 
                         status: 'unlocked',
                         sessionToken: res.sessionToken 
@@ -636,12 +971,18 @@
                 }
                 spinner.classList.add('hidden');
                 statusText.textContent = "解鎖成功！";
-                document.getElementById('mobileAuthVerifyingSection').innerHTML = `<div class="mt-4 text-emerald-500 font-black text-2xl flex flex-col items-center gap-2"><svg class="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>解鎖成功！<br><span class="text-sm text-slate-400">連線金鑰已核發，請看大螢幕</span><br><button onclick="clearSavedLogin()" class="mt-6 text-slate-400 text-sm font-bold underline hover:text-slate-600">登出 / 切換帳號</button></div>`;
+                document.getElementById('mobileAuthVerifyingSection').innerHTML = `<div class="mt-4 text-emerald-500 font-black text-2xl flex flex-col items-center gap-2"><svg class="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>解鎖成功！<br><span class="text-sm text-slate-400">連線金鑰已核發，請看大螢幕</span><br><button onclick="clearSavedLogin()" class="mt-6 text-slate-400 text-sm font-bold underline hover:text-slate-600">登出 / 換帳號</button></div>`;
             } else {
+                // 如果後端擋下來（例如是學生帳號）
                 spinner.classList.add('hidden');
                 statusText.textContent = "授權拒絕";
                 errorEl.textContent = res.message || "驗證失敗，請確認是否在白名單中";
                 errorEl.classList.remove('hidden');
+                // 登入失敗時清掉記憶，避免無限迴圈
+                localStorage.removeItem('exp_sys_saved_email');
+                if (google && google.accounts && google.accounts.id) {
+                    google.accounts.id.disableAutoSelect();
+                }
             }
         } catch (err) {
             spinner.classList.add('hidden');
@@ -651,9 +992,14 @@
         }
     };
 
+    // ★ 清除手機記憶並允許切換帳號
     window.clearSavedLogin = function() {
         currentValidatedEmail = '';
         window.currentIdToken = null;
+        localStorage.removeItem('exp_sys_saved_email');
+        if (google && google.accounts && google.accounts.id) {
+            google.accounts.id.disableAutoSelect();
+        }
         
         const verifyingSection = document.getElementById('mobileAuthVerifyingSection');
         if (verifyingSection) {
@@ -669,6 +1015,7 @@
             verifyingSection.classList.add('hidden');
         }
         
+        document.getElementById('savedAccountSection').classList.add('hidden');
         document.getElementById('googleAuthSection').classList.remove('hidden');
         document.getElementById('remoteMsg').className = "mt-4 font-bold text-lg h-6 text-slate-500";
         document.getElementById('remoteMsg').textContent = "請重新登入";
@@ -727,20 +1074,29 @@
             const gradesSet = new Set();
             snapshot.forEach(docSnap => {
                 const data = docSnap.data();
-                if(!window.classDataCache[data.grade]) window.classDataCache[data.grade] = {};
+                if (!window.classDataCache[data.grade]) window.classDataCache[data.grade] = {};
                 window.classDataCache[data.grade][data.className] = data.students || [];
                 gradesSet.add(data.grade);
             });
             const grades = Array.from(gradesSet).sort();
-            if (grades.length > 0) updateDropdowns(grades);
-            else { document.getElementById('gradeSelect').innerHTML='<option value="">請同步</option>'; document.getElementById('classSelect').innerHTML='<option value="">(無)</option>'; }
-        } catch (e) { console.error(e); }
+            if (grades.length > 0) {
+                updateDropdowns(grades);
+            } else { 
+                document.getElementById('gradeSelect').innerHTML = '<option value="">請同步</option>'; 
+                document.getElementById('classSelect').innerHTML = '<option value="">(無)</option>'; 
+            }
+        } catch (e) { 
+            console.error(e); 
+        }
     }
 
     function updateDropdowns(grades) {
         const gradeSelect = document.getElementById('gradeSelect');
         gradeSelect.innerHTML = grades.map(g => `<option value="${g}">${g} 年級</option>`).join('');
-        if(grades.length > 0) { gradeSelect.value = grades[0]; updateClassDropdown(); }
+        if (grades.length > 0) { 
+            gradeSelect.value = grades[0]; 
+            updateClassDropdown(); 
+        }
     }
 
     window.updateClassDropdown = function() {
@@ -750,31 +1106,42 @@
         if (window.classDataCache[g]) {
             const classes = Object.keys(window.classDataCache[g]).sort();
             classSelect.innerHTML = classes.map(c => `<option value="${c}">${c} 班</option>`).join('');
-            if(classes.length > 0) { classSelect.value = classes[0]; currentClass = classes[0]; loadClassStudents(); loadExpData(); }
+            if (classes.length > 0) { 
+                classSelect.value = classes[0]; 
+                currentClass = classes[0]; 
+                loadClassStudents(); 
+                loadExpData(); 
+            }
         }
-    }
+    };
 
     window.loadClassStudents = function() {
-        currentGrade = document.getElementById('gradeSelect').value;
-        currentClass = document.getElementById('classSelect').value;
-        if (!currentGrade || !currentClass || !isFirebaseReady) return;
-        if (unsubscribeStudents) unsubscribeStudents();
-        unsubscribeStudents = onSnapshot(getDocRef('classes', `${currentGrade}_${currentClass}`), (docSnap) => {
-            if (docSnap.exists()) {
-                window.classDataCache[currentGrade][currentClass] = docSnap.data().students || [];
-                renderFilteredStudentList();
-            }
-        });
-    }
+    currentGrade = document.getElementById('gradeSelect').value;
+    currentClass = document.getElementById('classSelect').value;
+    if (!currentGrade || !currentClass || !isFirebaseReady) return;
+    
+    if (unsubscribeStudents) unsubscribeStudents();
+    unsubscribeStudents = onSnapshot(getDocRef('classes', `${currentGrade}_${currentClass}`), (docSnap) => {
+        if (docSnap.exists()) {
+            window.classDataCache[currentGrade][currentClass] = docSnap.data().students || [];
+            window.renderFilteredStudentList();
+        }
+    });
+};
 
-    function renderFilteredStudentList() {
-        const students = window.classDataCache[currentGrade][currentClass] || [];
-        const keyword = document.getElementById('studentSearchInput').value.trim().toLowerCase();
-        const filtered = students.filter(s => s.name.toLowerCase().includes(keyword) || s.no.toString().includes(keyword));
-        document.getElementById('studentCount').textContent = students.length + ' 人';
-        document.getElementById('student-list').innerHTML = filtered.map((s) => {
+window.renderFilteredStudentList = function() {
+    const students = window.classDataCache[currentGrade][currentClass] || [];
+    const keyword = document.getElementById('studentSearchInput').value.trim().toLowerCase();
+    const filtered = students.filter(s => s.name.toLowerCase().includes(keyword) || s.no.toString().includes(keyword));
+    
+    const countEl = document.getElementById('studentCount');
+    if(countEl) countEl.textContent = students.length + ' 人';
+    
+    const listEl = document.getElementById('student-list');
+    if(listEl) {
+        listEl.innerHTML = filtered.map((s) => {
             const idx = students.findIndex(orig => orig.no === s.no);
-            return `<div class="student-item bg-white flex items-center justify-between px-6 py-4 border-b border-slate-50" onclick="openGradingModal(${idx}, ${JSON.stringify(s).replace(/"/g, '&quot;')})">
+            return `<div class="student-item bg-white flex items-center justify-between px-6 py-4 border-b border-slate-50" onclick="window.openGradingModal(${idx}, ${JSON.stringify(s).replace(/"/g, '&quot;')})">
                 <div class="flex items-center gap-5 text-sm">
                     <span class="w-12 h-12 rounded-2xl ${s.isTA ? 'bg-emerald-600 text-white shadow-emerald-200' : 'bg-slate-100 text-slate-500'} flex items-center justify-center font-black text-xl shrink-0 shadow-sm">${s.no}</span>
                     <div><p class="font-black ${s.isTA ? 'text-emerald-700' : 'text-slate-800'} text-xl">${s.name}</p>${s.isTA ? '<span class="text-xs font-black text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-100 uppercase tracking-tighter mt-1 inline-block">小老師</span>' : ''}</div>
@@ -784,7 +1151,87 @@
         }).join('');
     }
 
-    window.openSyncModal = () => document.getElementById('syncModal').classList.remove('hidden');
+    const gridEl = document.getElementById('batch-student-grid');
+    if(gridEl) {
+        if (!window.selectedBatchStudents) window.selectedBatchStudents = new Set();
+        gridEl.innerHTML = students.map((s, idx) => {
+            const isSelected = window.selectedBatchStudents.has(idx);
+            return `<button onclick="window.toggleBatchSelect(${idx})" class="py-3 rounded-xl font-black text-2xl transition-all border-2 ${isSelected ? 'bg-blue-500 text-white border-blue-600 shadow-md scale-95' : 'bg-white text-slate-600 border-slate-200 hover:border-blue-300 hover:bg-blue-50 shadow-sm'} flex flex-col items-center justify-center relative">
+                ${s.no}
+                <span class="absolute top-1 right-1 text-[10px] ${s.score > 0 ? 'text-emerald-500' : (s.score < 0 ? 'text-rose-500' : 'text-transparent')} font-bold">${s.score !== 0 ? s.score : ''}</span>
+            </button>`;
+        }).join('');
+    }
+
+    const countLabel = document.getElementById('batchSelectedCount');
+    if(countLabel) countLabel.textContent = window.selectedBatchStudents ? window.selectedBatchStudents.size : 0;
+};
+
+window.switchGradingTab = function(mode) {
+    const listTab = document.getElementById('tab-list');
+    const batchTab = document.getElementById('tab-batch');
+    const listView = document.getElementById('grading-list-view');
+    const batchView = document.getElementById('grading-batch-view');
+    
+    if (mode === 'list') {
+        listTab.className = "flex-1 py-2 font-black text-blue-600 bg-white rounded-lg shadow-sm border border-slate-200 transition-all tracking-widest text-lg";
+        batchTab.className = "flex-1 py-2 font-bold text-slate-500 bg-transparent rounded-lg border border-transparent hover:bg-slate-200 transition-all tracking-widest text-lg";
+        listView.classList.remove('hidden');
+        batchView.classList.add('hidden');
+        listView.classList.add('flex');
+        batchView.classList.remove('flex');
+    } else {
+        batchTab.className = "flex-1 py-2 font-black text-blue-600 bg-white rounded-lg shadow-sm border border-slate-200 transition-all tracking-widest text-lg";
+        listTab.className = "flex-1 py-2 font-bold text-slate-500 bg-transparent rounded-lg border border-transparent hover:bg-slate-200 transition-all tracking-widest text-lg";
+        batchView.classList.remove('hidden');
+        listView.classList.add('hidden');
+        batchView.classList.add('flex');
+        listView.classList.remove('flex');
+    }
+};
+
+window.toggleBatchSelect = function(idx) {
+    if(window.selectedBatchStudents.has(idx)) {
+        window.selectedBatchStudents.delete(idx);
+    } else {
+        window.selectedBatchStudents.add(idx);
+    }
+    window.renderFilteredStudentList();
+};
+
+window.clearBatchSelection = function() {
+    window.selectedBatchStudents.clear();
+    window.renderFilteredStudentList();
+};
+
+window.applyBatchScore = async function(amt) {
+    if (window.selectedBatchStudents.size === 0) return window.showModal('提示', '請先選擇至少一位學生');
+    
+    const list = window.classDataCache[currentGrade][currentClass];
+    window.selectedBatchStudents.forEach(idx => {
+        list[idx].score += amt;
+    });
+    
+    try {
+        await updateDoc(getDocRef('classes', `${currentGrade}_${currentClass}`), { students: list });
+        
+        // 視覺回饋按鈕
+        const btn = event.currentTarget;
+        const origText = btn.textContent;
+        btn.textContent = "完成!";
+        btn.classList.add("bg-blue-600", "text-white", "border-blue-600");
+        setTimeout(() => {
+            btn.textContent = origText;
+            btn.classList.remove("bg-blue-600", "text-white", "border-blue-600");
+            window.selectedBatchStudents.clear(); // 操作成功後清空選擇
+            window.renderFilteredStudentList();
+        }, 600);
+    } catch(e) {
+        window.showModal('錯誤', '批次更新失敗: ' + e.message);
+    }
+};
+
+window.openSyncModal = () => document.getElementById('syncModal').classList.remove('hidden');
     window.closeSyncModal = () => document.getElementById('syncModal').classList.add('hidden');
     
     window.pullFromSheets = async function() {
@@ -862,12 +1309,27 @@
         }
     };
 
-    function showLoadingModal(m) { document.getElementById('loadingMsg').textContent = m; document.getElementById('loadingModal').classList.remove('hidden'); }
-    function hideLoadingModal() { document.getElementById('loadingModal').classList.add('hidden'); }
+    function showLoadingModal(m) { 
+        document.getElementById('loadingMsg').textContent = m; 
+        document.getElementById('loadingModal').classList.remove('hidden'); 
+    }
+    
+    function hideLoadingModal() { 
+        document.getElementById('loadingModal').classList.add('hidden'); 
+    }
 
-    window.clearExpData = () => { document.querySelectorAll('#table-container input').forEach(i => i.value = i.classList.contains('fill-blank') ? "1K" : ""); window.calculateRatio(); };
+    window.clearExpData = () => { 
+        document.querySelectorAll('#table-container input').forEach(i => {
+            i.value = i.classList.contains('fill-blank') ? "1K" : "";
+        }); 
+        window.calculateRatio(); 
+    };
+
     window.renderTableTemplate = () => {
-        const val = document.getElementById('expSelect').value, container = document.getElementById('table-container'); if (!container) return;
+        const val = document.getElementById('expSelect').value;
+        const container = document.getElementById('table-container'); 
+        if (!container) return;
+        
         let html = '';
         if (val === 'exp1') {
             html = `<h3 class="font-bold text-center text-blue-800 mb-4 text-2xl">1. 固定電阻 (1000Ω)</h3><table><thead><tr><th>輸入電壓</th><th>實際電壓(V)</th><th>電流(mA)</th><th>電阻=電壓/電流</th></tr></thead><tbody>
@@ -875,7 +1337,8 @@
                     <tr><td class="font-bold text-slate-500">3V</td><td><input type="text" inputmode="none" class="table-input input-v"></td><td><input type="text" inputmode="none" class="table-input input-i"></td><td class="result-r font-bold text-blue-600">-</td></tr>
                     <tr><td class="font-bold text-slate-500">4.5V</td><td><input type="text" inputmode="none" class="table-input input-v"></td><td><input type="text" inputmode="none" class="table-input input-i"></td><td class="result-r font-bold text-blue-600">-</td></tr></tbody></table>`;
         } else if (val === 'exp2' || val === 'exp3') { 
-            const sym = val === 'exp2' ? '+' : '//', title = val === 'exp2' ? '串聯' : '並聯';
+            const sym = val === 'exp2' ? '+' : '//';
+            const title = val === 'exp2' ? '串聯' : '並聯';
             html = `<h3 class="font-bold text-center text-blue-800 mb-4 text-2xl">${title}實驗</h3><table><thead><tr><th>組合</th><th>三用電表(Ω)</th><th>電壓(V)</th><th>電流(mA)</th><th>電阻=電壓/電流</th></tr></thead><tbody>
                     <tr><td class="text-left whitespace-nowrap px-2"><span>1個：</span><input type="text" inputmode="none" class="fill-blank" value="1K"></td><td><input type="text" inputmode="none" class="table-input"></td><td><input type="text" inputmode="none" class="table-input input-v"></td><td><input type="text" inputmode="none" class="table-input input-i"></td><td class="result-r font-bold text-blue-600">-</td></tr>
                     <tr><td class="text-left whitespace-nowrap px-2"><span>2個：</span><input type="text" inputmode="none" class="fill-blank" value="1K">${sym}<input type="text" inputmode="none" class="fill-blank" value="1K"></td><td><input type="text" inputmode="none" class="table-input"></td><td><input type="text" inputmode="none" class="table-input input-v"></td><td><input type="text" inputmode="none" class="table-input input-i"></td><td class="result-r font-bold text-blue-600">-</td></tr>
@@ -914,8 +1377,17 @@
                     <tr><td class="font-bold text-slate-500">迴路 2</td><td><input type="text" inputmode="none" class="table-input"></td><td><input type="text" inputmode="none" class="table-input"></td><td><input type="text" inputmode="none" class="table-input"></td></tr>
                     <tr><td class="font-bold text-blue-600 italic">總和</td><td><input type="text" inputmode="none" class="table-input"></td><td><input type="text" inputmode="none" class="table-input"></td><td><input type="text" inputmode="none" class="table-input"></td></tr></tbody></table>`;
         }
-        container.innerHTML = html; loadExpData();
-        setTimeout(() => { document.querySelectorAll('#table-container input').forEach(input => { input.setAttribute('inputmode', 'none'); input.addEventListener('click', e => { e.preventDefault(); window.showNumPad(e.target); }); input.addEventListener('focus', e => { e.preventDefault(); window.showNumPad(e.target); }); }); }, 50);
+        
+        container.innerHTML = html; 
+        loadExpData();
+        
+        setTimeout(() => { 
+            document.querySelectorAll('#table-container input').forEach(input => { 
+                input.setAttribute('inputmode', 'none'); 
+                input.addEventListener('click', e => { e.preventDefault(); window.showNumPad(e.target); }); 
+                input.addEventListener('focus', e => { e.preventDefault(); window.showNumPad(e.target); }); 
+            }); 
+        }, 50);
     };
 
     window.calculateRatio = () => { 
@@ -923,13 +1395,19 @@
         if (expType === 'exp5') {
             const row = document.getElementById('exp5-row');
             if (!row) return;
+            
             const getVal = (selector) => {
                 const el = row.querySelector(selector);
                 const val = el ? parseFloat(el.value) : NaN;
                 return isNaN(val) ? null : val;
             };
-            const v1 = getVal('[data-var="v1"]'), v2 = getVal('[data-var="v2"]'), v = getVal('[data-var="v"]');
-            const i1 = getVal('[data-var="i1"]'), i2 = getVal('[data-var="i2"]'), i3 = getVal('[data-var="i3"]');
+            
+            const v1 = getVal('[data-var="v1"]');
+            const v2 = getVal('[data-var="v2"]');
+            const v = getVal('[data-var="v"]');
+            const i1 = getVal('[data-var="i1"]');
+            const i2 = getVal('[data-var="i2"]');
+            const i3 = getVal('[data-var="i3"]');
 
             let iVals = [i1, i2, i3].filter(x => x !== null);
             let iAvg = iVals.length > 0 ? iVals.reduce((a, b) => a + b, 0) / iVals.length : null;
@@ -941,7 +1419,10 @@
             row.querySelector('[data-res="r"]').textContent = calcR(v, iAvg);
         } else {
             document.querySelectorAll('#table-container tr').forEach(row => { 
-                const vIn = row.querySelector('.input-v'), iIn = row.querySelector('.input-i'), res = row.querySelector('.result-r'); 
+                const vIn = row.querySelector('.input-v');
+                const iIn = row.querySelector('.input-i');
+                const res = row.querySelector('.result-r'); 
+                
                 if (res) { 
                     let v = vIn ? parseFloat(vIn.value) : (row.cells[0]?.innerText.includes('V') ? parseFloat(row.cells[0].innerText) : NaN); 
                     const i = iIn ? parseFloat(iIn.value) : NaN; 
@@ -951,71 +1432,244 @@
         }
     };
 
-    window.saveExpData = async function() { if (!currentGrade || !currentClass || !isFirebaseReady) return showModal('系統提示', '請先選擇班級'); const expType = document.getElementById('expSelect').value, data = Array.from(document.querySelectorAll('#table-container input')).map(i => i.value); try { await setDoc(getDocRef('experiments', `${currentGrade}_${currentClass}_${expType}`), { grade: currentGrade, className: currentClass, expType, data, updatedAt: new Date().toLocaleString() }); const ind = document.getElementById('saveStatusIndicator'); if (ind) { ind.classList.remove('hidden'); setTimeout(() => ind.classList.add('hidden'), 3000); } } catch (e) { showModal('儲存失敗', e.message); } };
-    window.loadExpData = async () => { if (!currentGrade || !currentClass || !isFirebaseReady) return; try { const snap = await getDoc(getDocRef('experiments', `${currentGrade}_${currentClass}_${document.getElementById('expSelect').value}`)); if (snap.exists()) { const ins = document.querySelectorAll('#table-container input'); const data = snap.data().data; ins.forEach((input, i) => { let val = data[i]; if (input.classList.contains('fill-blank') && (!val || val.trim() === "")) val = "1K"; else if (val === undefined) val = ""; input.value = val; }); calculateRatio(); } else { window.clearExpData(); } } catch (e) {} };
+    window.saveExpData = async function() { 
+        if (!currentGrade || !currentClass || !isFirebaseReady) {
+            return showModal('系統提示', '請先選擇班級'); 
+        }
+        
+        const expType = document.getElementById('expSelect').value;
+        const data = Array.from(document.querySelectorAll('#table-container input')).map(i => i.value); 
+        
+        try { 
+            await setDoc(getDocRef('experiments', `${currentGrade}_${currentClass}_${expType}`), { 
+                grade: currentGrade, 
+                className: currentClass, 
+                expType: expType, 
+                data: data, 
+                updatedAt: new Date().toLocaleString() 
+            }); 
+            
+            const ind = document.getElementById('saveStatusIndicator'); 
+            if (ind) { 
+                ind.classList.remove('hidden'); 
+                setTimeout(() => ind.classList.add('hidden'), 3000); 
+            } 
+        } catch (e) { 
+            showModal('儲存失敗', e.message); 
+        } 
+    };
+    
+    window.loadExpData = async () => { 
+        if (!currentGrade || !currentClass || !isFirebaseReady) return; 
+        
+        try { 
+            const expSelect = document.getElementById('expSelect').value;
+            const snap = await getDoc(getDocRef('experiments', `${currentGrade}_${currentClass}_${expSelect}`)); 
+            
+            if (snap.exists()) { 
+                const ins = document.querySelectorAll('#table-container input'); 
+                const data = snap.data().data; 
+                ins.forEach((input, i) => { 
+                    let val = data[i]; 
+                    if (input.classList.contains('fill-blank') && (!val || val.trim() === "")) {
+                        val = "1K"; 
+                    } else if (val === undefined) {
+                        val = ""; 
+                    }
+                    input.value = val; 
+                }); 
+                window.calculateRatio(); 
+            } else { 
+                window.clearExpData(); 
+            } 
+        } catch (e) {
+            console.error(e);
+        } 
+    };
 
     function setupEventListeners() {
-        document.getElementById('gradeSelect').addEventListener('change', updateClassDropdown);
-        document.getElementById('classSelect').addEventListener('change', () => { loadClassStudents(); loadExpData(); });
-        document.getElementById('expSelect').addEventListener('change', renderTableTemplate);
-        document.getElementById('swapLayoutBtn').addEventListener('click', () => document.getElementById('videoContainer').classList.toggle('rotate-180'));
-        document.getElementById('fullscreenBtn').addEventListener('click', () => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen());
-        document.getElementById('studentSearchInput').addEventListener('input', renderFilteredStudentList);
-        document.getElementById('floatingTableContent').addEventListener('scroll', window.hideNumPad, {passive: true});
-        document.addEventListener('click', (e) => { const pad = document.getElementById('numPad'); if (!pad || pad.classList.contains('hidden') || pad.contains(e.target) || e.target.tagName === 'INPUT') return; window.hideNumPad(); });
+        document.getElementById('gradeSelect').addEventListener('change', window.updateClassDropdown);
+        document.getElementById('classSelect').addEventListener('change', () => { window.loadClassStudents(); window.loadExpData(); });
+        document.getElementById('expSelect').addEventListener('change', window.renderTableTemplate);
+        
+        const swapBtn = document.getElementById('swapLayoutBtn');
+        if(swapBtn) swapBtn.addEventListener('click', () => document.getElementById('videoContainer').classList.toggle('rotate-180'));
+        
+        const fsBtn = document.getElementById('fullscreenBtn');
+        if(fsBtn) fsBtn.addEventListener('click', () => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen());
+        
+        const searchInput = document.getElementById('studentSearchInput');
+        if(searchInput) searchInput.addEventListener('input', window.renderFilteredStudentList);
+        
+        const tContent = document.getElementById('floatingTableContent');
+        if(tContent) tContent.addEventListener('scroll', window.hideNumPad, {passive: true});
+        
+        document.addEventListener('click', (e) => { 
+            const pad = document.getElementById('numPad'); 
+            if (!pad || pad.classList.contains('hidden') || pad.contains(e.target) || e.target.tagName === 'INPUT') return; 
+            window.hideNumPad(); 
+        });
     }
 
     async function initCamera() { 
         try { 
-            const devices = await navigator.mediaDevices.enumerateDevices(), videoDevices = devices.filter(d => d.kind === 'videoinput'); 
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const videoDevices = devices.filter(d => d.kind === 'videoinput'); 
             const select = document.getElementById('cameraSelect');
-            if (select) { select.innerHTML = videoDevices.map((d, i) => `<option value="${d.deviceId}">${d.label || '鏡頭'+(i+1)}</option>`).join(''); if (currentStream && currentStream.getVideoTracks().length > 0) { const activeDev = videoDevices.find(d => d.label === currentStream.getVideoTracks()[0].label); if (activeDev) select.value = activeDev.deviceId; } }
-            if (videoDevices.length > 0) { if (document.getElementById('noCameraMsg')) document.getElementById('noCameraMsg').classList.add('hidden'); await startStream(); } else throw new Error();
-        } catch (e) { if (document.getElementById('noCameraMsg')) document.getElementById('noCameraMsg').classList.remove('hidden'); } 
+            
+            if (select) { 
+                select.innerHTML = videoDevices.map((d, i) => `<option value="${d.deviceId}">${d.label || '鏡頭'+(i+1)}</option>`).join(''); 
+                if (currentStream && currentStream.getVideoTracks().length > 0) { 
+                    const activeDev = videoDevices.find(d => d.label === currentStream.getVideoTracks()[0].label); 
+                    if (activeDev) select.value = activeDev.deviceId; 
+                } 
+            }
+            
+            if (videoDevices.length > 0) { 
+                if (document.getElementById('noCameraMsg')) document.getElementById('noCameraMsg').classList.add('hidden'); 
+                await startStream(); 
+            } else {
+                throw new Error("No camera found");
+            }
+        } catch (e) { 
+            if (document.getElementById('noCameraMsg')) document.getElementById('noCameraMsg').classList.remove('hidden'); 
+        } 
     }
     
     async function startStream() { 
-        const video = document.getElementById('video'), select = document.getElementById('cameraSelect'); if (!video || !select || !select.value) return; 
-        if (currentStream) { currentStream.getTracks().forEach(t => t.stop()); currentStream = null; }
-        if (video.srcObject) { video.srcObject.getTracks().forEach(t => t.stop()); video.srcObject = null; }
-        try { currentStream = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: select.value }, width: { ideal: 3840 }, height: { ideal: 2160 } } }); video.srcObject = currentStream; } 
-        catch (e) { try { currentStream = await navigator.mediaDevices.getUserMedia({ video: true }); video.srcObject = currentStream; } catch(err) { if (document.getElementById('noCameraMsg')) document.getElementById('noCameraMsg').classList.remove('hidden'); } } 
+        const video = document.getElementById('video');
+        const select = document.getElementById('cameraSelect'); 
+        
+        if (!video || !select || !select.value) return; 
+        
+        if (currentStream) { 
+            currentStream.getTracks().forEach(t => t.stop()); 
+            currentStream = null; 
+        }
+        
+        if (video.srcObject) { 
+            video.srcObject.getTracks().forEach(t => t.stop()); 
+            video.srcObject = null; 
+        }
+        
+        try { 
+            currentStream = await navigator.mediaDevices.getUserMedia({ 
+                video: { deviceId: { exact: select.value }, width: { ideal: 3840 }, height: { ideal: 2160 } } 
+            }); 
+            video.srcObject = currentStream; 
+        } catch (e) { 
+            try { 
+                currentStream = await navigator.mediaDevices.getUserMedia({ video: true }); 
+                video.srcObject = currentStream; 
+            } catch(err) { 
+                if (document.getElementById('noCameraMsg')) document.getElementById('noCameraMsg').classList.remove('hidden'); 
+            } 
+        } 
     }
     
-    const camSelect = document.getElementById('cameraSelect'), refreshBtn = document.getElementById('refreshCamBtn');
+    const camSelect = document.getElementById('cameraSelect');
+    const refreshBtn = document.getElementById('refreshCamBtn');
+    
     if (camSelect) camSelect.addEventListener('change', startStream);
     if (refreshBtn) refreshBtn.addEventListener('click', initCamera);
     
-    window.showModal = (t, m, isHtml = false) => { const title = document.getElementById('modalTitle'), msg = document.getElementById('modalMessage'), modal = document.getElementById('customModal'); if (title) title.textContent = t; if (msg) { if (isHtml) msg.innerHTML = m; else msg.textContent = m; } if (modal) modal.classList.remove('hidden'); };
-    window.showCameraTroubleshoot = function() { showModal("🎥 鏡頭疑難排解", `<div class="text-left space-y-4 text-base mt-2 text-slate-600"><p class="font-bold text-rose-600 text-lg mb-4">無法開啟鏡頭時，請檢查：</p><div class="bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-sm"><h4 class="font-black text-slate-800 text-lg mb-1 flex items-center gap-2">1. 軟體佔用</h4><p class="text-slate-500 mt-1 leading-relaxed">請確認已將 IPEVO 等視訊軟體<span class="text-rose-600 font-bold">完全關閉</span>。</p></div><div class="bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-sm"><h4 class="font-black text-slate-800 text-lg mb-1 flex items-center gap-2">2. 權限封鎖</h4><p class="text-slate-500 mt-1 leading-relaxed">點擊網址列左側的鎖頭，確認相機已允許。</p></div></div>`, true); };
+    window.showModal = (t, m, isHtml = false) => { 
+        const title = document.getElementById('modalTitle');
+        const msg = document.getElementById('modalMessage');
+        const modal = document.getElementById('customModal'); 
+        
+        if (title) title.textContent = t; 
+        if (msg) { 
+            if (isHtml) msg.innerHTML = m; 
+            else msg.textContent = m; 
+        } 
+        if (modal) modal.classList.remove('hidden'); 
+    };
+    
+    window.showCameraTroubleshoot = function() { 
+        window.showModal("🎥 鏡頭疑難排解", `<div class="text-left space-y-4 text-base mt-2 text-slate-600"><p class="font-bold text-rose-600 text-lg mb-4">無法開啟鏡頭時，請檢查：</p><div class="bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-sm"><h4 class="font-black text-slate-800 text-lg mb-1 flex items-center gap-2">1. 軟體佔用</h4><p class="text-slate-500 mt-1 leading-relaxed">請確認已將 IPEVO 等視訊軟體<span class="text-rose-600 font-bold">完全關閉</span>。</p></div><div class="bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-sm"><h4 class="font-black text-slate-800 text-lg mb-1 flex items-center gap-2">2. 權限封鎖</h4><p class="text-slate-500 mt-1 leading-relaxed">點擊網址列左側的鎖頭，確認相機已允許。</p></div></div>`, true); 
+    };
 
-    window.openGradingModal = (idx, s) => { currentSelectedStudentId = idx; document.getElementById('gradingGradeClass').textContent = `${currentGrade}年${currentClass}班 - ${s.no}號`; document.getElementById('gradingName').textContent = s.name; document.getElementById('gradingCurrentScore').textContent = s.score; document.getElementById('gradingTAToggle').checked = s.isTA; document.getElementById('gradingModal').classList.remove('hidden'); };
+    window.openGradingModal = (idx, s) => { 
+        currentSelectedStudentId = idx; 
+        document.getElementById('gradingGradeClass').textContent = `${currentGrade}年${currentClass}班 - ${s.no}號`; 
+        document.getElementById('gradingName').textContent = s.name; 
+        document.getElementById('gradingCurrentScore').textContent = s.score; 
+        document.getElementById('gradingTAToggle').checked = s.isTA; 
+        document.getElementById('gradingModal').classList.remove('hidden'); 
+    };
+    
     window.closeGradingModal = () => document.getElementById('gradingModal').classList.add('hidden');
-    window.updateScore = async (amt) => { if (currentSelectedStudentId === null) return; const list = window.classDataCache[currentGrade][currentClass]; list[currentSelectedStudentId].score += amt; document.getElementById('gradingCurrentScore').textContent = list[currentSelectedStudentId].score; await updateDoc(getDocRef('classes', `${currentGrade}_${currentClass}`), { students: list }); };
-    window.updateTAStatus = async (val) => { if (currentSelectedStudentId === null) return; const list = window.classDataCache[currentGrade][currentClass]; list[currentSelectedStudentId].isTA = val; await updateDoc(getDocRef('classes', `${currentGrade}_${currentClass}`), { students: list }); };
+    
+    window.updateScore = async (amt) => { 
+        if (currentSelectedStudentId === null) return; 
+        const list = window.classDataCache[currentGrade][currentClass]; 
+        list[currentSelectedStudentId].score += amt; 
+        document.getElementById('gradingCurrentScore').textContent = list[currentSelectedStudentId].score; 
+        await updateDoc(getDocRef('classes', `${currentGrade}_${currentClass}`), { students: list }); 
+    };
+    
+    window.updateTAStatus = async (val) => { 
+        if (currentSelectedStudentId === null) return; 
+        const list = window.classDataCache[currentGrade][currentClass]; 
+        list[currentSelectedStudentId].isTA = val; 
+        await updateDoc(getDocRef('classes', `${currentGrade}_${currentClass}`), { students: list }); 
+    };
 
     /* --- Firebase 啟動與判定登入狀態 --- */
     try {
-        const hasEnv = typeof __firebase_config !== 'undefined' && __firebase_config, config = hasEnv ? JSON.parse(__firebase_config) : myFirebaseConfig;
-        app = initializeApp(config); auth = getAuth(app); db = getFirestore(app);
+        let config = myFirebaseConfig;
+        
+        // 防呆：如果雲端環境變數未載入完成或為空字串，將以預設配置執行，避免 JSON.parse 發生 SyntaxError
+        if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+            try {
+                config = (typeof __firebase_config === 'string') ? JSON.parse(__firebase_config) : __firebase_config;
+            } catch (jsonErr) {
+                console.warn("JSON Parse Error for Firebase Config, using default:", jsonErr);
+            }
+        }
+        
+        app = initializeApp(config); 
+        auth = getAuth(app); 
+        db = getFirestore(app);
         
         const authenticate = async () => { 
             try { 
-                try { const initialStream = await navigator.mediaDevices.getUserMedia({ video: true }); initialStream.getTracks().forEach(track => track.stop()); } catch (permissionError) { }
-                if (hasEnv && typeof __initial_auth_token !== 'undefined' && __initial_auth_token) await signInWithCustomToken(auth, __initial_auth_token); else await signInAnonymously(auth); 
+                try { 
+                    const initialStream = await navigator.mediaDevices.getUserMedia({ video: true }); 
+                    initialStream.getTracks().forEach(track => track.stop()); 
+                } catch (permissionError) { 
+                    console.warn("Camera init warning: ", permissionError);
+                }
+                
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token); 
+                } else {
+                    await signInAnonymously(auth); 
+                }
+                
                 isFirebaseReady = true; 
                 
                 const urlParams = new URLSearchParams(window.location.search);
                 if (urlParams.get('mode') === 'remote') {
                     document.getElementById('remoteMobileUI').classList.remove('hidden');
-                    renderGoogleSignInBtn();
+                    if (typeof window.renderGoogleSignInBtn === 'function') {
+                        window.renderGoogleSignInBtn(); 
+                    }
                 } else {
-                    window.startPcLockScreen();
+                    if (typeof window.startPcLockScreen === 'function') {
+                        window.startPcLockScreen();
+                    }
                 }
-            } catch (err) { console.error(err); } 
+            } catch (err) { 
+                console.error("Auth error:", err); 
+            } 
         };
+        
         authenticate();
-    } catch (e) { console.error(e); }
+    } catch (e) { 
+        console.error("Initialization error:", e); 
+    }
 </script>
 </body>
 </html>
