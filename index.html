@@ -184,13 +184,29 @@
         <h1 class="text-4xl font-black tracking-[0.2em] mb-3 text-white">系統已鎖定</h1>
         <p class="text-slate-400 mb-8 font-bold text-lg">請使用手機掃描下方 QR Code 進行驗證解鎖</p>
         
-        <div class="bg-white p-6 rounded-[28px] mb-6 shadow-2xl">
-            <img id="qrcodeImg" src="" alt="QR Code" class="w-56 h-56">
+        <!-- 原本的 QR Code 區塊 -->
+        <div id="qrCodeSection" class="flex flex-col items-center w-full">
+            <div class="bg-white p-6 rounded-[28px] mb-6 shadow-2xl">
+                <img id="qrcodeImg" src="" alt="QR Code" class="w-56 h-56">
+            </div>
+            
+            <div class="flex items-center gap-3 text-slate-500 mb-6">
+                <svg class="animate-spin h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                <span class="text-sm font-bold tracking-widest">等待手機授權中...</span>
+            </div>
+            
+            <!-- 備用登入按鈕 -->
+            <button onclick="window.showPcLoginFallback()" class="text-slate-500 text-sm font-bold underline hover:text-slate-300 transition-colors mt-2">忘記帶手機？使用電腦登入</button>
         </div>
-        
-        <div class="flex items-center gap-3 text-slate-500 mb-8">
-            <svg class="animate-spin h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-            <span class="text-sm font-bold tracking-widest">等待手機授權中...</span>
+
+        <!-- 隱藏的電腦端備用登入區塊 -->
+        <div id="pcLoginSection" class="hidden flex flex-col items-center w-full">
+            <div class="bg-blue-900/50 p-4 rounded-2xl border border-blue-500/30 mb-6 w-full">
+                <p class="text-blue-200 text-sm font-bold">請直接點擊下方按鈕登入解鎖。<br><span class="text-rose-300">※ 注意：下課後請務必登出此電腦的 Google 帳號！</span></p>
+            </div>
+            <div id="pcGoogleSignInContainer" class="w-full flex justify-center mb-4 min-h-[44px]"></div>
+            <div id="pcAuthError" class="text-rose-400 text-sm font-bold mb-4 hidden"></div>
+            <button onclick="window.hidePcLoginFallback()" class="text-slate-400 text-sm font-bold underline hover:text-slate-200 transition-colors mt-2">← 返回 QR Code 掃描</button>
         </div>
     </div>
 </div>
@@ -896,11 +912,75 @@ window.openFloatingTable = function() {
         const email = payload.email;
         currentValidatedEmail = email;
         
-        // 將 Email 記憶在手機
-        localStorage.setItem('exp_sys_saved_email', email);
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('mode') === 'remote') {
+            // 手機遠端模式：將 Email 記憶在手機
+            localStorage.setItem('exp_sys_saved_email', email);
+            showMobileVerifying(email);
+            submitMobileAuth();
+        } else {
+            // 電腦端備用登入模式
+            window.submitPcAuth();
+        }
+    };
+
+    window.showPcLoginFallback = function() {
+        document.getElementById('qrCodeSection').classList.add('hidden');
+        document.getElementById('pcLoginSection').classList.remove('hidden');
         
-        showMobileVerifying(email);
-        submitMobileAuth();
+        google.accounts.id.initialize({
+            client_id: GOOGLE_CLIENT_ID,
+            callback: window.handleGoogleCredentialResponse,
+            itp_support: true, 
+            auto_select: false // 電腦端不要自動登入，以免前一個老師沒登出
+        });
+        google.accounts.id.renderButton(
+            document.getElementById('pcGoogleSignInContainer'),
+            { theme: "outline", size: "large", width: 280, shape: "pill" }
+        );
+    };
+
+    window.hidePcLoginFallback = function() {
+        document.getElementById('pcLoginSection').classList.add('hidden');
+        document.getElementById('qrCodeSection').classList.remove('hidden');
+    };
+
+    window.submitPcAuth = async function() {
+        const errorEl = document.getElementById('pcAuthError');
+        errorEl.classList.add('hidden');
+        showLoadingModal('安全驗證中...');
+
+        try {
+            const res = await fetch(myDefaultGasUrl, { 
+                redirect: "follow",
+                method: 'POST', 
+                headers: { "Content-Type": "text/plain;charset=utf-8" },
+                body: JSON.stringify({ 
+                    action: 'verifyAuthSecure', 
+                    idToken: window.currentIdToken 
+                }) 
+            }).then(r => r.json());
+
+            if (res.status === 'success') {
+                hideLoadingModal();
+                localStorage.setItem('exp_sys_session_token', res.sessionToken);
+                if (!isAppUnlocked) {
+                    isAppUnlocked = true;
+                    document.getElementById('lockScreenUI').classList.add('hidden');
+                    window.initApp(); 
+                }
+            } else {
+                hideLoadingModal();
+                errorEl.innerHTML = res.message || "驗證失敗，請確認是否在白名單中";
+                errorEl.classList.remove('hidden');
+                window.currentIdToken = null; 
+            }
+        } catch (err) {
+            console.error("PC Auth fetch error: ", err);
+            hideLoadingModal();
+            errorEl.textContent = "連線失敗，請檢查網路 (" + err.message + ")";
+            errorEl.classList.remove('hidden');
+        }
     };
 
     function showMobileVerifying(email) {
