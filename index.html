@@ -303,12 +303,12 @@
             <div class="p-2 bg-white border-t shrink-0 shadow-[0_-5px_15px_rgba(0,0,0,0.05)] z-10">
                 <p class="text-[11px] font-bold text-slate-400 mb-1 text-center tracking-widest">點擊分數套用至已選定學生</p>
                 <div class="grid grid-cols-3 gap-2 pr-10"> <!-- 加了 pr-10 避免按鈕被右下角拉柄擋住 -->
-                    <button onclick="window.applyBatchScore(1)" class="py-2 bg-emerald-50 text-emerald-600 rounded-xl border border-emerald-200 font-black text-xl active:scale-95 transition-all shadow-sm">+1</button>
-                    <button onclick="window.applyBatchScore(2)" class="py-2 bg-emerald-50 text-emerald-600 rounded-xl border border-emerald-200 font-black text-xl active:scale-95 transition-all shadow-sm">+2</button>
-                    <button onclick="window.applyBatchScore(5)" class="py-2 bg-emerald-500 text-white rounded-xl font-black text-xl active:scale-95 transition-all shadow-md shadow-emerald-200">+5</button>
-                    <button onclick="window.applyBatchScore(-1)" class="py-2 bg-rose-50 text-rose-500 rounded-xl border border-rose-200 font-black text-xl active:scale-95 transition-all shadow-sm">-1</button>
-                    <button onclick="window.applyBatchScore(-2)" class="py-2 bg-rose-50 text-rose-500 rounded-xl border border-rose-200 font-black text-xl active:scale-95 transition-all shadow-sm">-2</button>
-                    <button onclick="window.applyBatchScore(-5)" class="py-2 bg-rose-500 text-white rounded-xl font-black text-xl active:scale-95 transition-all shadow-md shadow-rose-200">-5</button>
+                    <button onclick="window.applyBatchScore(1, event)" class="py-2 bg-emerald-50 text-emerald-600 rounded-xl border border-emerald-200 font-black text-xl active:scale-95 transition-all shadow-sm">+1</button>
+                    <button onclick="window.applyBatchScore(2, event)" class="py-2 bg-emerald-50 text-emerald-600 rounded-xl border border-emerald-200 font-black text-xl active:scale-95 transition-all shadow-sm">+2</button>
+                    <button onclick="window.applyBatchScore(5, event)" class="py-2 bg-emerald-500 text-white rounded-xl font-black text-xl active:scale-95 transition-all shadow-md shadow-emerald-200">+5</button>
+                    <button onclick="window.applyBatchScore(-1, event)" class="py-2 bg-rose-50 text-rose-500 rounded-xl border border-rose-200 font-black text-xl active:scale-95 transition-all shadow-sm">-1</button>
+                    <button onclick="window.applyBatchScore(-2, event)" class="py-2 bg-rose-50 text-rose-500 rounded-xl border border-rose-200 font-black text-xl active:scale-95 transition-all shadow-sm">-2</button>
+                    <button onclick="window.applyBatchScore(-5, event)" class="py-2 bg-rose-500 text-white rounded-xl font-black text-xl active:scale-95 transition-all shadow-md shadow-rose-200">-5</button>
                 </div>
             </div>
         </div>
@@ -1300,8 +1300,11 @@ window.clearBatchSelection = function() {
     window.renderFilteredStudentList();
 };
 
-window.applyBatchScore = async function(amt) {
+window.applyBatchScore = async function(amt, e) {
     if (window.selectedBatchStudents.size === 0) return window.showModal('提示', '請先選擇至少一位學生');
+    
+    // 💡 關鍵修正：在 await 發生前，先抓住觸發事件的按鈕
+    const btn = e ? e.currentTarget : null;
     
     const list = window.classDataCache[currentGrade][currentClass];
     window.selectedBatchStudents.forEach(idx => {
@@ -1312,20 +1315,25 @@ window.applyBatchScore = async function(amt) {
         await updateDoc(getDocRef('classes', `${currentGrade}_${currentClass}`), { students: list });
         
         // 視覺回饋按鈕
-        const btn = event.currentTarget;
-        const origText = btn.textContent;
-        btn.textContent = "完成!";
-        btn.classList.add("bg-blue-600", "text-white", "border-blue-600");
-        setTimeout(() => {
-            btn.textContent = origText;
-            btn.classList.remove("bg-blue-600", "text-white", "border-blue-600");
-            window.selectedBatchStudents.clear(); // 操作成功後清空選擇
+        if (btn) {
+            const origText = btn.textContent;
+            btn.textContent = "完成!";
+            btn.classList.add("bg-blue-600", "text-white", "border-blue-600");
+            setTimeout(() => {
+                btn.textContent = origText;
+                btn.classList.remove("bg-blue-600", "text-white", "border-blue-600");
+                window.selectedBatchStudents.clear(); // 操作成功後清空選擇
+                window.renderFilteredStudentList();
+            }, 600);
+        } else {
+            // 如果沒有抓到按鈕，依然要清空選擇並重新渲染畫面
+            window.selectedBatchStudents.clear();
             window.renderFilteredStudentList();
-        }, 600);
-    } catch(e) {
-        window.showModal('錯誤', '批次更新失敗: ' + e.message);
+        }
+    } catch(error) {
+        window.showModal('錯誤', '批次更新失敗: ' + error.message);
     }
-}; // 這是本次修復缺少的右大括號！
+};
 
     window.openSyncModal = () => document.getElementById('syncModal').classList.remove('hidden');
     window.closeSyncModal = () => document.getElementById('syncModal').classList.add('hidden');
