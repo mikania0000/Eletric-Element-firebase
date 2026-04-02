@@ -295,7 +295,10 @@
         <div id="grading-batch-view" class="hidden flex-col h-full flex-1 min-h-0 bg-slate-50">
             <div class="p-2 bg-white border-b shrink-0 flex justify-between items-center shadow-sm z-10">
                 <span class="font-bold text-slate-600 tracking-widest text-sm pl-2">已選定: <span id="batchSelectedCount" class="text-blue-600 font-black text-lg">0</span> 人</span>
-                <button onclick="window.clearBatchSelection()" class="text-xs font-bold text-rose-500 bg-rose-50 px-3 py-1.5 rounded-lg border border-rose-100 active:scale-95 transition-all">取消全選</button>
+                <div class="flex gap-2">
+                    <button onclick="window.selectAllBatch()" class="text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg border border-blue-200 active:scale-95 transition-all shadow-sm">全選</button>
+                    <button onclick="window.clearBatchSelection()" class="text-xs font-bold text-rose-500 bg-rose-50 px-3 py-1.5 rounded-lg border border-rose-100 active:scale-95 transition-all shadow-sm">取消全選</button>
+                </div>
             </div>
             <div id="batch-student-grid" class="grid grid-cols-6 gap-1.5 p-2 overflow-y-auto no-scrollbar flex-1 content-start bg-slate-50 pb-2">
                 <!-- Grid buttons injected here via JS -->
@@ -1297,6 +1300,13 @@ window.toggleBatchSelect = function(idx) {
 
 window.clearBatchSelection = function() {
     window.selectedBatchStudents.clear();
+    window.renderFilteredStudentList();
+};
+
+window.selectAllBatch = function() {
+    if (!currentGrade || !currentClass || !window.classDataCache[currentGrade] || !window.classDataCache[currentGrade][currentClass]) return;
+    const students = window.classDataCache[currentGrade][currentClass];
+    window.selectedBatchStudents = new Set(students.map((_, idx) => idx));
     window.renderFilteredStudentList();
 };
 
